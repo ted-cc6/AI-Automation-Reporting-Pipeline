@@ -1,0 +1,202 @@
+"""qualitative/parse_results.py
+
+Phase 3: Validate Gemini output, count themes in Python, enrich verbatims
+with profile from parquet, write qualitative_results.json.
+"""
+import json
+from collections import Counter
+from datetime import datetime, timezone
+from pathlib import Path
+
+import pandas as pd
+
+
+REQUIRED_TOP_KEYS = {
+    "nps_tags", "claims_other_tagged", "not_worth_it_themes",
+    "other_subthemes", "section_verbatims", "protection_flags",
+    "executive_summary",
+}
+
+REQUIRED_SECTION_KEYS = {
+    "part1", "part2", "part3", "part4", "part5", "part6", "part7"
+}
+
+NPS_GROUPS = ("promoters", "passives", "detractors")
+
+
+def _validate(raw: dict) -> None:
+    missing = REQUIRED_TOP_KEYS - set(raw.keys())
+    if missing:
+        raise ValueError(f"Gemini response missing keys: {missing}")
+
+    nps_tags = raw["nps_tags"]
+    for grp in NPS_GROUPS:
+        if grp not in nps_tags:
+            raise ValueError(f"nps_tags missing group: {grp}")
+
+    sv = raw["section_verbatims"]
+    missing_sections = REQUIRED_SECTION_KEYS - set(sv.keys())
+    if missing_sections:
+        raise ValueError(f"section_verbatims missing sections: {missing_sections}")
+
+    for section, ids in sv.items():
+        if not isinstance(ids, list) or len(ids) == 0:
+            raise ValueError(f"section_verbatims[{section}] is empty")
+
+
+def _count_themes(nps_tags: dict) -> dict:
+    """Count theme frequency per NPS group from compact tag arrays."""
+    counts = {}
+    for grp in NPS_GROUPS:
+        counter = Counter()
+        for entry in nps_tags.get(grp, []):
+            if isinstance(entry, list) and len(entry) == 2:
+                themes = entry[1]
+                if isinstance(themes, list):
+                    counter.update(themes)
+        counts[grp] = dict(counter.most_common())
+    return counts
+
+
+def _lookup_profile(row_id: str, df: pd.DataFrame) -> dict:
+    """Return demographic profile for a row_id string like 'row_0042'."""
+    try:
+        idx = int(row_id.split("_")[1])
+    except (IndexError, ValueError):
+        return {}
+
+    if idx not in df.index:
+        return {}
+
+    row = df.loc[idx]
+    return {
+        "sex": str(row.get("q_sex", "")) or None,
+        "age": (None if pd.isna(row.get("q_client_age"))
+                else int(row["q_client_age"])),
+        "branch": str(row.get("branch", "")) or None,
+        "is_claimant": (False if pd.isna(row.get("flag_paid_claimant"))
+                        else bool(row["flag_paid_claimant"])),
+        "is_caregiver": str(row.get("q_child_wellbeing", "")) == "Yes",
+    }
+
+
+def _lookup_text(row_id: str, df: pd.DataFrame, text_cols: list) -> str:
+    """Find the open-ended text for a row_id across all text columns."""
+    try:
+        idx = int(row_id.split("_")[1])
+    except (IndexError, ValueError):
+        return ""
+
+    if idx not in df.index:
+        return ""
+
+    row = df.loc[idx]
+    for col in text_cols:
+        if col in df.columns:
+            val = row.get(col)
+            if not pd.isna(val) and str(val).strip():
+                return str(val).strip()
+    return ""
+
+
+def _enrich_section_verbatims(
+    section_verbatims: dict,
+    df: pd.DataFrame,
+    text_cols: list,
+) -> dict:
+    """Replace row_id lists with enriched verbatim objects including text + profile."""
+    enriched = {}
+    for section, ids in section_verbatims.items():
+        enriched[section] = []
+        for row_id in ids:
+            text = _lookup_text(row_id, df, text_cols)
+            profile = _lookup_profile(row_id, df)
+            enriched[section].append({
+                "id": row_id,
+                "text": text,
+                "profile": profile,
+            })
+    return enriched
+
+
+def _enrich_protection_flags(flags: list, df: pd.DataFrame) -> list:
+    """Add profile to each protection flag."""
+    enriched = []
+    for flag in flags:
+        row_id = flag.get("id", "")
+        enriched.append({
+            **flag,
+            "profile": _lookup_profile(row_id, df),
+        })
+    return enriched
+
+
+def parse_and_save(
+    raw_gemini: dict,
+    df: pd.DataFrame,
+    run_id: str,
+    meta_extra: dict = None,
+) -> dict:
+    """
+    Validate, enrich, and assemble final qualitative_results.json.
+
+    Args:
+        raw_gemini:  Parsed dict from gemini_call.call_gemini()
+        df:          Full survey DataFrame (for profile lookups)
+        run_id:      Run identifier (e.g. "2026_Q2")
+        meta_extra:  Optional dict with token counts etc. from the API response
+
+    Returns:
+        Final qualitative results dict (also written to disk)
+    """
+    _validate(raw_gemini)
+
+    # All text columns (for verbatim text lookup)
+    text_cols = [
+        "q_nps_promoter_followup", "q_nps_passive_followup",
+        "q_nps_detractor_followup", "q_no_claim_reason__other_text",
+        "q_claim_challenges__other_text", "q_claim_challenges__support_text",
+        "q_coping_mechanisms__other_text", "q_income_sources__other_text",
+        "q_comm_channel_effective__other_text",
+        "q_claim_channel_preferred__other_text",
+        "q_vf_services_received__other_text",
+        "q_child_improvements__other_text",
+    ]
+
+    theme_counts = _count_themes(raw_gemini["nps_tags"])
+
+    enriched_verbatims = _enrich_section_verbatims(
+        raw_gemini["section_verbatims"], df, text_cols
+    )
+
+    enriched_flags = _enrich_protection_flags(
+        raw_gemini.get("protection_flags", []), df
+    )
+
+    result = {
+        "meta": {
+            "schema_version": "1.0",
+            "model": "gemini-2.5-pro",
+            "run_id": run_id,
+            "generated_at": datetime.now(timezone.utc).isoformat(),
+            **(meta_extra or {}),
+        },
+        "theme_counts": theme_counts,
+        "nps_tags_raw": raw_gemini["nps_tags"],
+        "claims_other_tagged": raw_gemini.get("claims_other_tagged", {}),
+        "not_worth_it_themes": raw_gemini.get("not_worth_it_themes", []),
+        "other_subthemes": raw_gemini.get("other_subthemes", {}),
+        "section_verbatims": enriched_verbatims,
+        "protection_flags": enriched_flags,
+        "executive_summary": raw_gemini.get("executive_summary", ""),
+    }
+
+    out_path = Path("runs") / run_id / "qualitative_results.json"
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    out_path.write_text(
+        json.dumps(result, ensure_ascii=False, indent=2),
+        encoding="utf-8"
+    )
+    print(f"  qualitative_results.json written to {out_path}")
+
+    return result

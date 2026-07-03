@@ -1,0 +1,30 @@
+country: vietnam
+label: Vietnam
+report_context: >
+  Crop insurance program is grant-subsidized (zero client premium).
+  Typhoon payout was triggered automatically (parametric/index basis) in late 2025 —
+  all clients who held a crop policy received a payout.
+  MFI is seeking funding to continue the program beyond July 2026.
+
+segment_overrides:
+  climate_shock:
+    available: true
+    column: is_crop
+    label: "Climate Shock (Vietnam Crop)"
+    description: "Crop insurance clients — all received typhoon-triggered payout"
+  female_hh_head:
+    available: false
+    skip_reason: "Not applicable to insurance survey — household head data is in the core credit survey only"
+
+metric_notes:
+  worth_premium:
+    note: "Crop insurance was grant-subsidized (zero premium) — interpret climate_shock segment scores with caution"
+    applies_to_segments:
+      - climate_shock
+  confidence_pay:
+    note: "Crop insurance was grant-subsidized (zero premium) — interpret climate_shock segment scores with caution"
+    applies_to_segments:
+      - climate_shock
+  claims_funnel:
+    note: "Crop payout was index-triggered and automatic — clients did not file individual claims"
+    applies_to_segments: []

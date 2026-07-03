@@ -1,0 +1,224 @@
+"""
+data_loader_derived.py — VisionFund Insurance Survey Data Loader
+Step 3 of 4: Add derived boolean flag columns to survey_clean.parquet.
+
+Usage:
+    python data_loader/data_loader_derived.py --output-dir runs/2026_Q3
+"""
+
+import sys
+import logging
+import argparse
+from pathlib import Path
+
+import pandas as pd
+
+SCRIPT_DIR = Path(__file__).parent
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(levelname)s | %(message)s",
+    handlers=[logging.StreamHandler(sys.stdout)],
+)
+log = logging.getLogger(__name__)
+
+
+# ---------------------------------------------------------------------------
+# Derived variable functions
+# ---------------------------------------------------------------------------
+
+def compute_flag_negative_coping(df: pd.DataFrame) -> pd.array:
+    """True if respondent used a severe coping strategy after an insured event.
+    NaN for respondents who did not experience an insured event.
+    """
+    required = [
+        "q_insured_event_12m",
+        "q_coping_mechanisms__c",
+        "q_coping_mechanisms__d",
+        "q_coping_mechanisms__e",
+        "q_coping_mechanisms__f",
+    ]
+    for col in required:
+        if col not in df.columns:
+            raise KeyError(f"compute_flag_negative_coping: required column '{col}' not found")
+
+    in_scope = df["q_insured_event_12m"] == True  # noqa: E712
+    any_severe = (
+        df["q_coping_mechanisms__c"].fillna(False)
+        | df["q_coping_mechanisms__d"].fillna(False)
+        | df["q_coping_mechanisms__e"].fillna(False)
+        | df["q_coping_mechanisms__f"].fillna(False)
+    ).astype(pd.BooleanDtype())
+    any_severe[~in_scope] = pd.NA
+    return pd.array(any_severe, dtype=pd.BooleanDtype())
+
+
+def compute_flag_promoter(df: pd.DataFrame) -> pd.array:
+    """True if NPS score >= 9. NaN where q_nps_score is missing."""
+    if "q_nps_score" not in df.columns:
+        raise KeyError("compute_flag_promoter: required column 'q_nps_score' not found")
+    vals = []
+    for v in df["q_nps_score"]:
+        if pd.isna(v):
+            vals.append(pd.NA)
+        else:
+            vals.append(int(v) >= 9)
+    return pd.array(vals, dtype=pd.BooleanDtype())
+
+
+def compute_flag_paid_claimant(df: pd.DataFrame) -> pd.array:
+    """True if claim was approved and paid. NaN where q_claim_result is NaN."""
+    if "q_claim_result" not in df.columns:
+        raise KeyError("compute_flag_paid_claimant: required column 'q_claim_result' not found")
+    vals = []
+    for v in df["q_claim_result"]:
+        if v is None or (isinstance(v, float) and pd.isna(v)):
+            vals.append(pd.NA)
+        else:
+            vals.append(str(v) == "It was approved and paid")
+    return pd.array(vals, dtype=pd.BooleanDtype())
+
+
+def compute_flag_child_wellbeing_denominator(df: pd.DataFrame) -> pd.array:
+    """True if respondent is in the child wellbeing analysis base (answered Yes or No).
+    False for 'Do not support any children' and NaN rows — never NaN itself.
+    """
+    if "q_child_wellbeing" not in df.columns:
+        raise KeyError(
+            "compute_flag_child_wellbeing_denominator: required column 'q_child_wellbeing' not found"
+        )
+    valid_values = {"Yes", "No"}
+    vals = []
+    for v in df["q_child_wellbeing"]:
+        if v is None or (isinstance(v, float) and pd.isna(v)):
+            vals.append(False)
+        else:
+            vals.append(str(v) in valid_values)
+    return pd.array(vals, dtype=pd.BooleanDtype())
+
+
+# ---------------------------------------------------------------------------
+# Structural assertions (data-independent — valid for any quarterly CSV)
+# ---------------------------------------------------------------------------
+
+def run_assertions(df: pd.DataFrame) -> bool:
+    """Verify structural correctness of derived flags. No exact counts."""
+    failures = []
+
+    # All flag columns must be present and typed as boolean
+    flag_cols = [
+        "flag_negative_coping",
+        "flag_promoter",
+        "flag_paid_claimant",
+        "flag_child_wellbeing_denominator",
+    ]
+    for col in flag_cols:
+        if col not in df.columns:
+            failures.append(f"{col}: column missing")
+            continue
+        if str(df[col].dtype) != "boolean":
+            failures.append(f"{col}: expected dtype 'boolean', got '{df[col].dtype}'")
+
+    if "flag_negative_coping" in df.columns:
+        insured_true = df["q_insured_event_12m"] == True  # noqa: E712
+        # Must be non-null only within insured-event rows
+        out_scope_not_na = int(df["flag_negative_coping"][~insured_true].notna().sum())
+        if out_scope_not_na > 0:
+            failures.append(
+                f"flag_negative_coping: {out_scope_not_na} non-NaN value(s) "
+                "outside insured-event rows"
+            )
+        # Must have at least one True (some coping always occurs; guards against empty output)
+        n_true = int(df["flag_negative_coping"].sum())
+        if n_true == 0:
+            failures.append("flag_negative_coping: zero True values — possible coding error")
+
+    if "flag_promoter" in df.columns:
+        # Must be non-null only where q_nps_score is non-null
+        nps_null = df["q_nps_score"].isna()
+        promoter_non_null_where_nps_null = int(df.loc[nps_null, "flag_promoter"].notna().sum())
+        if promoter_non_null_where_nps_null > 0:
+            failures.append(
+                f"flag_promoter: {promoter_non_null_where_nps_null} non-NaN value(s) "
+                "where q_nps_score is NaN"
+            )
+
+    if "flag_child_wellbeing_denominator" in df.columns:
+        # Must have no NaN values
+        n_na = int(df["flag_child_wellbeing_denominator"].isna().sum())
+        if n_na > 0:
+            failures.append(f"flag_child_wellbeing_denominator: {n_na} unexpected NaN value(s)")
+
+    # insurance_type must contain only valid slugs
+    if "insurance_type" in df.columns:
+        valid_slugs = {"health", "crop", "credit_life"}
+        actual_slugs = set(df["insurance_type"].dropna().unique())
+        unexpected = actual_slugs - valid_slugs
+        if unexpected:
+            failures.append(f"insurance_type: unexpected slug(s) {unexpected}")
+
+    if failures:
+        for f in failures:
+            log.error(f"ASSERTION FAILED: {f}")
+        return False
+    return True
+
+
+# ---------------------------------------------------------------------------
+# Main
+# ---------------------------------------------------------------------------
+
+def main(output_dir: Path) -> None:
+    parquet_path = output_dir / "survey_clean.parquet"
+    if not parquet_path.exists():
+        log.error(f"Parquet not found: {parquet_path}")
+        sys.exit(1)
+
+    log.info(f"Loading {parquet_path}")
+    df = pd.read_parquet(parquet_path)
+    log.info(f"  {len(df):,} rows, {len(df.columns)} columns")
+
+    if "insurance_type" not in df.columns:
+        log.error("'insurance_type' column not found — run the transformer first")
+        sys.exit(1)
+    log.info("insurance_type distribution:\n" + df["insurance_type"].value_counts().to_string())
+
+    log.info("Computing derived variables...")
+    df["flag_negative_coping"] = compute_flag_negative_coping(df)
+    df["flag_promoter"] = compute_flag_promoter(df)
+    df["flag_paid_claimant"] = compute_flag_paid_claimant(df)
+    df["flag_child_wellbeing_denominator"] = compute_flag_child_wellbeing_denominator(df)
+
+    log.info("Running structural assertions...")
+    if not run_assertions(df):
+        log.error("Assertions failed — output NOT written")
+        sys.exit(1)
+    log.info("All assertions passed.")
+
+    log.info(f"Writing {parquet_path}")
+    df.to_parquet(parquet_path, engine="pyarrow", index=False)
+
+    insured_n = int((df["q_insured_event_12m"] == True).sum())  # noqa: E712
+    nps_n = int(df["q_nps_score"].notna().sum())
+    print(
+        f"\nDerived variables complete.\n"
+        f"  flag_negative_coping      : {int(df['flag_negative_coping'].sum())} True of {insured_n} in-scope rows\n"
+        f"  flag_promoter             : {int(df['flag_promoter'].sum())} True of {nps_n} scored rows\n"
+        f"  flag_paid_claimant        : {int(df['flag_paid_claimant'].sum())} True of {len(df):,} rows\n"
+        f"  flag_child_wellbeing_denom: {int(df['flag_child_wellbeing_denominator'].sum())} True of {len(df):,} rows\n"
+        f"  Output: {parquet_path} ({len(df.columns)} columns)"
+    )
+
+
+# ---------------------------------------------------------------------------
+# Entry point
+# ---------------------------------------------------------------------------
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="VisionFund Survey — Derived Variables")
+    parser.add_argument(
+        "--output-dir", type=Path, required=True,
+        help="Run output directory containing survey_clean.parquet (modified in place)",
+    )
+    args = parser.parse_args()
+    main(args.output_dir)

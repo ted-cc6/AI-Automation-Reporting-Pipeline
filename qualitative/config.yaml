@@ -1,0 +1,197 @@
+# qualitative/config.yaml
+
+model: "gemini-2.5-pro"
+run_id_default: "2026_Q2"
+min_text_length: 10          # characters — filter shorter responses before sending
+
+# NPS score thresholds
+nps_thresholds:
+  promoter_min: 9
+  passive_min: 7
+  detractor_max: 6
+
+# Open-ended columns grouped by analysis purpose
+# group: "nps" | "claims_other" | "sparse_other"
+# low_volume: true — instruct Gemini to report counts, not proportions
+columns:
+  - key: q_nps_promoter_followup
+    group: nps
+    nps_group: promoter
+    question_context: "Why did you give this NPS score? (Promoters, score 9-10)"
+    low_volume: false
+
+  - key: q_nps_passive_followup
+    group: nps
+    nps_group: passive
+    question_context: "Why did you give this NPS score? (Passives, score 7-8)"
+    low_volume: false
+
+  - key: q_nps_detractor_followup
+    group: nps
+    nps_group: detractor
+    question_context: "Why did you give this NPS score? (Detractors, score 0-6)"
+    low_volume: false
+
+  - key: q_no_claim_reason__other_text
+    group: claims_other
+    question_context: "Other reason why the client did not file a claim despite having an insured event"
+    low_volume: true
+
+  - key: q_claim_challenges__other_text
+    group: claims_other
+    question_context: "Other challenge experienced when making a claim (specify)"
+    low_volume: true
+
+  - key: q_claim_challenges__support_text
+    group: claims_other
+    question_context: "What support would help you with the claims process?"
+    low_volume: true
+
+  - key: q_coping_mechanisms__other_text
+    group: sparse_other
+    question_context: "Other coping mechanism used after the insured event"
+    low_volume: true
+
+  - key: q_income_sources__other_text
+    group: sparse_other
+    question_context: "Other income source mentioned by the client"
+    low_volume: true
+
+  - key: q_comm_channel_effective__other_text
+    group: sparse_other
+    question_context: "Other communication channel preferred for learning about insurance"
+    low_volume: true
+
+  - key: q_claim_channel_preferred__other_text
+    group: sparse_other
+    question_context: "Other preferred channel for submitting a claim"
+    low_volume: true
+
+  - key: q_vf_services_received__other_text
+    group: sparse_other
+    question_context: "Other VisionFund service received by the client"
+    low_volume: true
+
+  - key: q_child_improvements__other_text
+    group: sparse_other
+    question_context: "Other child wellbeing improvement reported"
+    low_volume: true
+
+  # q_bundled_services_used__other_text is excluded (0 non-null responses)
+
+# Theme taxonomy — Gemini must only use these codes
+themes:
+  - code: staff_service
+    label: "Staff Helpfulness"
+    description: "Quality of VisionFund staff support, loan officer helpfulness, responsiveness, communication quality"
+
+  - code: claims_speed
+    label: "Claim Payout Speed"
+    description: "Speed of claim processing and receiving payout; delays or fast resolution"
+
+  - code: claims_process
+    label: "Claim Process Ease"
+    description: "Ease or difficulty of submitting a claim, documentation requirements, guidance received or missing"
+
+  - code: product_value
+    label: "Value for Money"
+    description: "Whether the insurance product is worth the premium cost; pricing perception"
+
+  - code: product_understanding
+    label: "Product Knowledge"
+    description: "Understanding what the policy covers, exclusions, how to claim, awareness gaps"
+
+  - code: payout_adequacy
+    label: "Payout Adequacy"
+    description: "Whether the payout amount was sufficient to cover the actual loss"
+
+  - code: financial_relief
+    label: "Financial Relief"
+    description: "Reduction in financial stress, income smoothing, ability to recover from hardship"
+
+  - code: access_inclusion
+    label: "Access and Inclusion"
+    description: "First insurance experience, reaching previously uninsured populations, safety net for the vulnerable"
+
+  - code: child_family
+    label: "Child and Family Wellbeing"
+    description: "Impact on children's health, education, or family stability; caregiver outcomes"
+
+  - code: crop_agricultural
+    label: "Crop and Agricultural"
+    description: "Farming recovery, agricultural practice changes, crop shock response"
+
+  - code: general_satisfaction
+    label: "General Satisfaction"
+    description: "Positive sentiment with no specific driver cited; general thanks or approval"
+
+  - code: improvement_suggestion
+    label: "Improvement Suggestion"
+    description: "Concrete suggestions for VisionFund to improve service, product, or communication"
+
+  - code: complaint_grievance
+    label: "Complaint or Grievance"
+    description: "Specific grievance about service, product quality, or staff conduct"
+
+# Protection flag taxonomy
+protection_flags:
+  - code: mis_selling
+    label: "Mis-selling"
+    description: "Client was promised benefits that were not delivered at claim time"
+
+  - code: premium_without_consent
+    label: "Premium Deducted Without Consent"
+    description: "Premium was deducted without clear explanation, agreement, or knowledge of the client"
+
+  - code: coercion
+    label: "Coercion to Purchase"
+    description: "Client felt pressured or coerced to purchase insurance by a staff member"
+
+  - code: false_information
+    label: "False Information"
+    description: "Agent or officer provided false or misleading information about coverage or process"
+
+  - code: unfair_claim_denial
+    label: "Unfair Claim Denial"
+    description: "Claim was denied without a valid reason that was explained to the client"
+
+  - code: staff_misconduct
+    label: "Staff Misconduct"
+    description: "Inappropriate, unresponsive, negligent, or dishonest behavior by VisionFund staff"
+
+  - code: data_privacy
+    label: "Data Privacy"
+    description: "Concerns about how personal or financial data is used or shared"
+
+# Report sections for verbatim nominations
+report_sections:
+  - key: part1
+    title: "Product Understanding"
+    topic_hint: "Understanding of insurance coverage and claims process; education gaps; client confusion"
+
+  - key: part2
+    title: "Claims Experience"
+    topic_hint: "Claims filing experience, challenges, support needed, coping after insured event"
+
+  - key: part3
+    title: "Financial Inclusion"
+    topic_hint: "First insurance access, safety net value, financial relief from having coverage"
+
+  - key: part4
+    title: "Client Voice"
+    topic_hint: "NPS drivers — why promoters recommend and detractors are dissatisfied; value for money"
+
+  - key: part5
+    title: "Child Wellbeing"
+    topic_hint: "Impact on children's health or education; family wellbeing; caregiver outcomes"
+    prefer_segment: is_caregiver
+
+  - key: part6
+    title: "Claimant Outcomes"
+    topic_hint: "Lived experience of making a claim; outcomes for those who claimed"
+    prefer_segment: is_claimant
+
+  - key: part7
+    title: "Gender"
+    topic_hint: "Gendered experiences; female-specific challenges or benefits; equity"
+    require_diversity: true   # must include both Female and Male

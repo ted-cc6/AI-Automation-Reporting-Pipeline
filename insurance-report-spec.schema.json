@@ -1,0 +1,445 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:visionfund:insurance-report-spec:v1.0",
+  "title": "VisionFund Insurance Report Spec",
+  "description": "Machine-readable specification for the Cupboard Week Insurance Impact Report auto-generator. One spec file per report run; the pipeline loops over parts → subsections and executes each entry.",
+  "type": "object",
+  "required": ["report_metadata", "parts"],
+  "additionalProperties": false,
+
+  "properties": {
+    "report_metadata": { "$ref": "#/$defs/ReportMetadata" },
+    "parts": {
+      "type": "array",
+      "minItems": 7,
+      "maxItems": 7,
+      "items": { "$ref": "#/$defs/Part" },
+      "description": "Exactly 7 parts (the Golden Framework). Code must verify part_ids are unique and span 1–7 in order."
+    }
+  },
+
+  "$defs": {
+
+    "Segment": {
+      "type": "string",
+      "enum": [
+        "caregivers",
+        "first_time_access",
+        "female",
+        "male",
+        "female_hh_heads",
+        "pwd_households",
+        "climate_shock",
+        "claimant",
+        "non_claimant",
+        "bundled_service"
+      ]
+    },
+
+    "MetricMethod": {
+      "type": "string",
+      "enum": [
+        "top_two_box",
+        "bottom_two_box",
+        "share",
+        "frequency_rank",
+        "claims_funnel",
+        "nps_score",
+        "nps_split",
+        "correlation",
+        "significance_test",
+        "gap_analysis",
+        "benchmark_comparison",
+        "confidence_interval",
+        "regression"
+      ]
+    },
+
+    "FillMode": {
+      "type": "string",
+      "enum": ["auto", "bespoke", "hybrid"]
+    },
+
+    "OutputType": {
+      "type": "string",
+      "enum": [
+        "analysis_prose",
+        "ranked_list",
+        "table",
+        "scorecard_table",
+        "correlation_table",
+        "insight_prose",
+        "verbatim_block",
+        "subtheme_summary"
+      ]
+    },
+
+    "SurveySection": {
+      "type": "string",
+      "enum": [
+        "product_understanding",
+        "claims_experience",
+        "focus_other_services",
+        "child_financial_wellbeing",
+        "client_satisfaction",
+        "access",
+        "health_insurance",
+        "crop_insurance",
+        "enhanced_credit_life",
+        "client_profile"
+      ]
+    },
+
+    "ResponseType": {
+      "type": "string",
+      "enum": [
+        "likert_4",
+        "likert_5",
+        "binary",
+        "multi_select_2",
+        "multi_select_n",
+        "single_select",
+        "numeric_open",
+        "open_text"
+      ]
+    },
+
+    "ReportMetadata": {
+      "type": "object",
+      "required": ["name", "template_version", "priority_segments"],
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Human-readable report name, e.g. 'VFI Insurance Impact Report 2026 – ASIA'"
+        },
+        "template_version": {
+          "type": "string",
+          "pattern": "^\\d+\\.\\d+$",
+          "description": "Version of the report template this spec was authored against, e.g. '2.0'"
+        },
+        "reporting_period": {
+          "type": "string",
+          "description": "ISO date range or descriptive label, e.g. '2025-01 to 2025-12'"
+        },
+        "regions": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": ["AFRICA", "ASIA", "LACRO"]
+          },
+          "uniqueItems": true
+        },
+        "priority_segments": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/Segment" },
+          "minItems": 1,
+          "uniqueItems": true,
+          "description": "Report-wide default disaggregation segments. Individual subsections may override or extend this list."
+        },
+        "benchmark_dataset_id": {
+          "type": "string",
+          "description": "Identifier of the regional benchmark dataset for overlay comparisons. Required if any metric uses benchmark_comparison method."
+        },
+        "notes": { "type": "string" }
+      }
+    },
+
+    "Part": {
+      "type": "object",
+      "required": ["part_id", "title", "subsections"],
+      "additionalProperties": false,
+      "properties": {
+        "part_id": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 7
+        },
+        "title": {
+          "type": "string",
+          "description": "Part title exactly as it appears in the template, e.g. 'Product Understanding'"
+        },
+        "subsections": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/Subsection" },
+          "description": "Numbered subsections plus exactly one insight subsection. Code must verify each part ends with a subsection whose id matches N.insight."
+        }
+      }
+    },
+
+    "SourceQuestion": {
+      "type": "object",
+      "required": ["question_ref"],
+      "additionalProperties": false,
+      "properties": {
+        "question_ref": {
+          "type": "string",
+          "pattern": "^q_[a-z0-9_]+$",
+          "description": "Stable snake_case key matching a column in the survey data dictionary, e.g. 'q_coverage_understanding'"
+        },
+        "question_text": {
+          "type": "string",
+          "description": "Human-readable question text for documentation and review"
+        },
+        "survey_section": { "$ref": "#/$defs/SurveySection" },
+        "response_type": {
+          "$ref": "#/$defs/ResponseType",
+          "description": "Response scale / type; informs which statistical methods are valid for this variable"
+        },
+        "conditional_on": {
+          "type": "string",
+          "pattern": "^q_[a-z0-9_]+$",
+          "description": "question_ref of the gating question when this is a skip-logic branch"
+        }
+      }
+    },
+
+    "Metric": {
+      "type": "object",
+      "required": ["method", "variables"],
+      "additionalProperties": false,
+      "properties": {
+        "method": { "$ref": "#/$defs/MetricMethod" },
+        "variables": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^q_[a-z0-9_]+$"
+          },
+          "minItems": 1,
+          "description": "question_ref(s) the method is applied to. Code must verify each ref appears in the subsection's source_questions."
+        },
+        "against": {
+          "type": "string",
+          "pattern": "^q_[a-z0-9_]+$",
+          "description": "Second variable for two-variable methods. Code must enforce: required when method is correlation, significance_test, or gap_analysis."
+        },
+        "top_n": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 10,
+          "description": "For frequency_rank: number of ranked items to surface. Code must enforce: required when method is frequency_rank."
+        },
+        "label": {
+          "type": "string",
+          "description": "Short human-readable label for this metric in generated output"
+        },
+        "benchmark_source": {
+          "type": "string",
+          "description": "Identifier of the external benchmark dataset. Code must enforce: required when method is benchmark_comparison."
+        }
+      }
+    },
+
+    "DisaggregationItem": {
+      "type": "object",
+      "required": ["segment", "priority"],
+      "additionalProperties": false,
+      "properties": {
+        "segment": { "$ref": "#/$defs/Segment" },
+        "priority": {
+          "type": "string",
+          "enum": ["required", "nice_to_have"],
+          "description": "required = always compute this cut regardless of cell size; nice_to_have = compute only when n >= minimum threshold"
+        }
+      }
+    },
+
+    "VisualConfig": {
+      "type": "object",
+      "required": ["powerbi_name", "source"],
+      "additionalProperties": false,
+      "properties": {
+        "powerbi_name": {
+          "type": "string",
+          "description": "Exact name of the Power BI visual as labelled in the Insurance Impact Dashboard (the single source of truth)"
+        },
+        "source": {
+          "type": "string",
+          "enum": ["powerbi_screenshot", "auto_generated"],
+          "description": "powerbi_screenshot: a human pastes the image; auto_generated: the pipeline creates it from data"
+        },
+        "visual_type": {
+          "type": "string",
+          "enum": [
+            "bar_chart",
+            "stacked_bar",
+            "funnel",
+            "scatter",
+            "line_chart",
+            "scorecard_visual",
+            "table_visual"
+          ]
+        },
+        "description": {
+          "type": "string",
+          "description": "One-line description of what the visual shows; used to populate the placeholder caption in the report"
+        }
+      }
+    },
+
+    "QualitativeConfig": {
+      "type": "object",
+      "required": ["questions", "verbatims_required", "theme_method"],
+      "additionalProperties": false,
+      "properties": {
+        "questions": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^q_[a-z0-9_]+$"
+          },
+          "minItems": 1,
+          "description": "question_refs for open-text fields to analyze"
+        },
+        "verbatims_required": {
+          "type": "boolean",
+          "description": "If true, the output must include representative client verbatims with profile tags"
+        },
+        "verbatim_count": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 5,
+          "description": "Target number of verbatims. Code must enforce: required when verbatims_required is true."
+        },
+        "verbatim_profile_fields": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": [
+              "gender",
+              "age",
+              "branch",
+              "claimant_status",
+              "education",
+              "caregiver_status"
+            ]
+          },
+          "uniqueItems": true,
+          "description": "Client profile fields to attach to each verbatim. Template standard is: gender, age, branch, claimant_status."
+        },
+        "theme_method": {
+          "type": "string",
+          "enum": ["genai_assisted", "manual", "genai_then_manual"],
+          "description": "Theme extraction method. genai_then_manual = AI first pass then human review (template default)."
+        },
+        "client_protection_flag": {
+          "type": "boolean",
+          "description": "If true, surface any conduct or protection signals as a separate block regardless of how few responses mention them"
+        },
+        "subtheme_frequency_unit": {
+          "type": "string",
+          "enum": ["count", "percent", "both"],
+          "description": "How subtheme frequencies are expressed. count is recommended at low volume to avoid misleading percentages."
+        },
+        "separate_concern_categories": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Theme categories to report in separate blocks, e.g. ['pricing_concerns', 'service_claims_concerns', 'conduct_flags']"
+        }
+      }
+    },
+
+    "Subsection": {
+      "type": "object",
+      "required": [
+        "subsection_id",
+        "title",
+        "fill_mode",
+        "source_questions",
+        "outputs"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "subsection_id": {
+          "type": "string",
+          "pattern": "^[1-7]\\.([1-9][0-9]*|insight)$",
+          "description": "Dot-notation id matching the Golden Framework, e.g. '1.1', '3.2', '5.insight'. Part prefix must match the enclosing part's part_id (code-level check)."
+        },
+        "title": {
+          "type": "string",
+          "description": "Subsection title as it appears in the report template"
+        },
+        "fill_mode": { "$ref": "#/$defs/FillMode" },
+        "word_cap": {
+          "oneOf": [
+            { "type": "integer", "minimum": 1 },
+            { "type": "null" }
+          ],
+          "description": "Maximum word count for prose outputs. Null is valid only when outputs contains no analysis_prose or insight_prose (code-level check)."
+        },
+        "source_questions": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/SourceQuestion" },
+          "description": "Survey questions that feed this subsection. Empty array is valid only for insight/synthesis subsections with fill_mode bespoke."
+        },
+        "metrics": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/Metric" },
+          "description": "Computations the pipeline must run. Must be non-empty for auto or hybrid subsections (enforced by if/then below)."
+        },
+        "disaggregation": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/DisaggregationItem" },
+          "description": "Segments to cut by. Code must verify no duplicate segment values within this array."
+        },
+        "visual": {
+          "oneOf": [
+            { "$ref": "#/$defs/VisualConfig" },
+            { "type": "null" }
+          ],
+          "description": "Dashboard visual to embed. Null for insight/synthesis subsections which have no dedicated visual."
+        },
+        "qualitative": {
+          "oneOf": [
+            { "$ref": "#/$defs/QualitativeConfig" },
+            { "type": "null" }
+          ],
+          "description": "Config for open-text analysis. Null when the subsection has no qualitative component."
+        },
+        "benchmark_overlay": {
+          "type": "boolean",
+          "default": false,
+          "description": "Whether to overlay the regional benchmark on the visual. Requires report_metadata.benchmark_dataset_id to be set (code-level check)."
+        },
+        "outputs": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/OutputType" },
+          "minItems": 1,
+          "uniqueItems": true,
+          "description": "What the writer or pipeline must produce for this subsection. At least one is always required."
+        },
+        "notes": {
+          "type": "string",
+          "description": "Free-text notes for spec authors"
+        }
+      },
+
+      "if": {
+        "properties": { "fill_mode": { "enum": ["auto", "hybrid"] } }
+      },
+      "then": {
+        "allOf": [
+          {
+            "description": "auto/hybrid subsections must declare at least one metric OR a non-null qualitative config",
+            "anyOf": [
+              {
+                "required": ["metrics"],
+                "properties": { "metrics": { "type": "array", "minItems": 1 } }
+              },
+              {
+                "required": ["qualitative"],
+                "properties": { "qualitative": { "not": { "type": "null" } } }
+              }
+            ]
+          },
+          {
+            "description": "auto/hybrid subsections must declare at least one source question so the pipeline knows what data to fetch",
+            "properties": { "source_questions": { "minItems": 1 } }
+          }
+        ]
+      }
+    }
+  }
+}

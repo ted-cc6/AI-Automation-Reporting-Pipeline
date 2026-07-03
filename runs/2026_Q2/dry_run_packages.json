@@ -1,0 +1,747 @@
+[
+  {
+    "part": "part_1",
+    "title": "Product Understanding & Awareness",
+    "sections": {
+      "s1_1": {
+        "label": "Coverage Understanding",
+        "word_limit": 90,
+        "metrics": {
+          "coverage_understanding": "76.6%",
+          "coverage_understanding_n": "2104",
+          "coverage_understanding_female": "75.5%",
+          "coverage_understanding_male": "79.4%",
+          "coverage_understanding_claimant": "94.8%",
+          "coverage_understanding_non_claimant": "61.9%"
+        },
+        "note": "",
+        "qualitative": {},
+        "distributions": {}
+      },
+      "s1_2": {
+        "label": "Claim Process Understanding",
+        "word_limit": 90,
+        "metrics": {
+          "claim_process_understanding": "68.2%",
+          "claim_process_understanding_n": "2104",
+          "claim_process_understanding_female": "67.9%",
+          "claim_process_understanding_male": "68.9%",
+          "claim_process_understanding_claimant": "90.2%",
+          "claim_process_understanding_non_claimant": "49.0%"
+        },
+        "note": "",
+        "qualitative": {},
+        "distributions": {}
+      },
+      "s1_3": {
+        "label": "Product Value and Renewal Intent",
+        "word_limit": 80,
+        "metrics": {
+          "worth_premium": "89.5%",
+          "worth_premium_n": "1957",
+          "renewal_intent": "58.5%",
+          "renewal_intent_n": "147"
+        },
+        "note": "renewal_intent n=147 is small (only renewal-eligible clients). Mention this caveat.",
+        "qualitative": {},
+        "distributions": {}
+      },
+      "insight": {
+        "word_limit": 120,
+        "verbatims": []
+      }
+    },
+    "scorecard": [],
+    "visuals": [
+      {
+        "file": "part1_coverage_bar.png",
+        "caption": "Coverage Understanding by Segment",
+        "path": null,
+        "exists": false
+      },
+      {
+        "file": "part1_claims_process_bar.png",
+        "caption": "Claims Process Understanding by Segment",
+        "path": null,
+        "exists": false
+      }
+    ]
+  },
+  {
+    "part": "part_2",
+    "title": "Claims Experience",
+    "sections": {
+      "s2_1": {
+        "label": "Claims Funnel",
+        "word_limit": 100,
+        "metrics": {
+          "n_surveyed": "2111",
+          "n_experienced_event": "363",
+          "pct_experienced_event": "17.2%",
+          "n_filed_claim": "153",
+          "pct_filed_of_event": "42.1%",
+          "leakage_rate": "57.9%",
+          "n_claim_paid": "58",
+          "pct_claim_paid": "37.9%"
+        },
+        "note": "",
+        "qualitative": {},
+        "distributions": {},
+        "funnel_table": {
+          "headers": [
+            "Stage",
+            "N",
+            "Rate"
+          ],
+          "rows": [
+            {
+              "label": "Experienced insured event",
+              "n_key": "n_experienced_event",
+              "rate_key": "pct_experienced_event"
+            },
+            {
+              "label": "Filed a claim",
+              "n_key": "n_filed_claim",
+              "rate_key": "pct_filed_of_event"
+            },
+            {
+              "label": "Claim paid",
+              "n_key": "n_claim_paid",
+              "rate_key": "pct_claim_paid"
+            }
+          ]
+        }
+      },
+      "s2_2": {
+        "label": "Reasons for Not Claiming",
+        "word_limit": 70,
+        "metrics": {
+          "no_claim_reasons_base": "210"
+        },
+        "note": "",
+        "qualitative": {},
+        "distributions": {
+          "main": [
+            {
+              "value": "I was not covered at that time",
+              "n": 72,
+              "pct": 0.34285714285714286
+            },
+            {
+              "value": "I did not know how to file a claim",
+              "n": 69,
+              "pct": 0.32857142857142857
+            },
+            {
+              "value": "Other (please specify)",
+              "n": 50,
+              "pct": 0.23809523809523808
+            },
+            {
+              "value": "The loss was not significant",
+              "n": 12,
+              "pct": 0.05714285714285714
+            },
+            {
+              "value": "Claim process is cumbersome",
+              "n": 6,
+              "pct": 0.02857142857142857
+            },
+            {
+              "value": "The benefit I would receive is low",
+              "n": 1,
+              "pct": 0.004761904761904762
+            }
+          ]
+        }
+      },
+      "s2_3": {
+        "label": "Claim Challenges",
+        "word_limit": 80,
+        "metrics": {
+          "challenges_base": "85"
+        },
+        "note": "If any protection_flags were found, surface them briefly in this section.",
+        "qualitative": {},
+        "distributions": {
+          "main": [
+            {
+              "option": "It was difficult to know the status of the claim once documents were submitted",
+              "n": 44,
+              "pct": 0.5176470588235295
+            },
+            {
+              "option": "Claim documents were difficult to collect from hospitals or authorities",
+              "n": 31,
+              "pct": 0.36470588235294116
+            },
+            {
+              "option": "It took a long time to receive the claim amount",
+              "n": 30,
+              "pct": 0.35294117647058826
+            },
+            {
+              "option": "I did not receive enough support or guidance on the claim process",
+              "n": 16,
+              "pct": 0.18823529411764706
+            },
+            {
+              "option": "Claim documents were difficult to submit",
+              "n": 12,
+              "pct": 0.1411764705882353
+            },
+            {
+              "option": "Other",
+              "n": 7,
+              "pct": 0.08235294117647059
+            }
+          ]
+        }
+      },
+      "s2_4": {
+        "label": "Claim Channel and Payout Outcomes",
+        "word_limit": 100,
+        "metrics": {
+          "channel_base": "153",
+          "claim_result_base": "153",
+          "payout_cost_base": "58"
+        },
+        "note": "",
+        "qualitative": {},
+        "distributions": {
+          "main": [
+            {
+              "value": "Through an MFI officer coming to collect the documents",
+              "n": 128,
+              "pct": 0.8366013071895425
+            },
+            {
+              "value": "Whatsapp or other messages applications",
+              "n": 14,
+              "pct": 0.0915032679738562
+            },
+            {
+              "value": "Directly at VisionFund office/ counter",
+              "n": 7,
+              "pct": 0.0457516339869281
+            },
+            {
+              "value": "Through the insurer smartphone application",
+              "n": 2,
+              "pct": 0.013071895424836602
+            },
+            {
+              "value": "E-mail",
+              "n": 1,
+              "pct": 0.006535947712418301
+            },
+            {
+              "value": "Other (please specify)",
+              "n": 1,
+              "pct": 0.006535947712418301
+            }
+          ],
+          "claim_result": [
+            {
+              "value": "It was approved and paid",
+              "n": 58,
+              "pct": 0.3790849673202614
+            },
+            {
+              "value": "It was approved and not yet paid",
+              "n": 35,
+              "pct": 0.22875816993464052
+            },
+            {
+              "value": "It was rejected",
+              "n": 23,
+              "pct": 0.1503267973856209
+            },
+            {
+              "value": "I don't know",
+              "n": 21,
+              "pct": 0.13725490196078433
+            },
+            {
+              "value": "It is currently in process",
+              "n": 16,
+              "pct": 0.10457516339869281
+            }
+          ],
+          "payout_cost_coverage": [
+            {
+              "value": "All of the cost",
+              "n": 37,
+              "pct": 0.6379310344827587
+            },
+            {
+              "value": "Some of the cost",
+              "n": 14,
+              "pct": 0.2413793103448276
+            },
+            {
+              "value": "Most of the cost",
+              "n": 7,
+              "pct": 0.1206896551724138
+            }
+          ]
+        }
+      },
+      "insight": {
+        "word_limit": 120,
+        "verbatims": []
+      }
+    },
+    "scorecard": [],
+    "visuals": [
+      {
+        "file": "part2_funnel.png",
+        "caption": "Claims Funnel",
+        "path": null,
+        "exists": false
+      },
+      {
+        "file": "part2_no_claim_reasons.png",
+        "caption": "Reasons for Not Claiming",
+        "path": null,
+        "exists": false
+      },
+      {
+        "file": "part2_claim_challenges.png",
+        "caption": "Top Claims Challenges (% of claimants who challenged)",
+        "path": null,
+        "exists": false
+      }
+    ]
+  },
+  {
+    "part": "part_3",
+    "title": "Financial Protection",
+    "sections": {
+      "s3_1": {
+        "label": "Financial Stress and Coping",
+        "word_limit": 80,
+        "metrics": {
+          "negative_coping": "20.1%",
+          "negative_coping_n": "363",
+          "financial_stress_high": "3.3%",
+          "financial_stress_high_n": "363",
+          "alternative_access_difficult": "69.8%",
+          "alternative_access_difficult_n": "2104"
+        },
+        "note": "negative_coping and financial_stress_high are measured on the claimant base (n=363). alternative_access_difficult is measured on the full sample. These metrics use inverted Likert scale (lower = better coping/stress, higher alternative_access = more difficulty without this insurance).\n",
+        "qualitative": {},
+        "distributions": {}
+      },
+      "s3_2": {
+        "label": "Confidence and Value",
+        "word_limit": 70,
+        "metrics": {
+          "confidence_pay": "87.7%",
+          "confidence_pay_n": "2104",
+          "worth_premium": "89.5%",
+          "worth_premium_n": "1957"
+        },
+        "note": "",
+        "qualitative": {},
+        "distributions": {}
+      },
+      "insight": {
+        "word_limit": 120,
+        "verbatims": []
+      }
+    },
+    "scorecard": [],
+    "visuals": [
+      {
+        "file": "part3_financial_protection.png",
+        "caption": "Financial Protection Indicators",
+        "path": null,
+        "exists": false
+      }
+    ]
+  },
+  {
+    "part": "part_4",
+    "title": "Client Voice",
+    "sections": {
+      "s4_1": {
+        "label": "Net Promoter Score",
+        "word_limit": 90,
+        "metrics": {
+          "nps_score": "16.8",
+          "nps_score_n": "2104",
+          "nps_promoter_n": "924",
+          "nps_promoter_pct": "43.9%",
+          "nps_passive_n": "609",
+          "nps_passive_pct": "28.9%",
+          "nps_detractor_n": "571",
+          "nps_detractor_pct": "27.1%"
+        },
+        "note": "not_worth_it_themes from qualitative identifies why clients who rated the premium as 'not worth it' (worth_premium_value >= 4) feel this way. Mention top 1-2 themes if available.\n",
+        "qualitative": {},
+        "distributions": {}
+      },
+      "s4_2": {
+        "label": "Promoter and Detractor Themes",
+        "word_limit": 90,
+        "metrics": {},
+        "note": "theme_counts are Python-counted from Gemini's compact NPS tag arrays. Report top 3 promoter themes and top 3 detractor themes by count.\n",
+        "qualitative": {},
+        "distributions": {}
+      },
+      "s4_3": {
+        "label": "Value and Wellbeing Outcomes",
+        "word_limit": 80,
+        "metrics": {
+          "worth_premium": "89.5%",
+          "worth_premium_n": "1957",
+          "child_wellbeing": "35.0%",
+          "child_wellbeing_n": "1928",
+          "healthcare_access": "15.8%",
+          "healthcare_access_n": "1672"
+        },
+        "note": "",
+        "qualitative": {},
+        "distributions": {}
+      },
+      "insight": {
+        "word_limit": 120,
+        "verbatims": []
+      }
+    },
+    "scorecard": [],
+    "visuals": [
+      {
+        "file": "part4_nps.png",
+        "caption": "Net Promoter Score",
+        "path": null,
+        "exists": false
+      },
+      {
+        "file": "part4_themes.png",
+        "caption": "Top NPS Theme Drivers",
+        "path": null,
+        "exists": false
+      }
+    ]
+  },
+  {
+    "part": "part_5",
+    "title": "Child Wellbeing",
+    "sections": {
+      "s5_1": {
+        "label": "Child Wellbeing Drivers",
+        "word_limit": 90,
+        "metrics": {
+          "cwb_headline": "35.0%",
+          "cwb_headline_n": "1928",
+          "financial_stress_rho": "-0.434",
+          "financial_stress_p": "0.0000",
+          "financial_stress_n": "1928",
+          "coverage_understanding_rho": "-0.206",
+          "coverage_understanding_p": "0.0000",
+          "coverage_understanding_n": "1928",
+          "claim_process_understanding_rho": "-0.154",
+          "claim_process_understanding_p": "0.0000",
+          "claim_process_understanding_n": "1928",
+          "worth_premium_rho": "-0.164",
+          "worth_premium_p": "0.0000",
+          "worth_premium_n": "1801",
+          "renewal_intent_rho": "-0.492",
+          "renewal_intent_p": "0.0000",
+          "renewal_intent_n": "127",
+          "confidence_pay_rho": "-0.162",
+          "confidence_pay_p": "0.0000",
+          "confidence_pay_n": "1928",
+          "nps_score_rho": "+0.220",
+          "nps_score_p": "0.0000",
+          "nps_score_n": "1928"
+        },
+        "note": "All correlations are Spearman. financial_stress uses top_two_box (high stress); all other drivers use bottom_two_box (positive response). A negative rho for financial_stress means higher stress \u2192 lower CWB score (correct direction). A driver with a null value in the JSON is suppressed \u2014 show \"SUPPRESSED\" in the table.\n",
+        "qualitative": {},
+        "distributions": {},
+        "drivers_data": [
+          {
+            "key": "renewal_intent",
+            "label": "Renewal Intent",
+            "rho": -0.4921361167043348,
+            "p_value": 4.1941963137586224e-09,
+            "n_valid": 127,
+            "suppressed": false
+          },
+          {
+            "key": "financial_stress",
+            "label": "Financial Stress (High)",
+            "rho": -0.43428719187285103,
+            "p_value": 1.6268881610951668e-89,
+            "n_valid": 1928,
+            "suppressed": false
+          },
+          {
+            "key": "nps_score",
+            "label": "Net Promoter Score",
+            "rho": 0.2202948145281022,
+            "p_value": 1.2788163413448894e-22,
+            "n_valid": 1928,
+            "suppressed": false
+          },
+          {
+            "key": "coverage_understanding",
+            "label": "Coverage Understanding",
+            "rho": -0.2057900409067155,
+            "p_value": 6.974933670431616e-20,
+            "n_valid": 1928,
+            "suppressed": false
+          },
+          {
+            "key": "worth_premium",
+            "label": "Worth Premium",
+            "rho": -0.1641688722119261,
+            "p_value": 2.386543551778446e-12,
+            "n_valid": 1801,
+            "suppressed": false
+          },
+          {
+            "key": "confidence_pay",
+            "label": "Confidence in Payout",
+            "rho": -0.16219309657212552,
+            "p_value": 7.801095979817656e-13,
+            "n_valid": 1928,
+            "suppressed": false
+          },
+          {
+            "key": "claim_process_understanding",
+            "label": "Claim Process Understanding",
+            "rho": -0.15357532208766309,
+            "p_value": 1.2082818093152255e-11,
+            "n_valid": 1928,
+            "suppressed": false
+          }
+        ],
+        "drivers_table": {
+          "headers": [
+            "Driver",
+            "\u03c1 (Spearman)",
+            "p-value",
+            "N"
+          ]
+        }
+      },
+      "s5_2": {
+        "label": "Healthcare Access and Medical Cost",
+        "word_limit": 80,
+        "metrics": {
+          "healthcare_access": "15.8%",
+          "healthcare_access_n": "1672",
+          "medical_cost_change": "54.0%",
+          "medical_cost_change_n": "926"
+        },
+        "note": "healthcare_access: % who said access to care improved (among those who needed care, n\u22481,672). medical_cost_change: % who said medical costs decreased after claim (claimants with medical costs, n\u2248926). n_total for medical_cost_change includes only claimants who sought care.\n",
+        "qualitative": {},
+        "distributions": {}
+      },
+      "insight": {
+        "word_limit": 120,
+        "verbatims": []
+      }
+    },
+    "scorecard": [],
+    "visuals": [
+      {
+        "file": "part5_drivers.png",
+        "caption": "Child Wellbeing Drivers (Spearman Correlation)",
+        "path": null,
+        "exists": false
+      },
+      {
+        "file": "part5_healthcare.png",
+        "caption": "Healthcare Access and Medical Cost Impact",
+        "path": null,
+        "exists": false
+      }
+    ]
+  },
+  {
+    "part": "part_6",
+    "title": "Claimant vs. Non-Claimant Outcomes",
+    "sections": {
+      "narrative": {
+        "label": "narrative",
+        "word_limit": 100,
+        "metrics": {},
+        "note": "Significance threshold: p < 0.05 = statistically significant, mark with *. The note about negative_coping and financial_stress_high being on the claimant base (not both groups equally) should be mentioned if relevant.\n",
+        "qualitative": {},
+        "distributions": {}
+      },
+      "insight": {
+        "word_limit": 120,
+        "verbatims": []
+      }
+    },
+    "scorecard": [
+      {
+        "label": "Coverage Understanding",
+        "group_a_label": "Claimant",
+        "group_a_value": "94.8%",
+        "group_b_label": "Non-Claimant",
+        "group_b_value": "61.9%",
+        "sig_p": 5.382361223382759e-13,
+        "significant": true
+      },
+      {
+        "label": "Claim Process Understanding",
+        "group_a_label": "Claimant",
+        "group_a_value": "90.2%",
+        "group_b_label": "Non-Claimant",
+        "group_b_value": "49.0%",
+        "sig_p": 2.220446049250313e-16,
+        "significant": true
+      },
+      {
+        "label": "Worth Premium",
+        "group_a_label": "Claimant",
+        "group_a_value": "85.6%",
+        "group_b_label": "Non-Claimant",
+        "group_b_value": "87.1%",
+        "sig_p": 0.675195034028395,
+        "significant": false
+      },
+      {
+        "label": "Renewal Intent",
+        "group_a_label": "Claimant",
+        "group_a_value": "SUPPRESSED",
+        "group_b_label": "Non-Claimant",
+        "group_b_value": "SUPPRESSED",
+        "sig_p": null,
+        "significant": false
+      },
+      {
+        "label": "Negative Coping (\u2193 better)",
+        "group_a_label": "Claimant",
+        "group_a_value": "11.8%",
+        "group_b_label": "Non-Claimant",
+        "group_b_value": "26.2%",
+        "sig_p": 0.0007091876820870535,
+        "significant": true
+      },
+      {
+        "label": "High Financial Stress (\u2193 better)",
+        "group_a_label": "Claimant",
+        "group_a_value": "5.2%",
+        "group_b_label": "Non-Claimant",
+        "group_b_value": "1.9%",
+        "sig_p": 0.08026650944634706,
+        "significant": false
+      },
+      {
+        "label": "Confidence in Next Premium Payment",
+        "group_a_label": "Claimant",
+        "group_a_value": "86.3%",
+        "group_b_label": "Non-Claimant",
+        "group_b_value": "83.8%",
+        "sig_p": 0.5177648463236535,
+        "significant": false
+      }
+    ],
+    "visuals": [
+      {
+        "file": "part6_scorecard.png",
+        "caption": "Key Metrics: Claimants vs. Non-Claimants",
+        "path": null,
+        "exists": false
+      }
+    ]
+  },
+  {
+    "part": "part_7",
+    "title": "Gender Analysis",
+    "sections": {
+      "narrative": {
+        "label": "narrative",
+        "word_limit": 100,
+        "metrics": {},
+        "note": "Significance threshold: p < 0.05 = statistically significant, mark with *. The female sample is dominant (n\u22481,518 vs male n\u2248586); note this if relevant.\n",
+        "qualitative": {},
+        "distributions": {}
+      },
+      "insight": {
+        "word_limit": 120,
+        "verbatims": []
+      }
+    },
+    "scorecard": [
+      {
+        "label": "Coverage Understanding",
+        "group_a_label": "Female",
+        "group_a_value": "75.5%",
+        "group_b_label": "Male",
+        "group_b_value": "79.4%",
+        "sig_p": 0.061127650388957955,
+        "significant": false
+      },
+      {
+        "label": "Claim Process Understanding",
+        "group_a_label": "Female",
+        "group_a_value": "67.9%",
+        "group_b_label": "Male",
+        "group_b_value": "68.9%",
+        "sig_p": 0.6512776979454376,
+        "significant": false
+      },
+      {
+        "label": "Worth Premium",
+        "group_a_label": "Female",
+        "group_a_value": "88.9%",
+        "group_b_label": "Male",
+        "group_b_value": "90.8%",
+        "sig_p": 0.2244469972825942,
+        "significant": false
+      },
+      {
+        "label": "Renewal Intent",
+        "group_a_label": "Female",
+        "group_a_value": "57.9%",
+        "group_b_label": "Male",
+        "group_b_value": "SUPPRESSED",
+        "sig_p": null,
+        "significant": false
+      },
+      {
+        "label": "Negative Coping (\u2193 better)",
+        "group_a_label": "Female",
+        "group_a_value": "17.9%",
+        "group_b_label": "Male",
+        "group_b_value": "24.8%",
+        "sig_p": 0.1253023929169288,
+        "significant": false
+      },
+      {
+        "label": "High Financial Stress (\u2193 better)",
+        "group_a_label": "Female",
+        "group_a_value": "SUPPRESSED",
+        "group_b_label": "Male",
+        "group_b_value": "SUPPRESSED",
+        "sig_p": null,
+        "significant": false
+      },
+      {
+        "label": "Confidence in Next Premium Payment",
+        "group_a_label": "Female",
+        "group_a_value": "87.1%",
+        "group_b_label": "Male",
+        "group_b_value": "89.4%",
+        "sig_p": 0.14385759967954104,
+        "significant": false
+      }
+    ],
+    "visuals": [
+      {
+        "file": "part7_scorecard.png",
+        "caption": "Key Metrics by Gender",
+        "path": null,
+        "exists": false
+      }
+    ]
+  }
+]

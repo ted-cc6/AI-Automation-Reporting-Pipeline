@@ -1,0 +1,13 @@
+VisionFund Insurance Survey — Run Summary
+============================================
+run_id     : 2026_Q2
+csv_file   : Insurance_Survey_2026_-_LIVE_-_latest_version_-_English_en_-_2026-06-25-16-53-33.csv
+csv_path   : D:\Vision Fund International\Project\data\Insurance_Survey_2026_-_LIVE_-_latest_version_-_English_en_-_2026-06-25-16-53-33.csv
+row_count  : 2111
+timestamp  : 2026-06-29 15:07:28
+run_dir    : D:\Vision Fund International\Project\runs\2026_Q2
+
+Artifacts:
+  profile_report.md      : True
+  survey_clean.parquet   : True
+  data_quality_report.md : True

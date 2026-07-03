@@ -1,0 +1,389 @@
+"""generation/assembler.py
+
+Phase 4: Build the final .docx using python-docx. No Gemini calls here.
+"""
+import sys
+from datetime import datetime
+from pathlib import Path
+
+from docx import Document
+from docx.enum.text import WD_ALIGN_PARAGRAPH
+from docx.shared import Inches, Pt
+
+ROOT = Path(__file__).parent.parent
+sys.path.insert(0, str(ROOT))
+
+from utils import format_value
+
+
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
+
+def _set_default_font(doc, name: str, size: int):
+    style = doc.styles["Normal"]
+    font  = style.font
+    font.name = name
+    font.size = Pt(size)
+
+
+def _format_profile(profile: dict) -> str:
+    parts = []
+    if profile.get("sex"):
+        parts.append(profile["sex"])
+    if profile.get("age"):
+        parts.append(f"age {profile['age']}")
+    if profile.get("branch"):
+        parts.append(profile["branch"])
+    flags = []
+    if profile.get("is_claimant"):
+        flags.append("claimant")
+    if profile.get("is_caregiver"):
+        flags.append("caregiver")
+    if flags:
+        parts.append(", ".join(flags))
+    return " | ".join(parts) if parts else "anonymous"
+
+
+def _add_heading(doc, text: str, level: int):
+    doc.add_heading(text, level=level)
+
+
+def _add_paragraph(doc, text: str, style: str = None):
+    if not text:
+        return
+    if style:
+        try:
+            doc.add_paragraph(text, style=style)
+        except KeyError:
+            doc.add_paragraph(text)
+    else:
+        doc.add_paragraph(text)
+
+
+def _add_insight_box(doc, insight_text: str, verbatims: list):
+    _add_heading(doc, "Key Insight", level=3)
+    if insight_text:
+        _add_paragraph(doc, insight_text)
+    for v in verbatims[:3]:
+        text    = v.get("text", "")
+        profile = _format_profile(v.get("profile", {}))
+        if not text:
+            continue
+        try:
+            p = doc.add_paragraph(f'"{text}"', style="Quote")
+        except KeyError:
+            p = doc.add_paragraph(f'"{text}"')
+            p.paragraph_format.left_indent = Inches(0.5)
+        attr = doc.add_paragraph(f"— {profile}")
+        attr.paragraph_format.left_indent = Inches(0.5)
+        if attr.runs:
+            attr.runs[0].italic = True
+
+
+def _add_image_or_placeholder(doc, visual_info: dict):
+    if visual_info.get("exists") and visual_info.get("path"):
+        try:
+            doc.add_picture(str(visual_info["path"]), width=Inches(5.5))
+            p = doc.add_paragraph(visual_info.get("caption", ""), style="Caption")
+            p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        except Exception:
+            p = doc.add_paragraph(
+                f'[VISUAL — could not insert: {visual_info["file"]} — {visual_info.get("caption", "")}]'
+            )
+            if p.runs:
+                p.runs[0].italic = True
+    else:
+        p = doc.add_paragraph(
+            f'[VISUAL PENDING: {visual_info["file"]} — {visual_info.get("caption", "")}]'
+        )
+        if p.runs:
+            p.runs[0].italic = True
+
+
+def _add_table(doc, headers: list, rows: list) -> object:
+    table = doc.add_table(rows=len(rows) + 1, cols=len(headers))
+    try:
+        table.style = "Table Grid"
+    except KeyError:
+        pass
+    # Header row
+    for i, h in enumerate(headers):
+        cell = table.rows[0].cells[i]
+        cell.text = h
+        if cell.paragraphs and cell.paragraphs[0].runs:
+            cell.paragraphs[0].runs[0].bold = True
+    # Data rows
+    for r_idx, row in enumerate(rows):
+        for c_idx, val in enumerate(row):
+            table.rows[r_idx + 1].cells[c_idx].text = str(val) if val is not None else ""
+    return table
+
+
+# ---------------------------------------------------------------------------
+# Part 1
+# ---------------------------------------------------------------------------
+
+def build_part_1(doc, package: dict, texts: dict):
+    _add_heading(doc, f"Part 1: {package['title']}", level=1)
+    sections = package.get("sections", {})
+    visuals  = package.get("visuals", [])
+
+    for s_key, vis_idx in [("s1_1", 0), ("s1_2", 1)]:
+        s_data = sections.get(s_key, {})
+        _add_heading(doc, s_data.get("label", s_key), level=2)
+        _add_paragraph(doc, texts.get(s_key, ""))
+        if vis_idx < len(visuals):
+            _add_image_or_placeholder(doc, visuals[vis_idx])
+
+    s3 = sections.get("s1_3", {})
+    _add_heading(doc, s3.get("label", "s1_3"), level=2)
+    _add_paragraph(doc, texts.get("s1_3", ""))
+
+    _add_insight_box(doc, texts.get("insight", ""), sections.get("insight", {}).get("verbatims", []))
+
+
+# ---------------------------------------------------------------------------
+# Part 2
+# ---------------------------------------------------------------------------
+
+def build_part_2(doc, package: dict, texts: dict):
+    _add_heading(doc, f"Part 2: {package['title']}", level=1)
+    sections = package.get("sections", {})
+    visuals  = package.get("visuals", [])
+
+    # 2.1 — Claims Funnel
+    s2_1 = sections.get("s2_1", {})
+    _add_heading(doc, s2_1.get("label", "Claims Funnel"), level=2)
+    _add_paragraph(doc, texts.get("s2_1", ""))
+
+    ft = s2_1.get("funnel_table", {})
+    if ft:
+        metrics = s2_1.get("metrics", {})
+        headers = ft.get("headers", ["Stage", "N", "Rate"])
+        rows    = []
+        for row_spec in ft.get("rows", []):
+            n_val   = metrics.get(row_spec.get("n_key", ""), "")
+            rate_val = metrics.get(row_spec.get("rate_key", ""), "")
+            rows.append([row_spec.get("label", ""), n_val, rate_val])
+        if rows:
+            _add_table(doc, headers, rows)
+
+    if len(visuals) > 0:
+        _add_image_or_placeholder(doc, visuals[0])
+
+    # 2.2 — No-claim reasons
+    s2_2 = sections.get("s2_2", {})
+    _add_heading(doc, s2_2.get("label", "Reasons for Not Claiming"), level=2)
+    _add_paragraph(doc, texts.get("s2_2", ""))
+    if len(visuals) > 1:
+        _add_image_or_placeholder(doc, visuals[1])
+
+    # 2.3 — Claim challenges
+    s2_3 = sections.get("s2_3", {})
+    _add_heading(doc, s2_3.get("label", "Claim Challenges"), level=2)
+    _add_paragraph(doc, texts.get("s2_3", ""))
+    if len(visuals) > 2:
+        _add_image_or_placeholder(doc, visuals[2])
+
+    prot_flags = s2_3.get("qualitative", {}).get("protection_flags", [])
+    if prot_flags:
+        _add_heading(doc, "Client Protection Signals", level=4)
+        for flag in prot_flags:
+            severity  = (flag.get("severity") or "?").upper()
+            flag_type = flag.get("flag_type", "")
+            reason    = flag.get("reason", "")
+            row_id    = flag.get("id", "")
+            _add_paragraph(doc, f"[{severity}] {flag_type} — {reason} ({row_id})")
+
+    # 2.4 — Channel and payout
+    s2_4 = sections.get("s2_4", {})
+    _add_heading(doc, s2_4.get("label", "Claim Channel and Payout Outcomes"), level=2)
+    _add_paragraph(doc, texts.get("s2_4", ""))
+
+    _add_insight_box(doc, texts.get("insight", ""), sections.get("insight", {}).get("verbatims", []))
+
+
+# ---------------------------------------------------------------------------
+# Part 3
+# ---------------------------------------------------------------------------
+
+def build_part_3(doc, package: dict, texts: dict):
+    _add_heading(doc, f"Part 3: {package['title']}", level=1)
+    sections = package.get("sections", {})
+    visuals  = package.get("visuals", [])
+
+    s3_1 = sections.get("s3_1", {})
+    _add_heading(doc, s3_1.get("label", "Financial Stress and Coping"), level=2)
+    _add_paragraph(doc, texts.get("s3_1", ""))
+    if visuals:
+        _add_image_or_placeholder(doc, visuals[0])
+
+    s3_2 = sections.get("s3_2", {})
+    _add_heading(doc, s3_2.get("label", "Confidence and Value"), level=2)
+    _add_paragraph(doc, texts.get("s3_2", ""))
+
+    _add_insight_box(doc, texts.get("insight", ""), sections.get("insight", {}).get("verbatims", []))
+
+
+# ---------------------------------------------------------------------------
+# Part 4
+# ---------------------------------------------------------------------------
+
+def build_part_4(doc, package: dict, texts: dict):
+    _add_heading(doc, f"Part 4: {package['title']}", level=1)
+    sections = package.get("sections", {})
+    visuals  = package.get("visuals", [])
+
+    s4_1 = sections.get("s4_1", {})
+    _add_heading(doc, s4_1.get("label", "Net Promoter Score"), level=2)
+    _add_paragraph(doc, texts.get("s4_1", ""))
+    if visuals:
+        _add_image_or_placeholder(doc, visuals[0])
+
+    s4_2 = sections.get("s4_2", {})
+    _add_heading(doc, s4_2.get("label", "Promoter and Detractor Themes"), level=2)
+    _add_paragraph(doc, texts.get("s4_2", ""))
+    if len(visuals) > 1:
+        _add_image_or_placeholder(doc, visuals[1])
+
+    s4_3 = sections.get("s4_3", {})
+    _add_heading(doc, s4_3.get("label", "Value and Wellbeing Outcomes"), level=2)
+    _add_paragraph(doc, texts.get("s4_3", ""))
+
+    _add_insight_box(doc, texts.get("insight", ""), sections.get("insight", {}).get("verbatims", []))
+
+
+# ---------------------------------------------------------------------------
+# Part 5
+# ---------------------------------------------------------------------------
+
+def build_part_5(doc, package: dict, texts: dict):
+    _add_heading(doc, f"Part 5: {package['title']}", level=1)
+    sections = package.get("sections", {})
+    visuals  = package.get("visuals", [])
+
+    s5_1 = sections.get("s5_1", {})
+    _add_heading(doc, s5_1.get("label", "Child Wellbeing Drivers"), level=2)
+    _add_paragraph(doc, texts.get("s5_1", ""))
+
+    drivers_data  = s5_1.get("drivers_data", [])
+    drivers_table = s5_1.get("drivers_table", {})
+    if drivers_data:
+        headers = drivers_table.get("headers", ["Driver", "ρ (Spearman)", "p-value", "N"])
+        rows    = []
+        for d in drivers_data:
+            if d["suppressed"]:
+                rows.append([d["label"], "SUPPRESSED", "SUPPRESSED", "SUPPRESSED"])
+            else:
+                rho_str = f"{d['rho']:+.3f}" if d["rho"] is not None else "?"
+                p_str   = f"{d['p_value']:.4f}" if d["p_value"] is not None else "?"
+                n_str   = str(d["n_valid"]) if d["n_valid"] is not None else "?"
+                rows.append([d["label"], rho_str, p_str, n_str])
+        _add_table(doc, headers, rows)
+
+    if visuals:
+        _add_image_or_placeholder(doc, visuals[0])
+
+    s5_2 = sections.get("s5_2", {})
+    _add_heading(doc, s5_2.get("label", "Healthcare Access and Medical Cost"), level=2)
+    _add_paragraph(doc, texts.get("s5_2", ""))
+    if len(visuals) > 1:
+        _add_image_or_placeholder(doc, visuals[1])
+
+    _add_insight_box(doc, texts.get("insight", ""), sections.get("insight", {}).get("verbatims", []))
+
+
+# ---------------------------------------------------------------------------
+# Part 6 — Claimant vs Non-Claimant
+# ---------------------------------------------------------------------------
+
+def build_part_6(doc, package: dict, texts: dict):
+    _add_heading(doc, f"Part 6: {package['title']}", level=1)
+    sections = package.get("sections", {})
+    visuals  = package.get("visuals", [])
+
+    scorecard = package.get("scorecard", [])
+    if scorecard:
+        headers = ["Metric", "Claimant", "Non-Claimant", "Sig.*"]
+        rows    = []
+        for row in scorecard:
+            sig_mark = "*" if row["significant"] else ""
+            rows.append([row["label"], row["group_a_value"], row["group_b_value"], sig_mark])
+        _add_table(doc, headers, rows)
+        _add_paragraph(doc, "* p < 0.05 (chi-squared or Fisher's exact test)")
+
+    if visuals:
+        _add_image_or_placeholder(doc, visuals[0])
+
+    narr = sections.get("narrative", {})
+    _add_heading(doc, "Findings", level=2)
+    _add_paragraph(doc, texts.get("narrative", ""))
+
+    _add_insight_box(doc, texts.get("insight", ""), sections.get("insight", {}).get("verbatims", []))
+
+
+# ---------------------------------------------------------------------------
+# Part 7 — Gender
+# ---------------------------------------------------------------------------
+
+def build_part_7(doc, package: dict, texts: dict):
+    _add_heading(doc, f"Part 7: {package['title']}", level=1)
+    sections = package.get("sections", {})
+    visuals  = package.get("visuals", [])
+
+    scorecard = package.get("scorecard", [])
+    if scorecard:
+        headers = ["Metric", "Female", "Male", "Sig.*"]
+        rows    = []
+        for row in scorecard:
+            sig_mark = "*" if row["significant"] else ""
+            rows.append([row["label"], row["group_a_value"], row["group_b_value"], sig_mark])
+        _add_table(doc, headers, rows)
+        _add_paragraph(doc, "* p < 0.05 (chi-squared or Fisher's exact test)")
+
+    if visuals:
+        _add_image_or_placeholder(doc, visuals[0])
+
+    _add_heading(doc, "Findings", level=2)
+    _add_paragraph(doc, texts.get("narrative", ""))
+
+    _add_insight_box(doc, texts.get("insight", ""), sections.get("insight", {}).get("verbatims", []))
+
+
+# ---------------------------------------------------------------------------
+# Main assembly
+# ---------------------------------------------------------------------------
+
+def assemble(packages: list, written_texts: dict, run_id: str, output_path: Path):
+    doc = Document()
+    _set_default_font(doc, "Calibri", 11)
+
+    # Cover
+    doc.add_heading("VisionFund International", level=0)
+    doc.add_heading("Insurance Impact Report — Vietnam 2026 Q2", level=1)
+    doc.add_paragraph(f"Generated: {datetime.now().strftime('%d %B %Y')}")
+    doc.add_page_break()
+
+    builders = {
+        "part_1": build_part_1,
+        "part_2": build_part_2,
+        "part_3": build_part_3,
+        "part_4": build_part_4,
+        "part_5": build_part_5,
+        "part_6": build_part_6,
+        "part_7": build_part_7,
+    }
+
+    for package in packages:
+        part_key = package["part"]
+        texts    = written_texts.get(part_key, {})
+        builder  = builders.get(part_key)
+        if builder:
+            builder(doc, package, texts)
+            doc.add_page_break()
+        else:
+            print(f"  [WARN] No builder for {part_key} — skipping")
+
+    doc.save(str(output_path))
+    print(f"  Report saved: {output_path}")

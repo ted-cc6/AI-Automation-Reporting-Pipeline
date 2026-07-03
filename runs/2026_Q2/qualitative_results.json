@@ -1,0 +1,39 @@
+{
+  "meta": {
+    "schema_version": "1.0",
+    "model": "stub",
+    "run_id": "2026_Q2",
+    "generated_at": "2026-07-02T16:16:28.185393+00:00",
+    "note": "Stub file — qualitative pipeline not yet run. Verbatims and themes will be empty."
+  },
+  "theme_counts": {
+    "promoters": {},
+    "passives": {},
+    "detractors": {}
+  },
+  "nps_tags_raw": {
+    "promoters": [],
+    "passives": [],
+    "detractors": []
+  },
+  "claims_other_tagged": {
+    "claim_no_reason_other": [],
+    "claim_challenges_other_support": []
+  },
+  "not_worth_it_themes": [],
+  "other_subthemes": {
+    "claim_no_reason_other": [],
+    "claim_challenges_other_support": []
+  },
+  "section_verbatims": {
+    "part1": [],
+    "part2": [],
+    "part3": [],
+    "part4": [],
+    "part5": [],
+    "part6": [],
+    "part7": []
+  },
+  "protection_flags": [],
+  "executive_summary": ""
+}

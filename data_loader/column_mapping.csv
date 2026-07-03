@@ -1,0 +1,134 @@
+raw_index,raw_column_header,category,question_ref,parent_ref,notes
+0,Device Info,keep_metadata,,,
+1,start,keep_metadata,,,
+2,end,keep_metadata,,,
+3,Username,keep_metadata,,,
+4,Region,keep_metadata,,,
+5,Country,keep_metadata,,,
+6,What is the client's ID number in our systems?,keep_metadata,,,
+7,To which branch does the client belong?,keep_metadata,,,
+8,Insurance_Type,keep_metadata,,,Key filter for type-specific section responses
+9,"Before we start, I would like to explain this survey. [long consent text]...",drop_scaffold,,,Consent field; all respondents agreed — effectively constant
+10,This section includes questions on the extent to which you understand...,drop_scaffold,,,Section header for understanding module
+11,How would you rate your understanding of what your insurance covers?,question_ref,q_coverage_understanding,,
+12,How you would you rate your understanding of how to make a claim?,question_ref,q_claim_process_understanding,,
+13,Which communication channel is the most effective in increasing your awareness...,question_ref,q_comm_channel_effective,,Multi-select parent; binary children in cols 14–20
+14,"Which communication channel.../a. In-person explanation from MFI staff/loan officer",multi_select_child,,q_comm_channel_effective,Binary (0/1) child
+15,Which communication channel.../b. Group meeting,multi_select_child,,q_comm_channel_effective,Binary (0/1) child
+16,Which communication channel.../c. SMS/WhatsApp messages from the MFI,multi_select_child,,q_comm_channel_effective,Binary (0/1) child
+17,"Which communication channel.../d. Printed materials (leaflets, posters, brochures)",multi_select_child,,q_comm_channel_effective,Binary (0/1) child
+18,Which communication channel.../e. Phone call from the MFI,multi_select_child,,q_comm_channel_effective,Binary (0/1) child
+19,Which communication channel.../f. Email from the MFI,multi_select_child,,q_comm_channel_effective,Binary (0/1) child
+20,Which communication channel.../g. Other (please specify),multi_select_child,,q_comm_channel_effective,Binary (0/1) child
+21,"If other, please specify:",free_text_child,,q_comm_channel_effective,Other-specify follow-up to /g option (col 20)
+22,Which channel do you prefer most for submitting insurance claims?,question_ref,q_claim_channel_preferred,,Single-select
+23,"If other, please specify:",free_text_child,,q_claim_channel_preferred,Other-specify follow-up to col 22
+24,I will now ask you questions regarding your experience when making an insurance claim.,drop_scaffold,,,Transition sentence
+25,In the last 12 months did you experience an event that might be covered by your insurance?,question_ref,q_insured_event_12m,,
+26,[If Yes] Did you submit an insurance claim for that event?,question_ref,q_claim_submitted,,Conditional on col 25 = Yes
+27,"[If No, did not submit an insurance claim] What was the main reason you did not submit...",question_ref,q_no_claim_reason,,Conditional on col 26 = No; single-select
+28,"If other, please specify:",free_text_child,,q_no_claim_reason,Other-specify follow-up to col 27
+29,"[If Yes, submitted a claim] What was the result of the claim?",question_ref,q_claim_result,,Conditional on col 26 = Yes
+30,"If [Claim was approved and paid] Considering all costs related to the event, how much...",question_ref,q_payout_cost_coverage,,Conditional on col 29 = approved/paid
+31,[If filed a claim] Have you experienced any challenges with the claim process?,question_ref,q_claim_challenges_experienced,,Conditional on col 26 = Yes
+32,[If yes] What challenges did you experience with the claim process?,question_ref,q_claim_challenges,,Multi-select parent; binary children in cols 33–38
+33,"[If yes] What challenges.../a. Claim documents were difficult to collect from hospitals or...",multi_select_child,,q_claim_challenges,Binary (0/1) child
+34,[If yes] What challenges.../b. Claim documents were difficult to submit,multi_select_child,,q_claim_challenges,Binary (0/1) child
+35,[If yes] What challenges.../c. It was difficult to know the status of the claim...,multi_select_child,,q_claim_challenges,Binary (0/1) child
+36,[If yes] What challenges.../d. It took a long time to receive the claim amount,multi_select_child,,q_claim_challenges,Binary (0/1) child
+37,[If yes] What challenges.../e. I did not receive enough support or guidance...,multi_select_child,,q_claim_challenges,Binary (0/1) child
+38,[If yes] What challenges.../f. Other (specify),multi_select_child,,q_claim_challenges,Binary (0/1) child
+39,"If other, please specify:",free_text_child,,q_claim_challenges,Other-specify follow-up to /f option (col 38)
+40,"[If e] What specific support would you need to make the claims process easier?",free_text_child,,q_claim_challenges,Follow-up specific to /e option of col 32; open-text
+41,"[If yes to experiencing an insured event] Because of the event, did you have to do...",question_ref,q_coping_mechanisms,,Multi-select parent; binary children in cols 42–49
+42,[If yes to insured event] Because of the event.../a. Use savings,multi_select_child,,q_coping_mechanisms,Binary (0/1) child
+43,[If yes to insured event] Because of the event.../b. Borrow money,multi_select_child,,q_coping_mechanisms,Binary (0/1) child
+44,[If yes to insured event] Because of the event.../c. Sell assets or livestock,multi_select_child,,q_coping_mechanisms,Binary (0/1) child; raw CSV has typo 'assests'
+45,[If yes to insured event] Because of the event.../d. Reduce food consumption...,multi_select_child,,q_coping_mechanisms,Binary (0/1) child
+46,[If yes to insured event] Because of the event.../e. Take your children out of school,multi_select_child,,q_coping_mechanisms,Binary (0/1) child
+47,[If yes to insured event] Because of the event.../f. Closed business temporarily,multi_select_child,,q_coping_mechanisms,Binary (0/1) child
+48,[If yes to insured event] Because of the event.../g. None of the above,multi_select_child,,q_coping_mechanisms,Binary (0/1) child
+49,[If yes to insured event] Because of the event.../h. Other (specify),multi_select_child,,q_coping_mechanisms,Binary (0/1) child
+50,"If other, please specify:",free_text_child,,q_coping_mechanisms,Other-specify follow-up to /h option (col 49)
+51,This section includes questions related to additional services offered in the insurance.,drop_scaffold,,,Section header for additional services module
+52,"In the past 12 months, which of the following services did you use?",question_ref,q_bundled_services_used,,Multi-select parent; binary children in cols 53–59
+53,In the past 12 months.../a. Teleconsultation - doctor by phone (general or specialized...),multi_select_child,,q_bundled_services_used,Binary (0/1) child
+54,"In the past 12 months.../b. Face to face consultations (general or specialized...)",multi_select_child,,q_bundled_services_used,Binary (0/1) child
+55,"In the past 12 months.../c. Access to medicines (discounts or free)",multi_select_child,,q_bundled_services_used,Binary (0/1) child
+56,In the past 12 months.../d. Lab examination/lab test,multi_select_child,,q_bundled_services_used,Binary (0/1) child
+57,"In the past 12 months.../e. Health events (mobile clinic, orange ambulance, medical brigades, etc.)",multi_select_child,,q_bundled_services_used,Binary (0/1) child
+58,In the past 12 months.../f. None,multi_select_child,,q_bundled_services_used,Binary (0/1) child
+59,In the past 12 months.../g. Other: please specify,multi_select_child,,q_bundled_services_used,Binary (0/1) child
+60,"If other, please specify:",free_text_child,,q_bundled_services_used,Other-specify follow-up to /g option (col 59)
+61,If [did access the services] did the services help you as you wanted?,question_ref,q_services_helped,,Conditional on use of at least one non-None service
+62,I will now ask you questions on how the insurance has impacted the wellbeing...,drop_scaffold,,,Transition sentence
+63,How much does the insurance help reduce your financial stress?,question_ref,q_financial_stress,,
+64,Since taking the insurance product from VisionFund has the wellbeing of the children...,question_ref,q_child_wellbeing,,
+65,[If a] What improved for your children since having the insurance product?,question_ref,q_child_improvements,,Multi-select parent; children in cols 66–72; conditional on col 64 = improved
+66,[If a] What improved for your children.../a. Improved access to healthcare treatment...,multi_select_child,,q_child_improvements,Binary (0/1) child
+67,[If a] What improved for your children.../b. Reduced out-of-pocket expenses...,multi_select_child,,q_child_improvements,Binary (0/1) child
+68,[If a] What improved for your children.../c. Fewer school days missed due to improved health,multi_select_child,,q_child_improvements,Binary (0/1) child
+69,[If a] What improved for your children.../d. Reduced need to work extra hours after a shock...,multi_select_child,,q_child_improvements,Binary (0/1) child
+70,[If a] What improved for your children.../e. Ability to continue normal daily activities...,multi_select_child,,q_child_improvements,Binary (0/1) child
+71,[If a] What improved for your children.../f. Increased savings after loss helped meet...,multi_select_child,,q_child_improvements,Binary (0/1) child
+72,[If a] What improved for your children.../g. Other (please specify),multi_select_child,,q_child_improvements,Binary (0/1) child
+73,"If other, please specify:",free_text_child,,q_child_improvements,Other-specify follow-up to /g option (col 72)
+74,This section includes questions on your level of satisfaction with your interaction...,drop_scaffold,,,Section header for satisfaction/NPS module
+75,"On a scale of 0-10, how likely are you to recommend the VisionFund Insurance to...",question_ref,q_nps_score,,Net Promoter Score; numeric 0–10
+76,[If 0-6] What actions could VisionFund take to make you more likely to recommend...,question_ref,q_nps_detractor_followup,,Conditional follow-up for detractors; classified as question_ref per spec
+77,"[If 7-8] What specifically about the VisionFund Insurance caused you to give it the score...",question_ref,q_nps_passive_followup,,Conditional follow-up for passives; classified as question_ref per spec
+78,[If 9-10] What specifically about the VisionFund Insurance would cause you to recommend...,question_ref,q_nps_promoter_followup,,Conditional follow-up for promoters; classified as question_ref per spec
+79,"Considering the benefits and the cost of your insurance, do you feel the insurance is worth...",question_ref,q_worth_premium,,
+80,"If you had to pay the full insurance premium yourself, in the amount of 700,000 VND/hectare...",question_ref,q_renewal_intent,,Vietnam/crop-specific premium amount; expect low fill for non-crop respondents
+81,How confident are you that the insurance will pay when something serious happens?,question_ref,q_confidence_pay,,
+82,I will now ask you questions about your levels of access to insurance services...,drop_scaffold,,,Transition / section lead-in
+83,Before VisionFund did you have access to an insurance like VisionFund provides?,question_ref,q_prior_access,,
+84,"If you could no longer access insurance from VisionFund, how easily could you get...",question_ref,q_alternative_access,,
+85,This section includes specific questions related to your health insurance.,drop_scaffold,,,Section header — health insurance respondents only
+86,"Since having the insurance, were you or any member of your household able to seek...",question_ref,q_healthcare_access,,Health insurance respondents only
+87,"Compared to a similar illness before you had insurance, have your out-of-pocket medical costs changed...",question_ref,q_medical_cost_change,,Health insurance respondents only
+88,This section includes specific questions related to your Crop insurance.,drop_scaffold,,,Section header — crop insurance respondents only
+89,"After the weather shock, since having the insurance, how quickly were you able to recover...",question_ref,q_crop_recovery_speed,,Crop insurance respondents only
+90,"Since having a crop insurance, has your approach to farming changed (e.g., choice of crops...)?",question_ref,q_crop_farming_change,,Crop insurance respondents only
+91,This section includes specific questions related to your Credit Life insurance.,drop_scaffold,,,Section header — credit life respondents only
+92,"Besides the protection in case of death or disability, which other insurance benefits are included...",question_ref,q_credit_other_benefits,,Multi-select parent; children in cols 93–97; credit life respondents only
+93,"Besides the protection.../a. Help with medical or hospital costs",multi_select_child,,q_credit_other_benefits,Binary (0/1) child
+94,"Besides the protection.../b. Help when crops or income are affected by weather (drought, flood, etc.)",multi_select_child,,q_credit_other_benefits,Binary (0/1) child
+95,Besides the protection.../c. Help when property or business assets are damaged,multi_select_child,,q_credit_other_benefits,Binary (0/1) child
+96,Besides the protection.../d. No other benefits are included,multi_select_child,,q_credit_other_benefits,Binary (0/1) child
+97,Besides the protection.../e. I am not sure,multi_select_child,,q_credit_other_benefits,Binary (0/1) child
+98,"Most MFIs that provide a Credit Insurance only cover the outstanding loan amount... How valuable...",question_ref,q_credit_additional_value,,Credit life respondents only
+99,"Lastly, I will be asking questions about you and your household.",drop_scaffold,,,Transition / section lead-in
+100,What is the client's age?,question_ref,q_client_age,,Numeric
+101,What is the client's education level?,question_ref,q_client_education,,Single-select
+102,What is the client's household size?,question_ref,q_household_size,,Single-select
+103,What is the client's sex?,question_ref,q_sex,,
+104,"Does anyone in your household experience serious difficulty in any of the following areas: seeing, hearing...",question_ref,q_disability,,Washington Group short-set disability screener
+105,"In the last 6 months, which services have you received from VisionFund apart from your insurance policy?",question_ref,q_vf_services_received,,Multi-select parent; binary children in cols 106–111
+106,In the last 6 months.../a. Loans,multi_select_child,,q_vf_services_received,Binary (0/1) child
+107,In the last 6 months.../b. Savings Accounts,multi_select_child,,q_vf_services_received,Binary (0/1) child
+108,In the last 6 months.../c. Financial Education,multi_select_child,,q_vf_services_received,Binary (0/1) child
+109,"In the last 6 months.../d. Health Services (telemedicine, education etc.)",multi_select_child,,q_vf_services_received,Binary (0/1) child
+110,In the last 6 months.../e. None,multi_select_child,,q_vf_services_received,Binary (0/1) child
+111,In the last 6 months.../f. Other (please specify),multi_select_child,,q_vf_services_received,Binary (0/1) child
+112,"If other, please specify:",free_text_child,,q_vf_services_received,Other-specify follow-up to /f option (col 111)
+113,What are your main sources of income?,question_ref,q_income_sources,,Multi-select parent; binary children in cols 114–121
+114,What are your main sources of income?/a. Crop agriculture business,multi_select_child,,q_income_sources,Binary (0/1) child
+115,What are your main sources of income?/b. Livestock agriculture business,multi_select_child,,q_income_sources,Binary (0/1) child
+116,"What are your main sources of income?/c. Trading/Wholesale/Retail (e.g., retail shop)",multi_select_child,,q_income_sources,Binary (0/1) child
+117,"What are your main sources of income?/d. Manufacturing (e.g., maker of furniture)",multi_select_child,,q_income_sources,Binary (0/1) child
+118,"What are your main sources of income?/e. Service provision business (e.g., salon, skilled/casual laborer...)",multi_select_child,,q_income_sources,Binary (0/1) child
+119,What are your main sources of income?/f. Salaried wage-earner,multi_select_child,,q_income_sources,Binary (0/1) child
+120,"What are your main sources of income?/g. Remittances, donations, and government subsidy/assistance",multi_select_child,,q_income_sources,Binary (0/1) child; raw CSV has typo 'assitance'
+121,What are your main sources of income?/h. Other (please specify),multi_select_child,,q_income_sources,Binary (0/1) child
+122,"If other, please specify:",free_text_child,,q_income_sources,Other-specify follow-up to /h option (col 121)
+123,Thank you very much for your time. We will use this information to improve our services...,drop_scaffold,,,Closing message — no respondent answer
+124,_id,keep_identity,,,
+125,_uuid,keep_identity,,,
+126,_submission_time,keep_identity,,,
+127,_validation_status,drop_system,,,
+128,_notes,drop_system,,,
+129,_status,drop_system,,,
+130,_submitted_by,drop_system,,,
+131,_tags,drop_system,,,
+132,_index,keep_identity,,,

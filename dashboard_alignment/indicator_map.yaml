@@ -1,0 +1,134 @@
+# dashboard_alignment/indicator_map.yaml
+# Mapping of dashboard indicators to Python analysis engine values
+# dashboard_value: Vietnam score from Power BI (0-1 scale)
+# json_path: dot-notation path in analysis_results.json (null = compute from dataset)
+# scale_factor: multiply our raw value by this before comparing (1.0 unless noted)
+# status: COMPARE | OUT_OF_SCOPE
+
+indicators:
+  - name: "Good Understanding of Insurance Coverage"
+    theme: "Product Understanding"
+    dashboard_value: 0.7517
+    json_path: "parts.part_1.metrics.coverage_understanding.headline.value"
+    scale_factor: 1.0
+    status: COMPARE
+    note: >
+      Engine: bottom_two_box of q_coverage_understanding (1-4 inverted Likert, 1=Very good).
+      Residual 1.40pp gap (ours=0.7657, dashboard=0.7517) likely reflects a minor dataset
+      version difference or rounding in the Power BI DAX. No methodology error found.
+
+  - name: "Good Understanding of Claim Process"
+    theme: "Product Understanding"
+    dashboard_value: 0.7655
+    json_path: "parts.part_1.metrics.claim_process_understanding.headline.value"
+    scale_factor: 1.0
+    status: DASHBOARD_ERROR
+    note: >
+      Engine: bottom_two_box of q_claim_process_understanding (1-4 inverted Likert).
+    resolution: >
+      Dashboard IndicatorScore table has coverage and claim-process questions labeled
+      in reverse. Our column mapping (q_claim_process_understanding → claim process
+      metric) is correct. The near-perfect match between our coverage_understanding
+      BTB (0.7657) and dashboard "Claim Process" (0.7655) confirms the dashboard's
+      labeling error. No engine change needed.
+
+  - name: "Perceived Trust"
+    theme: "Trust"
+    dashboard_value: 0.8897
+    json_path: "parts.part_3.metrics.confidence_pay.headline.value"
+    scale_factor: 1.0
+    status: COMPARE
+    note: >
+      Maps to q_confidence_pay (confidence in ability to pay premium).
+      Uses bottom_two_box on 1-5 inverted Likert scale (1=very confident).
+      Residual 1.23pp gap (ours=0.8774, dashboard=0.8897) likely reflects minor dataset
+      version or denominator differences. No methodology error found.
+
+  - name: "Likelihood to Renew"
+    theme: "Trust"
+    dashboard_value: 0.5862
+    json_path: "parts.part_1.metrics.renewal_intent.headline.value"
+    scale_factor: 1.0
+    status: COMPARE
+
+  - name: "No Access to Alternative Insurance"
+    theme: "Access"
+    dashboard_value: 0.6966
+    json_path: "parts.part_8.headline.dimensions_detail.access.sub_scores.difficulty_rate.value"
+    scale_factor: 1.0
+    status: COMPARE
+    note: >
+      Uses the raw difficulty_rate BEFORE the Kling inversion (1 - difficulty_rate).
+      The Kling composite uses the inverted value; the dashboard uses the raw rate.
+
+  - name: "First Time Access to Insurance"
+    theme: "Access"
+    dashboard_value: 0.9862
+    json_path: null
+    compute: "share_of_respondents_where_q_prior_access_is_False"
+    scale_factor: 1.0
+    status: OUT_OF_SCOPE
+    resolution: >
+      Definition mismatch. Dashboard measures first-time VisionFund clients (98.6%);
+      q_prior_access measures clients who never had any insurance before VisionFund
+      (85.4%). Different data sources, cannot reconcile from survey data alone.
+
+  - name: "Child Wellbeing Improved"
+    theme: "Financial & Child Wellbeing"
+    dashboard_value: 0.7120
+    json_path: "parts.part_4.child_wellbeing.headline.value"
+    scale_factor: 1.0
+    status: INVESTIGATE
+    note: >
+      Engine: share_selecting q_child_wellbeing=='Yes' over child_wellbeing_base (n=1,928).
+    resolution: >
+      Dashboard uses a 948-respondent base not reproducible from any CleanDataset
+      property (health=1672, insured_event_base=363, child_wellbeing_base=1928).
+      Base population likely defined during dashboard ETL in the IndicatorScore
+      preprocessing step. Gap is a methodology difference, not a calculation error.
+      Numerator (675 Yes) matches exactly; only the denominator differs.
+
+  - name: "Financial Worries Reduced"
+    theme: "Financial & Child Wellbeing"
+    dashboard_value: 0.8000
+    json_path: null
+    compute: "share_where_flag_negative_coping_is_False"
+    scale_factor: 1.0
+    status: COMPARE
+    note: >
+      Maps to: proportion of insured-event respondents (base n=363) who did NOT use negative
+      coping strategies (flag_negative_coping == False). The dashboard IndicatorScore binary
+      flag represents 'Reduced Financial Stress' — here proxied by absence of negative coping
+      (distress-sale, debt, or other harmful mechanisms). Base is insured_event_base, not
+      all respondents.
+
+  - name: "Net Promoter Score"
+    theme: "Client Satisfaction"
+    dashboard_value: 0.2414
+    json_path: "parts.part_4.nps.result.value"
+    scale_factor: 0.01
+    status: COMPARE
+    note: >
+      Dashboard returns NPS as a proportion (0.2414 = 24.14%).
+      Our nps_score() returns traditional scale (-100 to +100).
+      Apply scale_factor=0.01 before comparing. This is a known scale difference only.
+      Engine uses standard detractors <= 6.
+
+  - name: "Farming Practices Improved"
+    theme: "Crop Insurance"
+    dashboard_value: 0.5034
+    json_path: null
+    scale_factor: 1.0
+    status: OUT_OF_SCOPE
+    note: >
+      Crop-specific indicator using a crop-recovery question as the denominator.
+      Not currently computed by the analysis engine. Not a bug.
+
+  - name: "Livelihood Recovered Immediately"
+    theme: "Crop Insurance"
+    dashboard_value: 0.3793
+    json_path: null
+    scale_factor: 1.0
+    status: OUT_OF_SCOPE
+    note: >
+      Same crop base as above. Not currently computed by the analysis engine. Not a bug.

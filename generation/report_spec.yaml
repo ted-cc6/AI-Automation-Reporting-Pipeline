@@ -1,0 +1,559 @@
+# generation/report_spec.yaml
+# Maps each report section to analysis data paths and generation parameters.
+
+schema_version: "1.0"
+run_id_default: "2026_Q2"
+output_filename: "VFI_Insurance_Impact_Report_2026_Q2.docx"
+model: "gemini-2.5-flash"
+
+parts:
+  # ───────────────────────────────────────────────────────────────────
+  # PART 1 — Product Understanding & Awareness
+  # ───────────────────────────────────────────────────────────────────
+  part_1:
+    title: "Product Understanding & Awareness"
+    visuals:
+      - file: "part1_coverage_bar.png"
+        caption: "Coverage Understanding by Segment"
+      - file: "part1_claims_process_bar.png"
+        caption: "Claims Process Understanding by Segment"
+    sections:
+      s1_1:
+        label: "Coverage Understanding"
+        word_limit: 90
+        metrics:
+          coverage_understanding:
+            path: "parts.part_1.metrics.coverage_understanding.headline.value"
+            fmt: "pct"
+            n_path: "parts.part_1.metrics.coverage_understanding.headline.n_valid"
+            suppressed_path: "parts.part_1.metrics.coverage_understanding.headline.suppressed"
+          coverage_understanding_female:
+            path: "parts.part_1.metrics.coverage_understanding.segments.female.value"
+            fmt: "pct"
+            suppressed_path: "parts.part_1.metrics.coverage_understanding.segments.female.suppressed"
+          coverage_understanding_male:
+            path: "parts.part_1.metrics.coverage_understanding.segments.male.value"
+            fmt: "pct"
+            suppressed_path: "parts.part_1.metrics.coverage_understanding.segments.male.suppressed"
+          coverage_understanding_claimant:
+            path: "parts.part_1.metrics.coverage_understanding.segments.claimant.value"
+            fmt: "pct"
+            suppressed_path: "parts.part_1.metrics.coverage_understanding.segments.claimant.suppressed"
+          coverage_understanding_non_claimant:
+            path: "parts.part_1.metrics.coverage_understanding.segments.non_claimant.value"
+            fmt: "pct"
+            suppressed_path: "parts.part_1.metrics.coverage_understanding.segments.non_claimant.suppressed"
+
+      s1_2:
+        label: "Claim Process Understanding"
+        word_limit: 90
+        metrics:
+          claim_process_understanding:
+            path: "parts.part_1.metrics.claim_process_understanding.headline.value"
+            fmt: "pct"
+            n_path: "parts.part_1.metrics.claim_process_understanding.headline.n_valid"
+            suppressed_path: "parts.part_1.metrics.claim_process_understanding.headline.suppressed"
+          claim_process_understanding_female:
+            path: "parts.part_1.metrics.claim_process_understanding.segments.female.value"
+            fmt: "pct"
+            suppressed_path: "parts.part_1.metrics.claim_process_understanding.segments.female.suppressed"
+          claim_process_understanding_male:
+            path: "parts.part_1.metrics.claim_process_understanding.segments.male.value"
+            fmt: "pct"
+            suppressed_path: "parts.part_1.metrics.claim_process_understanding.segments.male.suppressed"
+          claim_process_understanding_claimant:
+            path: "parts.part_1.metrics.claim_process_understanding.segments.claimant.value"
+            fmt: "pct"
+            suppressed_path: "parts.part_1.metrics.claim_process_understanding.segments.claimant.suppressed"
+          claim_process_understanding_non_claimant:
+            path: "parts.part_1.metrics.claim_process_understanding.segments.non_claimant.value"
+            fmt: "pct"
+            suppressed_path: "parts.part_1.metrics.claim_process_understanding.segments.non_claimant.suppressed"
+
+      s1_3:
+        label: "Product Value and Renewal Intent"
+        word_limit: 80
+        metrics:
+          worth_premium:
+            path: "parts.part_1.metrics.worth_premium.headline.value"
+            fmt: "pct"
+            n_path: "parts.part_1.metrics.worth_premium.headline.n_valid"
+            suppressed_path: "parts.part_1.metrics.worth_premium.headline.suppressed"
+          renewal_intent:
+            path: "parts.part_1.metrics.renewal_intent.headline.value"
+            fmt: "pct"
+            n_path: "parts.part_1.metrics.renewal_intent.headline.n_valid"
+            suppressed_path: "parts.part_1.metrics.renewal_intent.headline.suppressed"
+        note: "renewal_intent n=147 is small (only renewal-eligible clients). Mention this caveat."
+
+      insight:
+        word_limit: 120
+        verbatim_section: "part1"
+
+  # ───────────────────────────────────────────────────────────────────
+  # PART 2 — Claims Experience
+  # ───────────────────────────────────────────────────────────────────
+  part_2:
+    title: "Claims Experience"
+    visuals:
+      - file: "part2_funnel.png"
+        caption: "Claims Funnel"
+      - file: "part2_no_claim_reasons.png"
+        caption: "Reasons for Not Claiming"
+      - file: "part2_claim_challenges.png"
+        caption: "Top Claims Challenges (% of claimants who challenged)"
+    sections:
+      s2_1:
+        label: "Claims Funnel"
+        word_limit: 100
+        metrics:
+          n_surveyed:
+            path: "parts.part_2.claims_funnel.experienced_event.n_total"
+            fmt: "count"
+          n_experienced_event:
+            path: "parts.part_2.claims_funnel.experienced_event.n"
+            fmt: "count"
+          pct_experienced_event:
+            path: "parts.part_2.claims_funnel.experienced_event.pct_of_total"
+            fmt: "pct"
+          n_filed_claim:
+            path: "parts.part_2.claims_funnel.filed_claim.n"
+            fmt: "count"
+          pct_filed_of_event:
+            path: "parts.part_2.claims_funnel.filed_claim.pct_of_event_base"
+            fmt: "pct"
+          leakage_rate:
+            path: "parts.part_2.claims_funnel.filed_claim.leakage"
+            fmt: "pct"
+          n_claim_paid:
+            path: "parts.part_2.claims_funnel.claim_paid.n"
+            fmt: "count"
+          pct_claim_paid:
+            path: "parts.part_2.claims_funnel.claim_paid.pct_of_claimants"
+            fmt: "pct"
+        funnel_table:
+          headers: ["Stage", "N", "Rate"]
+          rows:
+            - label: "Experienced insured event"
+              n_key: "n_experienced_event"
+              rate_key: "pct_experienced_event"
+            - label: "Filed a claim"
+              n_key: "n_filed_claim"
+              rate_key: "pct_filed_of_event"
+            - label: "Claim paid"
+              n_key: "n_claim_paid"
+              rate_key: "pct_claim_paid"
+
+      s2_2:
+        label: "Reasons for Not Claiming"
+        word_limit: 70
+        metrics:
+          no_claim_reasons_base:
+            path: "parts.part_2.no_claim_reasons.n_base"
+            fmt: "count"
+        distribution_path: "parts.part_2.no_claim_reasons.distribution"
+        qualitative_keys:
+          - "other_subthemes.claim_no_reason_other"
+
+      s2_3:
+        label: "Claim Challenges"
+        word_limit: 80
+        metrics:
+          challenges_base:
+            path: "parts.part_2.claim_challenges.n_base"
+            fmt: "count"
+        distribution_path: "parts.part_2.claim_challenges.ranked.ranked"
+        qualitative_keys:
+          - "other_subthemes.claim_challenges_other_support"
+          - "protection_flags"
+        note: "If any protection_flags were found, surface them briefly in this section."
+
+      s2_4:
+        label: "Claim Channel and Payout Outcomes"
+        word_limit: 100
+        metrics:
+          channel_base:
+            path: "parts.part_2.claim_channel_preferred.n_base"
+            fmt: "count"
+          claim_result_base:
+            path: "parts.part_2.claim_result.n_base"
+            fmt: "count"
+          payout_cost_base:
+            path: "parts.part_2.payout_cost_coverage.n_base"
+            fmt: "count"
+        distribution_path: "parts.part_2.claim_channel_preferred.distribution"
+        extra_distributions:
+          claim_result: "parts.part_2.claim_result.distribution"
+          payout_cost_coverage: "parts.part_2.payout_cost_coverage.distribution"
+
+      insight:
+        word_limit: 120
+        verbatim_section: "part2"
+
+  # ───────────────────────────────────────────────────────────────────
+  # PART 3 — Financial Protection
+  # ───────────────────────────────────────────────────────────────────
+  part_3:
+    title: "Financial Protection"
+    visuals:
+      - file: "part3_financial_protection.png"
+        caption: "Financial Protection Indicators"
+    sections:
+      s3_1:
+        label: "Financial Stress and Coping"
+        word_limit: 80
+        metrics:
+          negative_coping:
+            path: "parts.part_3.metrics.negative_coping.headline.value"
+            fmt: "pct"
+            n_path: "parts.part_3.metrics.negative_coping.headline.n_valid"
+            suppressed_path: "parts.part_3.metrics.negative_coping.headline.suppressed"
+          financial_stress_high:
+            path: "parts.part_3.metrics.financial_stress_high.headline.value"
+            fmt: "pct"
+            n_path: "parts.part_3.metrics.financial_stress_high.headline.n_valid"
+            suppressed_path: "parts.part_3.metrics.financial_stress_high.headline.suppressed"
+          alternative_access_difficult:
+            path: "parts.part_3.metrics.alternative_access_difficult.headline.value"
+            fmt: "pct"
+            n_path: "parts.part_3.metrics.alternative_access_difficult.headline.n_valid"
+            suppressed_path: "parts.part_3.metrics.alternative_access_difficult.headline.suppressed"
+        note: >
+          negative_coping and financial_stress_high are measured on the claimant base (n=363).
+          alternative_access_difficult is measured on the full sample.
+          These metrics use inverted Likert scale (lower = better coping/stress,
+          higher alternative_access = more difficulty without this insurance).
+
+      s3_2:
+        label: "Confidence and Value"
+        word_limit: 70
+        metrics:
+          confidence_pay:
+            path: "parts.part_3.metrics.confidence_pay.headline.value"
+            fmt: "pct"
+            n_path: "parts.part_3.metrics.confidence_pay.headline.n_valid"
+            suppressed_path: "parts.part_3.metrics.confidence_pay.headline.suppressed"
+          worth_premium:
+            path: "parts.part_1.metrics.worth_premium.headline.value"
+            fmt: "pct"
+            n_path: "parts.part_1.metrics.worth_premium.headline.n_valid"
+            suppressed_path: "parts.part_1.metrics.worth_premium.headline.suppressed"
+
+      insight:
+        word_limit: 120
+        verbatim_section: "part3"
+
+  # ───────────────────────────────────────────────────────────────────
+  # PART 4 — Client Voice (NPS & Themes)
+  # ───────────────────────────────────────────────────────────────────
+  part_4:
+    title: "Client Voice"
+    visuals:
+      - file: "part4_nps.png"
+        caption: "Net Promoter Score"
+      - file: "part4_themes.png"
+        caption: "Top NPS Theme Drivers"
+    sections:
+      s4_1:
+        label: "Net Promoter Score"
+        word_limit: 90
+        metrics:
+          nps_score:
+            path: "parts.part_4.nps.result.value"
+            fmt: "nps"
+            n_path: "parts.part_4.nps.result.n_valid"
+            suppressed_path: "parts.part_4.nps.result.suppressed"
+          nps_promoter_n:
+            path: "parts.part_4.nps.result.promoters.n"
+            fmt: "count"
+          nps_promoter_pct:
+            path: "parts.part_4.nps.result.promoters.pct"
+            fmt: "pct"
+          nps_passive_n:
+            path: "parts.part_4.nps.result.passives.n"
+            fmt: "count"
+          nps_passive_pct:
+            path: "parts.part_4.nps.result.passives.pct"
+            fmt: "pct"
+          nps_detractor_n:
+            path: "parts.part_4.nps.result.detractors.n"
+            fmt: "count"
+          nps_detractor_pct:
+            path: "parts.part_4.nps.result.detractors.pct"
+            fmt: "pct"
+        qualitative_keys:
+          - "not_worth_it_themes"
+        note: >
+          not_worth_it_themes from qualitative identifies why clients who rated the
+          premium as 'not worth it' (worth_premium_value >= 4) feel this way.
+          Mention top 1-2 themes if available.
+
+      s4_2:
+        label: "Promoter and Detractor Themes"
+        word_limit: 90
+        qualitative_keys:
+          - "theme_counts.promoters"
+          - "theme_counts.detractors"
+        note: >
+          theme_counts are Python-counted from Gemini's compact NPS tag arrays.
+          Report top 3 promoter themes and top 3 detractor themes by count.
+
+      s4_3:
+        label: "Value and Wellbeing Outcomes"
+        word_limit: 80
+        metrics:
+          worth_premium:
+            path: "parts.part_1.metrics.worth_premium.headline.value"
+            fmt: "pct"
+            n_path: "parts.part_1.metrics.worth_premium.headline.n_valid"
+          child_wellbeing:
+            path: "parts.part_4.child_wellbeing.headline.value"
+            fmt: "pct"
+            n_path: "parts.part_4.child_wellbeing.headline.n_valid"
+            suppressed_path: "parts.part_4.child_wellbeing.headline.suppressed"
+          healthcare_access:
+            path: "parts.part_4.healthcare_access.headline.value"
+            fmt: "pct"
+            n_path: "parts.part_4.healthcare_access.headline.n_valid"
+            suppressed_path: "parts.part_4.healthcare_access.headline.suppressed"
+
+      insight:
+        word_limit: 120
+        verbatim_section: "part4"
+
+  # ───────────────────────────────────────────────────────────────────
+  # PART 5 — Child Wellbeing
+  # ───────────────────────────────────────────────────────────────────
+  part_5:
+    title: "Child Wellbeing"
+    visuals:
+      - file: "part5_drivers.png"
+        caption: "Child Wellbeing Drivers (Spearman Correlation)"
+      - file: "part5_healthcare.png"
+        caption: "Healthcare Access and Medical Cost Impact"
+    sections:
+      s5_1:
+        label: "Child Wellbeing Drivers"
+        word_limit: 90
+        metrics:
+          cwb_headline:
+            path: "parts.part_4.child_wellbeing.headline.value"
+            fmt: "pct"
+            n_path: "parts.part_4.child_wellbeing.headline.n_valid"
+        drivers:
+          financial_stress:
+            rho_path: "parts.part_5.drivers.financial_stress.value"
+            p_path: "parts.part_5.drivers.financial_stress.p_value"
+            n_path: "parts.part_5.drivers.financial_stress.n_valid"
+            suppressed_path: "parts.part_5.drivers.financial_stress.suppressed"
+          coverage_understanding:
+            rho_path: "parts.part_5.drivers.coverage_understanding.value"
+            p_path: "parts.part_5.drivers.coverage_understanding.p_value"
+            n_path: "parts.part_5.drivers.coverage_understanding.n_valid"
+            suppressed_path: "parts.part_5.drivers.coverage_understanding.suppressed"
+          claim_process_understanding:
+            rho_path: "parts.part_5.drivers.claim_process_understanding.value"
+            p_path: "parts.part_5.drivers.claim_process_understanding.p_value"
+            n_path: "parts.part_5.drivers.claim_process_understanding.n_valid"
+            suppressed_path: "parts.part_5.drivers.claim_process_understanding.suppressed"
+          worth_premium:
+            rho_path: "parts.part_5.drivers.worth_premium.value"
+            p_path: "parts.part_5.drivers.worth_premium.p_value"
+            n_path: "parts.part_5.drivers.worth_premium.n_valid"
+            suppressed_path: "parts.part_5.drivers.worth_premium.suppressed"
+          renewal_intent:
+            rho_path: "parts.part_5.drivers.renewal_intent.value"
+            p_path: "parts.part_5.drivers.renewal_intent.p_value"
+            n_path: "parts.part_5.drivers.renewal_intent.n_valid"
+            suppressed_path: "parts.part_5.drivers.renewal_intent.suppressed"
+          confidence_pay:
+            rho_path: "parts.part_5.drivers.confidence_pay.value"
+            p_path: "parts.part_5.drivers.confidence_pay.p_value"
+            n_path: "parts.part_5.drivers.confidence_pay.n_valid"
+            suppressed_path: "parts.part_5.drivers.confidence_pay.suppressed"
+          nps_score:
+            rho_path: "parts.part_5.drivers.nps_score.value"
+            p_path: "parts.part_5.drivers.nps_score.p_value"
+            n_path: "parts.part_5.drivers.nps_score.n_valid"
+            suppressed_path: "parts.part_5.drivers.nps_score.suppressed"
+        drivers_table:
+          headers: ["Driver", "ρ (Spearman)", "p-value", "N"]
+        note: >
+          All correlations are Spearman. financial_stress uses top_two_box (high stress);
+          all other drivers use bottom_two_box (positive response).
+          A negative rho for financial_stress means higher stress → lower CWB score (correct direction).
+          A driver with a null value in the JSON is suppressed — show "SUPPRESSED" in the table.
+
+      s5_2:
+        label: "Healthcare Access and Medical Cost"
+        word_limit: 80
+        metrics:
+          healthcare_access:
+            path: "parts.part_4.healthcare_access.headline.value"
+            fmt: "pct"
+            n_path: "parts.part_4.healthcare_access.headline.n_valid"
+            suppressed_path: "parts.part_4.healthcare_access.headline.suppressed"
+          medical_cost_change:
+            path: "parts.part_4.medical_cost_change.headline.value"
+            fmt: "pct"
+            n_path: "parts.part_4.medical_cost_change.headline.n_valid"
+            suppressed_path: "parts.part_4.medical_cost_change.headline.suppressed"
+        note: >
+          healthcare_access: % who said access to care improved (among those who needed care, n≈1,672).
+          medical_cost_change: % who said medical costs decreased after claim (claimants with
+          medical costs, n≈926). n_total for medical_cost_change includes only claimants who sought care.
+
+      insight:
+        word_limit: 120
+        verbatim_section: "part5"
+
+  # ───────────────────────────────────────────────────────────────────
+  # PART 6 — Claimant vs Non-Claimant Comparison
+  # ───────────────────────────────────────────────────────────────────
+  part_6:
+    title: "Claimant vs. Non-Claimant Outcomes"
+    visuals:
+      - file: "part6_scorecard.png"
+        caption: "Key Metrics: Claimants vs. Non-Claimants"
+    scorecard_metrics:
+      - key: coverage_understanding
+        label: "Coverage Understanding"
+        fmt: "pct"
+        claimant_path: "parts.part_6.metrics.coverage_understanding.claimant.value"
+        non_claimant_path: "parts.part_6.metrics.coverage_understanding.non_claimant.value"
+        sig_path: "parts.part_6.metrics.coverage_understanding.significance.p_value"
+        claimant_sup: "parts.part_6.metrics.coverage_understanding.claimant.suppressed"
+        non_claimant_sup: "parts.part_6.metrics.coverage_understanding.non_claimant.suppressed"
+      - key: claim_process_understanding
+        label: "Claim Process Understanding"
+        fmt: "pct"
+        claimant_path: "parts.part_6.metrics.claim_process_understanding.claimant.value"
+        non_claimant_path: "parts.part_6.metrics.claim_process_understanding.non_claimant.value"
+        sig_path: "parts.part_6.metrics.claim_process_understanding.significance.p_value"
+        claimant_sup: "parts.part_6.metrics.claim_process_understanding.claimant.suppressed"
+        non_claimant_sup: "parts.part_6.metrics.claim_process_understanding.non_claimant.suppressed"
+      - key: worth_premium
+        label: "Worth Premium"
+        fmt: "pct"
+        claimant_path: "parts.part_6.metrics.worth_premium.claimant.value"
+        non_claimant_path: "parts.part_6.metrics.worth_premium.non_claimant.value"
+        sig_path: "parts.part_6.metrics.worth_premium.significance.p_value"
+        claimant_sup: "parts.part_6.metrics.worth_premium.claimant.suppressed"
+        non_claimant_sup: "parts.part_6.metrics.worth_premium.non_claimant.suppressed"
+      - key: renewal_intent
+        label: "Renewal Intent"
+        fmt: "pct"
+        claimant_path: "parts.part_6.metrics.renewal_intent.claimant.value"
+        non_claimant_path: "parts.part_6.metrics.renewal_intent.non_claimant.value"
+        sig_path: "parts.part_6.metrics.renewal_intent.significance.p_value"
+        claimant_sup: "parts.part_6.metrics.renewal_intent.claimant.suppressed"
+        non_claimant_sup: "parts.part_6.metrics.renewal_intent.non_claimant.suppressed"
+      - key: negative_coping
+        label: "Negative Coping (↓ better)"
+        fmt: "pct"
+        claimant_path: "parts.part_6.metrics.negative_coping.claimant.value"
+        non_claimant_path: "parts.part_6.metrics.negative_coping.non_claimant.value"
+        sig_path: "parts.part_6.metrics.negative_coping.significance.p_value"
+        claimant_sup: "parts.part_6.metrics.negative_coping.claimant.suppressed"
+        non_claimant_sup: "parts.part_6.metrics.negative_coping.non_claimant.suppressed"
+      - key: financial_stress_high
+        label: "High Financial Stress (↓ better)"
+        fmt: "pct"
+        claimant_path: "parts.part_6.metrics.financial_stress_high.claimant.value"
+        non_claimant_path: "parts.part_6.metrics.financial_stress_high.non_claimant.value"
+        sig_path: "parts.part_6.metrics.financial_stress_high.significance.p_value"
+        claimant_sup: "parts.part_6.metrics.financial_stress_high.claimant.suppressed"
+        non_claimant_sup: "parts.part_6.metrics.financial_stress_high.non_claimant.suppressed"
+      - key: confidence_pay
+        label: "Confidence in Next Premium Payment"
+        fmt: "pct"
+        claimant_path: "parts.part_6.metrics.confidence_pay.claimant.value"
+        non_claimant_path: "parts.part_6.metrics.confidence_pay.non_claimant.value"
+        sig_path: "parts.part_6.metrics.confidence_pay.significance.p_value"
+        claimant_sup: "parts.part_6.metrics.confidence_pay.claimant.suppressed"
+        non_claimant_sup: "parts.part_6.metrics.confidence_pay.non_claimant.suppressed"
+    sections:
+      narrative:
+        word_limit: 100
+        note: >
+          Significance threshold: p < 0.05 = statistically significant, mark with *.
+          The note about negative_coping and financial_stress_high being on the claimant
+          base (not both groups equally) should be mentioned if relevant.
+      insight:
+        word_limit: 120
+        verbatim_section: "part6"
+
+  # ───────────────────────────────────────────────────────────────────
+  # PART 7 — Gender Comparison
+  # ───────────────────────────────────────────────────────────────────
+  part_7:
+    title: "Gender Analysis"
+    visuals:
+      - file: "part7_scorecard.png"
+        caption: "Key Metrics by Gender"
+    scorecard_metrics:
+      - key: coverage_understanding
+        label: "Coverage Understanding"
+        fmt: "pct"
+        female_path: "parts.part_7.metrics.coverage_understanding.female.value"
+        male_path: "parts.part_7.metrics.coverage_understanding.male.value"
+        sig_path: "parts.part_7.metrics.coverage_understanding.significance.p_value"
+        female_sup: "parts.part_7.metrics.coverage_understanding.female.suppressed"
+        male_sup: "parts.part_7.metrics.coverage_understanding.male.suppressed"
+      - key: claim_process_understanding
+        label: "Claim Process Understanding"
+        fmt: "pct"
+        female_path: "parts.part_7.metrics.claim_process_understanding.female.value"
+        male_path: "parts.part_7.metrics.claim_process_understanding.male.value"
+        sig_path: "parts.part_7.metrics.claim_process_understanding.significance.p_value"
+        female_sup: "parts.part_7.metrics.claim_process_understanding.female.suppressed"
+        male_sup: "parts.part_7.metrics.claim_process_understanding.male.suppressed"
+      - key: worth_premium
+        label: "Worth Premium"
+        fmt: "pct"
+        female_path: "parts.part_7.metrics.worth_premium.female.value"
+        male_path: "parts.part_7.metrics.worth_premium.male.value"
+        sig_path: "parts.part_7.metrics.worth_premium.significance.p_value"
+        female_sup: "parts.part_7.metrics.worth_premium.female.suppressed"
+        male_sup: "parts.part_7.metrics.worth_premium.male.suppressed"
+      - key: renewal_intent
+        label: "Renewal Intent"
+        fmt: "pct"
+        female_path: "parts.part_7.metrics.renewal_intent.female.value"
+        male_path: "parts.part_7.metrics.renewal_intent.male.value"
+        sig_path: "parts.part_7.metrics.renewal_intent.significance.p_value"
+        female_sup: "parts.part_7.metrics.renewal_intent.female.suppressed"
+        male_sup: "parts.part_7.metrics.renewal_intent.male.suppressed"
+      - key: negative_coping
+        label: "Negative Coping (↓ better)"
+        fmt: "pct"
+        female_path: "parts.part_7.metrics.negative_coping.female.value"
+        male_path: "parts.part_7.metrics.negative_coping.male.value"
+        sig_path: "parts.part_7.metrics.negative_coping.significance.p_value"
+        female_sup: "parts.part_7.metrics.negative_coping.female.suppressed"
+        male_sup: "parts.part_7.metrics.negative_coping.male.suppressed"
+      - key: child_wellbeing
+        label: "Child Wellbeing Improved"
+        fmt: "pct"
+        female_path: "parts.part_7.metrics.child_wellbeing.female.value"
+        male_path: "parts.part_7.metrics.child_wellbeing.male.value"
+        sig_path: "parts.part_7.metrics.child_wellbeing.significance.p_value"
+        female_sup: "parts.part_7.metrics.child_wellbeing.female.suppressed"
+        male_sup: "parts.part_7.metrics.child_wellbeing.male.suppressed"
+      - key: confidence_pay
+        label: "Confidence in Next Premium Payment"
+        fmt: "pct"
+        female_path: "parts.part_7.metrics.confidence_pay.female.value"
+        male_path: "parts.part_7.metrics.confidence_pay.male.value"
+        sig_path: "parts.part_7.metrics.confidence_pay.significance.p_value"
+        female_sup: "parts.part_7.metrics.confidence_pay.female.suppressed"
+        male_sup: "parts.part_7.metrics.confidence_pay.male.suppressed"
+    sections:
+      narrative:
+        word_limit: 100
+        note: >
+          Significance threshold: p < 0.05 = statistically significant, mark with *.
+          The female sample is dominant (n≈1,518 vs male n≈586); note this if relevant.
+      insight:
+        word_limit: 120
+        verbatim_section: "part7"

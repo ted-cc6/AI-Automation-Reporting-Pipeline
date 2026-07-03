@@ -1,0 +1,810 @@
+# insurance-report-spec.yaml
+# Schema: urn:visionfund:insurance-report-spec:v1.0  (template_version: "2.0")
+# Parts 4 and 7 are fully specified.
+# Parts 1, 2, 3, 5, 6 are stubbed (fill_mode: bespoke, notes: "same pattern — to be specified").
+# Benchmarks are OUT OF SCOPE for this version; benchmark_comparison and benchmark_overlay are not used.
+# Regions are omitted — to be set per deployment context (regions is optional in the schema).
+
+report_metadata:
+  name: "VisionFund Insurance Impact Report 2026"
+  template_version: "2.0"
+  priority_segments:
+    - female
+    - male
+    - claimant
+    - non_claimant
+  notes: >
+    Priority segments per scope decision: female, male, claimant, non_claimant.
+    Regions omitted — set at deployment time. Benchmark functionality is out of
+    scope for this version; no benchmark_comparison metrics or benchmark_overlay
+    flags are used anywhere in this spec.
+
+parts:
+
+  # ════════════════════════════════════════════════════════════════════════════
+  # PART 1 — PRODUCT UNDERSTANDING (stub)
+  # ════════════════════════════════════════════════════════════════════════════
+  - part_id: 1
+    title: "Product Understanding"
+    subsections:
+
+      - subsection_id: "1.1"
+        title: "Understanding of insurance coverage"
+        fill_mode: bespoke
+        word_cap: 90
+        source_questions: []
+        outputs:
+          - analysis_prose
+        notes: "same pattern — to be specified"
+
+      - subsection_id: "1.2"
+        title: "Understanding of how to make a claim"
+        fill_mode: bespoke
+        word_cap: 90
+        source_questions: []
+        outputs:
+          - analysis_prose
+        notes: "same pattern — to be specified"
+
+      - subsection_id: "1.3"
+        title: "Most preferred channels for improving knowledge on how to make a claim"
+        fill_mode: bespoke
+        word_cap: 80
+        source_questions: []
+        outputs:
+          - analysis_prose
+        notes: "same pattern — to be specified"
+
+      - subsection_id: "1.insight"
+        title: "Insight – Product Understanding"
+        fill_mode: bespoke
+        word_cap: 120
+        source_questions: []
+        visual: null
+        qualitative: null
+        outputs:
+          - insight_prose
+        notes: "same pattern — to be specified"
+
+  # ════════════════════════════════════════════════════════════════════════════
+  # PART 2 — CLAIMS EXPERIENCE (stub)
+  # ════════════════════════════════════════════════════════════════════════════
+  - part_id: 2
+    title: "Claims Experience"
+    subsections:
+
+      - subsection_id: "2.1"
+        title: "Insured events and claims filed"
+        fill_mode: bespoke
+        word_cap: 100
+        source_questions: []
+        outputs:
+          - analysis_prose
+        notes: "same pattern — to be specified"
+
+      - subsection_id: "2.2"
+        title: "Top 3 reasons clients did NOT file a claim (incl. Other text analysis)"
+        fill_mode: bespoke
+        word_cap: 70
+        source_questions: []
+        outputs:
+          - analysis_prose
+        notes: "same pattern — to be specified"
+
+      - subsection_id: "2.3"
+        title: "Top challenges clients experienced when making claims"
+        fill_mode: bespoke
+        word_cap: 80
+        source_questions: []
+        outputs:
+          - analysis_prose
+        notes: "same pattern — to be specified"
+
+      - subsection_id: "2.4"
+        title: "Coping mechanisms by client segment (incidence of negative coping)"
+        fill_mode: bespoke
+        word_cap: 100
+        source_questions: []
+        outputs:
+          - analysis_prose
+        notes: "same pattern — to be specified"
+
+      - subsection_id: "2.insight"
+        title: "Insight – Claims Experience"
+        fill_mode: bespoke
+        word_cap: 120
+        source_questions: []
+        visual: null
+        qualitative: null
+        outputs:
+          - insight_prose
+        notes: "same pattern — to be specified"
+
+  # ════════════════════════════════════════════════════════════════════════════
+  # PART 3 — FINANCIAL INCLUSION (stub)
+  # ════════════════════════════════════════════════════════════════════════════
+  - part_id: 3
+    title: "Financial Inclusion"
+    subsections:
+
+      - subsection_id: "3.1"
+        title: "Reaching clients with no prior insurance access"
+        fill_mode: bespoke
+        word_cap: 80
+        source_questions: []
+        outputs:
+          - analysis_prose
+        notes: "same pattern — to be specified"
+
+      - subsection_id: "3.2"
+        title: "Ease of finding a good alternative to VisionFund insurance"
+        fill_mode: bespoke
+        word_cap: 70
+        source_questions: []
+        outputs:
+          - analysis_prose
+        notes: "same pattern — to be specified"
+
+      - subsection_id: "3.insight"
+        title: "Insight – Financial Inclusion"
+        fill_mode: bespoke
+        word_cap: 120
+        source_questions: []
+        visual: null
+        qualitative: null
+        outputs:
+          - insight_prose
+        notes: "same pattern — to be specified"
+
+  # ════════════════════════════════════════════════════════════════════════════
+  # PART 4 — CLIENT VOICE (fully specified)
+  # ════════════════════════════════════════════════════════════════════════════
+  - part_id: 4
+    title: "Client Voice"
+    subsections:
+
+      # ── 4.1 ────────────────────────────────────────────────────────────────
+      # Source: q_worth_premium (likert_5) drives the top-two-box "worth it"
+      # share and the female-vs-male gap. Template asks to mine NPS follow-up
+      # text for "not worth it" clients. q_nps_detractor_followup (conditional
+      # on NPS 0-6) is the closest survey proxy; pipeline must cross-filter to
+      # respondents who ALSO answered q_worth_premium in {Somewhat not worth it,
+      # Definitely not worth it}. The two populations are overlapping but not
+      # identical. q_nps_score is included to enable that join via the
+      # conditional_on chain. gap_analysis on q_worth_premium against q_sex
+      # satisfies R6.
+      # ───────────────────────────────────────────────────────────────────────
+      - subsection_id: "4.1"
+        title: "Value for money, and the NPS follow up for those who find it not worth it"
+        fill_mode: hybrid
+        word_cap: 90
+        source_questions:
+          - question_ref: q_worth_premium
+            question_text: "Considering the benefits and the cost of your insurance, do you feel the insurance is worth what you pay?"
+            survey_section: client_satisfaction
+            response_type: likert_5
+          - question_ref: q_nps_score
+            question_text: "On a scale of 0-10, how likely are you to recommend the VisionFund Insurance to a friend or family member, where 0 is not at all likely and 10 is extremely likely?"
+            survey_section: client_satisfaction
+            response_type: numeric_open
+          - question_ref: q_nps_detractor_followup
+            question_text: "[If 0-6] What actions could VisionFund take to make you more likely to recommend the insurance product to a friend or family member?"
+            survey_section: client_satisfaction
+            response_type: open_text
+            conditional_on: q_nps_score
+          - question_ref: q_sex
+            question_text: "What is the client's sex?"
+            survey_section: client_profile
+            response_type: binary
+        metrics:
+          - method: top_two_box
+            variables:
+              - q_worth_premium
+            label: "Worth the premium: Definitely worth it + Somewhat worth it (top-two-box)"
+          - method: bottom_two_box
+            variables:
+              - q_worth_premium
+            label: "Not worth the premium: Definitely NOT + Somewhat NOT worth it (bottom-two-box)"
+          - method: gap_analysis
+            variables:
+              - q_worth_premium
+            against: q_sex
+            label: "Worth-the-premium gender gap: female top-two-box minus male top-two-box, with significance test"
+        disaggregation:
+          - segment: female
+            priority: required
+          - segment: male
+            priority: required
+          - segment: claimant
+            priority: required
+          - segment: non_claimant
+            priority: required
+          - segment: first_time_access
+            priority: nice_to_have
+        visual:
+          powerbi_name: "Value for Money (worth the premium)"
+          source: powerbi_screenshot
+          visual_type: stacked_bar
+          description: "Worth it (definitely and somewhat) vs. not worth it — split by gender"
+        qualitative:
+          questions:
+            - q_nps_detractor_followup
+          verbatims_required: true
+          verbatim_count: 3
+          verbatim_profile_fields:
+            - gender
+            - age
+            - branch
+            - claimant_status
+          theme_method: genai_then_manual
+          client_protection_flag: false
+          subtheme_frequency_unit: count
+          separate_concern_categories:
+            - pricing_concerns
+            - service_claims_concerns
+        outputs:
+          - analysis_prose
+          - subtheme_summary
+          - verbatim_block
+        notes: >
+          Pipeline must cross-filter q_nps_detractor_followup to respondents who
+          also answered q_worth_premium = "Somewhat not worth it" OR "Definitely
+          not worth it". These are overlapping but non-identical populations: a
+          respondent can give NPS 7 and still find the product not worth it.
+          q_worth_premium is the authoritative grouping for the "not worth it"
+          analysis; q_nps_score is included only to resolve the conditional_on
+          chain for the detractor follow-up question. The subtheme_summary must
+          separate pricing concerns from service/claims concerns per the template.
+
+      # ── 4.2 ────────────────────────────────────────────────────────────────
+      # nps_score and nps_split are straightforward from q_nps_score
+      # (numeric_open, 0-10). No closed-ended driver question exists; all
+      # driver evidence is open text. frequency_rank here applies to GenAI-tagged
+      # themes extracted from q_nps_promoter_followup and q_nps_detractor_followup
+      # respectively — pipeline runs theme extraction first, then ranks by mention
+      # count. Three correlation metrics link q_nps_score to outcome variables
+      # (q_worth_premium, q_confidence_pay, q_financial_stress) to surface
+      # quantitative driver associations. R6 satisfied on all correlation and
+      # gap_analysis entries. R7 satisfied: both frequency_rank carry top_n: 3.
+      # ───────────────────────────────────────────────────────────────────────
+      - subsection_id: "4.2"
+        title: "Drivers of recommendation (promoters) and dissatisfaction (detractors)"
+        fill_mode: hybrid
+        word_cap: 90
+        source_questions:
+          - question_ref: q_nps_score
+            question_text: "On a scale of 0-10, how likely are you to recommend the VisionFund Insurance to a friend or family member, where 0 is not at all likely and 10 is extremely likely?"
+            survey_section: client_satisfaction
+            response_type: numeric_open
+          - question_ref: q_nps_detractor_followup
+            question_text: "[If 0-6] What actions could VisionFund take to make you more likely to recommend the insurance product to a friend or family member?"
+            survey_section: client_satisfaction
+            response_type: open_text
+            conditional_on: q_nps_score
+          - question_ref: q_nps_passive_followup
+            question_text: "[If 7-8] What specifically about the VisionFund Insurance caused you to give it the score that you did?"
+            survey_section: client_satisfaction
+            response_type: open_text
+            conditional_on: q_nps_score
+          - question_ref: q_nps_promoter_followup
+            question_text: "[If 9-10] What specifically about the VisionFund Insurance would cause you to recommend it to a friend or family member?"
+            survey_section: client_satisfaction
+            response_type: open_text
+            conditional_on: q_nps_score
+          - question_ref: q_worth_premium
+            question_text: "Considering the benefits and the cost of your insurance, do you feel the insurance is worth what you pay?"
+            survey_section: client_satisfaction
+            response_type: likert_5
+          - question_ref: q_confidence_pay
+            question_text: "How confident are you that the insurance will pay when something serious happens?"
+            survey_section: client_satisfaction
+            response_type: likert_5
+          - question_ref: q_financial_stress
+            question_text: "How much does the insurance help reduce your financial stress?"
+            survey_section: child_financial_wellbeing
+            response_type: likert_5
+        metrics:
+          - method: nps_score
+            variables:
+              - q_nps_score
+            label: "Headline NPS (integer, range -100 to +100)"
+          - method: nps_split
+            variables:
+              - q_nps_score
+            label: "Promoter (9-10) / Passive (7-8) / Detractor (0-6) shares"
+          - method: frequency_rank
+            variables:
+              - q_nps_promoter_followup
+            top_n: 3
+            label: "Top 3 promoter driver themes — applied to GenAI-tagged themes extracted from open text"
+          - method: frequency_rank
+            variables:
+              - q_nps_detractor_followup
+            top_n: 3
+            label: "Top 3 detractor pain-point themes — applied to GenAI-tagged themes extracted from open text"
+          - method: correlation
+            variables:
+              - q_nps_score
+            against: q_worth_premium
+            label: "Correlation: NPS score vs worth-the-premium (Spearman, treating Likert as ordinal)"
+          - method: correlation
+            variables:
+              - q_nps_score
+            against: q_confidence_pay
+            label: "Correlation: NPS score vs confidence insurer will pay"
+          - method: correlation
+            variables:
+              - q_nps_score
+            against: q_financial_stress
+            label: "Correlation: NPS score vs reduced financial stress"
+        disaggregation:
+          - segment: female
+            priority: required
+          - segment: male
+            priority: required
+          - segment: claimant
+            priority: required
+          - segment: non_claimant
+            priority: required
+          - segment: caregivers
+            priority: nice_to_have
+        visual:
+          powerbi_name: "NPS — Score, Split & Drivers"
+          source: powerbi_screenshot
+          visual_type: bar_chart
+          description: "Headline NPS, promoter / passive / detractor split, and the top drivers on each side"
+        qualitative:
+          questions:
+            - q_nps_promoter_followup
+            - q_nps_passive_followup
+            - q_nps_detractor_followup
+          verbatims_required: true
+          verbatim_count: 3
+          verbatim_profile_fields:
+            - gender
+            - age
+            - branch
+            - claimant_status
+          theme_method: genai_then_manual
+          client_protection_flag: false
+          subtheme_frequency_unit: count
+          separate_concern_categories:
+            - promoter_drivers
+            - detractor_pain_points
+        outputs:
+          - analysis_prose
+          - ranked_list
+          - verbatim_block
+        notes: >
+          frequency_rank metrics require theme-tagged data as input: pipeline runs
+          genai_then_manual theme extraction on each follow-up text pool first, then
+          ranks the resulting theme labels by mention count. Promoter and detractor
+          ranks are computed separately and presented as parallel lists (ranked_list
+          output). The "single highest-leverage fix" is a human synthesis call;
+          the pipeline surfaces ranked themes and correlation magnitudes as scaffold.
+          Select one verbatim per NPS tier (promoter / passive / detractor) for
+          verbatim_block, each carrying gender, age, branch, and claimant_status.
+
+      # ── 4.3 ────────────────────────────────────────────────────────────────
+      # q_confidence_pay (likert_5) maps directly to "Very/Somewhat confident"
+      # as a top-two-box. The template asks to contrast "clients whose claims
+      # were paid" vs everyone else. Pipeline must derive a paid-claimant binary
+      # flag from q_claim_result = "It was approved and paid" and use that as
+      # the comparison for gap_analysis. q_insured_event_12m is included as a
+      # source question because q_claim_submitted and q_claim_result are both
+      # gated behind it (skip logic chain).
+      # TEMPLATE RISK: the template names "NPS — Score, Split & Drivers" as the
+      # visual for 4.3, identical to 4.2. This appears to be a copy-paste error
+      # in the template; the powerbi_name is retained as stated. See Flags.
+      # ───────────────────────────────────────────────────────────────────────
+      - subsection_id: "4.3"
+        title: "Confidence the insurer will pay"
+        fill_mode: hybrid
+        word_cap: 80
+        source_questions:
+          - question_ref: q_confidence_pay
+            question_text: "How confident are you that the insurance will pay when something serious happens?"
+            survey_section: client_satisfaction
+            response_type: likert_5
+          - question_ref: q_insured_event_12m
+            question_text: "In the last 12 months, did you experience an event that might be covered by your insurance?"
+            survey_section: claims_experience
+            response_type: binary
+          - question_ref: q_claim_submitted
+            question_text: "[If Yes] Did you submit an insurance claim for that event?"
+            survey_section: claims_experience
+            response_type: binary
+            conditional_on: q_insured_event_12m
+          - question_ref: q_claim_result
+            question_text: "[If Yes, submitted a claim] What was the result of the claim?"
+            survey_section: claims_experience
+            response_type: single_select
+            conditional_on: q_claim_submitted
+          - question_ref: q_sex
+            question_text: "What is the client's sex?"
+            survey_section: client_profile
+            response_type: binary
+        metrics:
+          - method: top_two_box
+            variables:
+              - q_confidence_pay
+            label: "Confident insurer will pay: Very confident + Somewhat confident (top-two-box)"
+          - method: gap_analysis
+            variables:
+              - q_confidence_pay
+            against: q_claim_result
+            label: "Confidence gap: paid claimants (q_claim_result = approved and paid) vs all others — pipeline derives binary flag"
+        disaggregation:
+          - segment: claimant
+            priority: required
+          - segment: non_claimant
+            priority: required
+          - segment: female
+            priority: required
+          - segment: male
+            priority: required
+        visual:
+          powerbi_name: "NPS — Score, Split & Drivers"
+          source: powerbi_screenshot
+          visual_type: bar_chart
+          description: "Headline NPS, promoter / passive / detractor split, and the top drivers on each side"
+        qualitative: null
+        outputs:
+          - analysis_prose
+        notes: >
+          DERIVED INPUT: pipeline must create a binary paid_claimant flag where
+          q_claim_result = "It was approved and paid" = 1, all other respondents
+          (non-claimants and claimants whose result was not paid, in process, or
+          rejected) = 0. The gap_analysis against: q_claim_result uses this derived
+          binary grouping. q_insured_event_12m is included only to resolve the
+          skip-logic chain; it is not a direct metric input. The gender cut is
+          reported here as a disaggregation; the canonical gender story is in Part 7.
+          TEMPLATE RISK: visual name "NPS — Score, Split & Drivers" is identical to
+          4.2 and likely a copy-paste error — confirm with the Power BI dashboard
+          owner whether a dedicated confidence visual exists.
+
+      # ── 4.insight ──────────────────────────────────────────────────────────
+      # Bespoke synthesis of Part 4. No direct source questions; source_questions
+      # is empty (bespoke is exempt from the if/then source-question requirement).
+      # qualitative config provides verbatim-sourcing guidance for the writer:
+      # the three NPS follow-up texts are the only open-text fields in Part 4.
+      # Verbatim selection: one per NPS tier (promoter, passive, detractor).
+      # ───────────────────────────────────────────────────────────────────────
+      - subsection_id: "4.insight"
+        title: "Insight – Client Voice"
+        fill_mode: bespoke
+        word_cap: 120
+        source_questions: []
+        visual: null
+        qualitative:
+          questions:
+            - q_nps_promoter_followup
+            - q_nps_passive_followup
+            - q_nps_detractor_followup
+          verbatims_required: true
+          verbatim_count: 3
+          verbatim_profile_fields:
+            - gender
+            - age
+            - branch
+            - claimant_status
+          theme_method: genai_then_manual
+          client_protection_flag: false
+          subtheme_frequency_unit: count
+        outputs:
+          - insight_prose
+          - verbatim_block
+        notes: >
+          Writer synthesises 3-5 decision-ready sentences weaving headline NPS,
+          worth-the-premium share, and confidence-to-pay share into their
+          interpretation ("number and so what"). Pipeline pre-populates the key
+          computed figures as a scaffold. Select one verbatim per NPS tier with
+          gender, age, branch, and claimant_status profile attached.
+
+  # ════════════════════════════════════════════════════════════════════════════
+  # PART 5 — CHILD WELLBEING (stub)
+  # ════════════════════════════════════════════════════════════════════════════
+  - part_id: 5
+    title: "Child Wellbeing"
+    subsections:
+
+      - subsection_id: "5.1"
+        title: "Drivers of improved child wellbeing & most correlated variable"
+        fill_mode: bespoke
+        word_cap: 90
+        source_questions: []
+        outputs:
+          - analysis_prose
+          - correlation_table
+        notes: "same pattern — to be specified"
+
+      - subsection_id: "5.2"
+        title: "Caregivers vs non caregivers — financial stress & healthcare access"
+        fill_mode: bespoke
+        word_cap: 80
+        source_questions: []
+        outputs:
+          - analysis_prose
+        notes: "same pattern — to be specified"
+
+      - subsection_id: "5.insight"
+        title: "Insight – Child Wellbeing"
+        fill_mode: bespoke
+        word_cap: 120
+        source_questions: []
+        visual: null
+        qualitative: null
+        outputs:
+          - insight_prose
+        notes: "same pattern — to be specified"
+
+  # ════════════════════════════════════════════════════════════════════════════
+  # PART 6 — CLAIMANT OUTCOMES (stub)
+  # ════════════════════════════════════════════════════════════════════════════
+  - part_id: 6
+    title: "Claimant Outcomes"
+    subsections:
+
+      - subsection_id: "6.1"
+        title: "Claimant vs non-claimant outcomes scorecard"
+        fill_mode: bespoke
+        word_cap: 100
+        source_questions: []
+        outputs:
+          - scorecard_table
+          - analysis_prose
+        notes: "same pattern — to be specified"
+
+      - subsection_id: "6.insight"
+        title: "Insight – Claimant Outcomes"
+        fill_mode: bespoke
+        word_cap: 120
+        source_questions: []
+        visual: null
+        qualitative: null
+        outputs:
+          - insight_prose
+        notes: "same pattern — to be specified"
+
+  # ════════════════════════════════════════════════════════════════════════════
+  # PART 7 — GENDER (fully specified)
+  # ════════════════════════════════════════════════════════════════════════════
+  - part_id: 7
+    title: "Gender"
+    subsections:
+
+      # ── 7.1 ────────────────────────────────────────────────────────────────
+      # Part 7 has no numbered subsections in the template — it is a single
+      # scorecard table + analysis + insight block. 7.1 covers the scorecard
+      # and analysis; 7.insight covers the synthesis.
+      #
+      # 13 scorecard rows, each a gap_analysis with against: q_sex (R6 satisfied
+      # on all 13 entries). The `label` field records the aggregation type and
+      # positive polarity because the Metric schema has no separate aggregation
+      # field; pipeline developers must read the label. All gap_analysis entries
+      # imply: compute the appropriate share or top-two-box for female and male
+      # groups separately, calculate the absolute gap (female % – male %), and run
+      # a chi-square or t-test for significance. Significant gaps should be flagged
+      # in the analysis_prose.
+      #
+      # Row 5 (negative coping): DERIVED variable — see notes.
+      # Row 6 (no prior access): q_prior_access = "No" is the positive indicator.
+      # Row 10 (NPS promoter): q_nps_score >= 9 is a derived binary flag.
+      # Row 11 (child wellbeing): exclude "Do not support any children" from denom.
+      # ───────────────────────────────────────────────────────────────────────
+      - subsection_id: "7.1"
+        title: "Gender scorecard — female vs male on all key metrics"
+        fill_mode: hybrid
+        word_cap: 100
+        source_questions:
+          - question_ref: q_sex
+            question_text: "What is the client's sex?"
+            survey_section: client_profile
+            response_type: binary
+          - question_ref: q_coverage_understanding
+            question_text: "How would you rate your understanding of what your insurance covers?"
+            survey_section: product_understanding
+            response_type: likert_4
+          - question_ref: q_claim_process_understanding
+            question_text: "How you would rate your understanding of how to make a claim?"
+            survey_section: product_understanding
+            response_type: likert_4
+          - question_ref: q_insured_event_12m
+            question_text: "In the last 12 months, did you experience an event that might be covered by your insurance?"
+            survey_section: claims_experience
+            response_type: binary
+          - question_ref: q_claim_submitted
+            question_text: "[If Yes] Did you submit an insurance claim for that event?"
+            survey_section: claims_experience
+            response_type: binary
+            conditional_on: q_insured_event_12m
+          - question_ref: q_coping_mechanisms
+            question_text: "[If yes to experiencing an insured event] Because of the event, did you have to do any of the following?"
+            survey_section: claims_experience
+            response_type: multi_select_n
+            conditional_on: q_insured_event_12m
+          - question_ref: q_prior_access
+            question_text: "Before VisionFund, did you have access to an insurance like VisionFund provides?"
+            survey_section: access
+            response_type: binary
+          - question_ref: q_alternative_access
+            question_text: "If you could no longer access insurance from VisionFund, how easily could you get a comparable insurance product with another organization?"
+            survey_section: access
+            response_type: single_select
+          - question_ref: q_worth_premium
+            question_text: "Considering the benefits and the cost of your insurance, do you feel the insurance is worth what you pay?"
+            survey_section: client_satisfaction
+            response_type: likert_5
+          - question_ref: q_confidence_pay
+            question_text: "How confident are you that the insurance will pay when something serious happens?"
+            survey_section: client_satisfaction
+            response_type: likert_5
+          - question_ref: q_nps_score
+            question_text: "On a scale of 0-10, how likely are you to recommend the VisionFund Insurance to a friend or family member, where 0 is not at all likely and 10 is extremely likely?"
+            survey_section: client_satisfaction
+            response_type: numeric_open
+          - question_ref: q_child_wellbeing
+            question_text: "Since taking the insurance product from VisionFund, has the wellbeing of the children you support improved?"
+            survey_section: child_financial_wellbeing
+            response_type: single_select
+          - question_ref: q_financial_stress
+            question_text: "How much does the insurance help reduce your financial stress?"
+            survey_section: child_financial_wellbeing
+            response_type: likert_5
+          - question_ref: q_healthcare_access
+            question_text: "Since having the insurance, were you or any member of your household able to seek medical care more easily?"
+            survey_section: health_insurance
+            response_type: single_select
+        metrics:
+          # Row 1 — Understands coverage well
+          - method: gap_analysis
+            variables:
+              - q_coverage_understanding
+            against: q_sex
+            label: "top_two_box(Very good + Good) | Coverage understanding: female vs male gap + significance"
+          # Row 2 — Understands the claim process
+          - method: gap_analysis
+            variables:
+              - q_claim_process_understanding
+            against: q_sex
+            label: "top_two_box(Very good + Good) | Claim process understanding: female vs male gap + significance"
+          # Row 3 — Experienced an insured event
+          - method: gap_analysis
+            variables:
+              - q_insured_event_12m
+            against: q_sex
+            label: "share(Yes) | Experienced insured event in last 12 months: female vs male gap + significance"
+          # Row 4 — Filed a claim (of those affected)
+          - method: gap_analysis
+            variables:
+              - q_claim_submitted
+            against: q_sex
+            label: "share(Yes) | Filed claim among those who experienced an event: female vs male gap + significance"
+          # Row 5 — Used a negative coping mechanism (DERIVED variable)
+          - method: gap_analysis
+            variables:
+              - q_coping_mechanisms
+            against: q_sex
+            label: "share(DERIVED: any of options c/d/e/f selected) | Negative coping mechanism used: female vs male gap + significance — pipeline must pre-compute composite flag"
+          # Row 6 — No prior insurance access
+          - method: gap_analysis
+            variables:
+              - q_prior_access
+            against: q_sex
+            label: "share(No = VisionFund is first insurer) | No prior insurance access: female vs male gap + significance"
+          # Row 7 — Finds an alternative difficult
+          - method: gap_analysis
+            variables:
+              - q_alternative_access
+            against: q_sex
+            label: "top_two_box(Very difficult + Slightly difficult) | Finds alternative difficult: female vs male gap + significance"
+          # Row 8 — Finds insurance worth the premium
+          - method: gap_analysis
+            variables:
+              - q_worth_premium
+            against: q_sex
+            label: "top_two_box(Definitely + Somewhat worth it) | Worth the premium: female vs male gap + significance"
+          # Row 9 — Confident insurer will pay
+          - method: gap_analysis
+            variables:
+              - q_confidence_pay
+            against: q_sex
+            label: "top_two_box(Very + Somewhat confident) | Confident insurer will pay: female vs male gap + significance"
+          # Row 10 — Promoter (NPS)
+          - method: gap_analysis
+            variables:
+              - q_nps_score
+            against: q_sex
+            label: "share(DERIVED: score >= 9 = promoter) | NPS promoter: female vs male gap + significance"
+          # Row 11 — Improved child wellbeing
+          - method: gap_analysis
+            variables:
+              - q_child_wellbeing
+            against: q_sex
+            label: "share(Yes; exclude Do not support any children from denominator) | Improved child wellbeing: female vs male gap + significance"
+          # Row 12 — Reduced financial stress
+          - method: gap_analysis
+            variables:
+              - q_financial_stress
+            against: q_sex
+            label: "top_two_box(Significantly + Somewhat reduced) | Reduced financial stress: female vs male gap + significance"
+          # Row 13 — Improved healthcare access
+          - method: gap_analysis
+            variables:
+              - q_healthcare_access
+            against: q_sex
+            label: "share(Yes) | Improved healthcare access: female vs male gap + significance"
+        disaggregation:
+          - segment: female
+            priority: required
+          - segment: male
+            priority: required
+          - segment: claimant
+            priority: nice_to_have
+          - segment: caregivers
+            priority: nice_to_have
+          - segment: first_time_access
+            priority: nice_to_have
+        visual: null
+        qualitative: null
+        outputs:
+          - scorecard_table
+          - analysis_prose
+        notes: >
+          DERIVED INPUTS — three rows require pre-computation before gap_analysis:
+          (1) Row 5 negative coping flag: respondent selected any of option c
+          "Sell assets or livestock", d "Reduce food consumption or essential
+          spending", e "Take your children out of school", or f "Closed business
+          temporarily" from q_coping_mechanisms. (2) Row 10 NPS promoter flag:
+          q_nps_score >= 9. (3) Row 11 denominator: exclude respondents who
+          answered "Do not support any children" on q_child_wellbeing.
+          Row 6 treats q_prior_access = "No" as the positive indicator (i.e. the
+          client had no insurance before VisionFund = first-time insured).
+          All 13 gap_analysis metrics imply: compute the appropriate share or
+          top-two-box for female and male groups, compute the absolute gap
+          (female % – male %), and run a chi-square or t-test for significance;
+          flag significant gaps in the scorecard_table Gap column.
+          Analysis must tie back to 3.1 (first-time access) and 4.1 (value for
+          money) per template instruction.
+
+      # ── 7.insight ──────────────────────────────────────────────────────────
+      # Bespoke synthesis of Part 7. source_questions is empty; bespoke is
+      # exempt from the if/then source-question requirement. qualitative config
+      # provides verbatim-sourcing guidance: NPS follow-up texts are the primary
+      # open-text source available for gender-disaggregated verbatims. Writer must
+      # select quotes that illustrate the gender equity finding most prominent in
+      # the 7.1 scorecard — at minimum one female and one male voice.
+      # ───────────────────────────────────────────────────────────────────────
+      - subsection_id: "7.insight"
+        title: "Insight – Gender"
+        fill_mode: bespoke
+        word_cap: 120
+        source_questions: []
+        visual: null
+        qualitative:
+          questions:
+            - q_nps_promoter_followup
+            - q_nps_passive_followup
+            - q_nps_detractor_followup
+          verbatims_required: true
+          verbatim_count: 3
+          verbatim_profile_fields:
+            - gender
+            - age
+            - branch
+            - claimant_status
+          theme_method: genai_then_manual
+          client_protection_flag: false
+          subtheme_frequency_unit: count
+        outputs:
+          - insight_prose
+          - verbatim_block
+        notes: >
+          Writer must: (a) name where women significantly outperform or trail men
+          and state the equity implication; (b) tie back to 3.1 (women as majority
+          of first-time insured) and 4.1 (women forming the bulk of 'definitely
+          worth it'); (c) include at least one female and one male verbatim.
+          NPS follow-up texts are the primary verbatim source; filter by q_sex
+          to ensure gender balance. If the most prominent equity finding involves
+          claim process understanding or coping mechanisms, search across all
+          available open-text fields for illustrative quotes on those themes.
