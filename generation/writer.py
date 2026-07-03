@@ -3,6 +3,7 @@
 Phase 3: Seven Gemini 2.5 Pro calls (one per part); house-voice system prompt.
 """
 import json
+import logging
 import os
 import time
 from pathlib import Path
@@ -11,6 +12,8 @@ from google import genai
 from google.genai import types
 
 from utils import word_count, truncate_to_limit
+
+log = logging.getLogger(__name__)
 
 ROOT = Path(__file__).parent.parent
 
@@ -276,7 +279,7 @@ def enforce_word_limits(texts: dict) -> dict:
         if limit and word_count(text) > int(limit * 1.15):
             original = word_count(text)
             text = truncate_to_limit(text, limit)
-            print(f"  [WARN] {key}: truncated {original} → {word_count(text)} words")
+            log.warning(f"{key}: truncated {original} → {word_count(text)} words")
         enforced[key] = text
     return enforced
 
@@ -302,6 +305,14 @@ def write_part(package: dict, part_key: str, client, model: str) -> dict:
 
 def write_all_parts(packages: list, run_id: str, model: str,
                     max_retries: int = 2, retry_delay: int = 30) -> dict:
+    """Write all report parts via Gemini.
+
+    A part that fails every retry does NOT abort the run: it's recorded as
+    failed (marked with a `_generation_failed` sentinel in its texts dict, so
+    the assembler can render a manual-write-up placeholder instead of blank
+    prose) and the remaining parts still get written. Callers can find out
+    which parts need manual follow-up via the `_generation_failed` marker.
+    """
     api_key = os.environ.get("GEMINI_API_KEY")
     if not api_key:
         raise EnvironmentError(
@@ -312,24 +323,31 @@ def write_all_parts(packages: list, run_id: str, model: str,
     client   = genai.Client(api_key=api_key)
     run_dir  = ROOT / "runs" / run_id
     all_texts: dict = {}
+    failed_parts: list[str] = []
 
     for package in packages:
         part_key = package["part"]
-        print(f"  Writing {part_key} — {package['title']}...")
+        log.info(f"Writing {part_key} — {package['title']}...")
 
         raw_result = None
+        last_error: Exception | None = None
         for attempt in range(max_retries + 1):
             try:
                 raw_result = write_part(package, part_key, client, model)
                 break
             except Exception as exc:
+                last_error = exc
                 if attempt < max_retries:
-                    print(f"    Attempt {attempt + 1} failed: {exc}. Retrying in {retry_delay}s...")
-                    time.sleep(retry_delay)
+                    delay = retry_delay * (2 ** attempt)
+                    log.warning(f"{part_key}: attempt {attempt + 1} failed: {exc}. Retrying in {delay}s...")
+                    time.sleep(delay)
                 else:
-                    raise RuntimeError(
-                        f"Gemini call failed for {part_key} after {max_retries + 1} attempts: {exc}"
-                    ) from exc
+                    log.error(f"{part_key}: Gemini call failed after {max_retries + 1} attempts: {exc}")
+
+        if raw_result is None:
+            failed_parts.append(part_key)
+            all_texts[part_key] = {"_generation_failed": True, "_error": str(last_error)}
+            continue
 
         # Save raw response
         raw_path = run_dir / f"writer_raw_{part_key}.json"
@@ -341,6 +359,12 @@ def write_all_parts(packages: list, run_id: str, model: str,
     # Save final collection
     out_path = run_dir / "written_texts.json"
     out_path.write_text(json.dumps(all_texts, ensure_ascii=False, indent=2), encoding="utf-8")
-    print(f"  Written texts saved to {out_path}")
+    log.info(f"Written texts saved to {out_path}")
+
+    if failed_parts:
+        log.error(
+            f"Generation failed for {len(failed_parts)} part(s): {failed_parts} — "
+            "these sections need manual write-up before publishing."
+        )
 
     return all_texts

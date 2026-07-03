@@ -10,6 +10,7 @@ Usage:
 """
 import argparse
 import json
+import logging
 import sys
 from pathlib import Path
 
@@ -18,6 +19,13 @@ import yaml
 from generation.orchestrator import preflight_check, orchestrate
 from generation.writer import write_all_parts
 from generation.assembler import assemble
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(levelname)s | %(message)s",
+    handlers=[logging.StreamHandler(sys.stdout)],
+)
+log = logging.getLogger(__name__)
 
 ROOT = Path(__file__).parent.parent
 
@@ -46,18 +54,18 @@ def main():
     spec_path = ROOT / "generation" / "report_spec.yaml"
     spec      = yaml.safe_load(spec_path.read_text(encoding="utf-8"))
 
-    print(f"\n── Generation Pipeline | run_id={run_id} ─────────────────────────")
+    log.info(f"Generation Pipeline | run_id={run_id}")
 
     # Phase 1: Preflight
-    print("\nPhase 1 — Preflight check...")
+    log.info("Phase 1 — Preflight check...")
     result = preflight_check(run_id)
     if not result["ok"]:
         sys.exit(1)
 
     # Phase 2: Orchestrate
-    print("\nPhase 2 — Extracting data packages...")
+    log.info("Phase 2 — Extracting data packages...")
     packages = orchestrate(run_id, parts_filter)
-    print(f"  Packages built: {[p['part'] for p in packages]}")
+    log.info(f"Packages built: {[p['part'] for p in packages]}")
 
     if args.dry_run:
         out = ROOT / "runs" / run_id / "dry_run_packages.json"
@@ -82,23 +90,32 @@ def main():
         return
 
     # Phase 3: Write (Gemini calls)
-    print(f"\nPhase 3 — Writing report sections (Gemini {spec['model']})...")
+    log.info(f"Phase 3 — Writing report sections (Gemini {spec['model']})...")
     written_texts = write_all_parts(packages, run_id, model=spec["model"])
-    print(f"  All {len(packages)} parts written.")
+    failed_parts = [
+        part_key for part_key, texts in written_texts.items()
+        if isinstance(texts, dict) and texts.get("_generation_failed")
+    ]
+    log.info(f"{len(packages) - len(failed_parts)}/{len(packages)} parts written successfully.")
 
     if args.skip_assembly:
         print("\n[skip-assembly] Exiting before .docx build.")
-        return
+        sys.exit(2 if failed_parts else 0)
 
     # Phase 4: Assemble
-    print("\nPhase 4 — Assembling .docx...")
+    log.info("Phase 4 — Assembling .docx...")
     output_filename = spec.get("output_filename", f"report_{run_id}.docx")
     output_path     = ROOT / "runs" / run_id / output_filename
     assemble(packages, written_texts, run_id, output_path)
 
     print("\n── Report complete ──────────────────────────────────────────────")
     print(f"  Output: {output_path}")
+    if failed_parts:
+        print(f"  WARNING: {len(failed_parts)} part(s) need manual write-up: {', '.join(failed_parts)}")
     print("────────────────────────────────────────────────────────────────\n")
+
+    if failed_parts:
+        sys.exit(2)
 
 
 if __name__ == "__main__":

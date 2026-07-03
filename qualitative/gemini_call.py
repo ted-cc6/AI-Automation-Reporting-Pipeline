@@ -4,12 +4,15 @@ Phase 2: Send payload to Gemini 2.5 Pro, save raw response, return parsed dict.
 Requires GEMINI_API_KEY environment variable.
 """
 import json
+import logging
 import os
 import time
 from pathlib import Path
 
 from google import genai
 from google.genai import types
+
+log = logging.getLogger(__name__)
 
 SYSTEM_PROMPT = """
 You are an expert microinsurance survey analyst for VisionFund International.
@@ -227,9 +230,9 @@ def call_gemini(
 
         except Exception as exc:
             if attempt < max_retries:
-                print(f"  Attempt {attempt + 1} failed: {exc}. "
-                      f"Retrying in {retry_delay_seconds}s...")
-                time.sleep(retry_delay_seconds)
+                delay = retry_delay_seconds * (2 ** attempt)
+                log.warning(f"Attempt {attempt + 1} failed: {exc}. Retrying in {delay}s...")
+                time.sleep(delay)
             else:
                 raise RuntimeError(
                     f"Gemini call failed after {max_retries + 1} attempts: {exc}"
@@ -238,7 +241,7 @@ def call_gemini(
     # Save raw response before parsing (allows re-parse without re-calling)
     raw_response_path.parent.mkdir(parents=True, exist_ok=True)
     raw_response_path.write_text(result_text, encoding="utf-8")
-    print(f"  Raw response saved to {raw_response_path}")
+    log.info(f"Raw response saved to {raw_response_path}")
 
     try:
         return json.loads(result_text)

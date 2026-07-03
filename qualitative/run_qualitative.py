@@ -15,6 +15,7 @@ Options:
 """
 import argparse
 import json
+import logging
 import sys
 from pathlib import Path
 
@@ -23,6 +24,13 @@ import pandas as pd
 from qualitative.prepare_payload import load_config, build_payload, print_payload_stats
 from qualitative.gemini_call import call_gemini
 from qualitative.parse_results import parse_and_save
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(levelname)s | %(message)s",
+    handlers=[logging.StreamHandler(sys.stdout)],
+)
+log = logging.getLogger(__name__)
 
 ROOT = Path(__file__).parent.parent
 PARQUET_PATH = ROOT / "data" / "survey_clean.parquet"
@@ -41,24 +49,24 @@ def main():
     run_id = args.run_id
     raw_response_path = ROOT / "runs" / run_id / "gemini_raw_response.json"
 
-    print(f"\n── Qualitative Pipeline | run_id={run_id} ──────────────────────")
+    log.info(f"Qualitative Pipeline | run_id={run_id}")
 
     # Load data
-    print("Loading survey data...")
+    log.info("Loading survey data...")
     df = pd.read_parquet(PARQUET_PATH)
     config = load_config()
 
     if args.parse_only:
         # Re-parse existing raw response
         if not raw_response_path.exists():
-            print(f"ERROR: {raw_response_path} not found. Run without --parse-only first.")
+            log.error(f"{raw_response_path} not found. Run without --parse-only first.")
             sys.exit(1)
-        print(f"Loading raw response from {raw_response_path}...")
+        log.info(f"Loading raw response from {raw_response_path}...")
         raw_gemini = json.loads(raw_response_path.read_text(encoding="utf-8"))
 
     else:
         # Phase 1 — Build payload
-        print("\nPhase 1 — Building payload...")
+        log.info("Phase 1 — Building payload...")
         payload = build_payload(df, config)
         print_payload_stats(payload)
 
@@ -67,16 +75,16 @@ def main():
             return
 
         # Phase 2 — Call Gemini
-        print(f"\nPhase 2 — Calling {config['model']}...")
+        log.info(f"Phase 2 — Calling {config['model']}...")
         raw_gemini = call_gemini(
             payload=payload,
             raw_response_path=raw_response_path,
             model=config["model"],
         )
-        print("  Gemini call complete.")
+        log.info("Gemini call complete.")
 
     # Phase 3 — Parse and save
-    print("\nPhase 3 — Parsing and enriching results...")
+    log.info("Phase 3 — Parsing and enriching results...")
     result = parse_and_save(
         raw_gemini=raw_gemini,
         df=df,

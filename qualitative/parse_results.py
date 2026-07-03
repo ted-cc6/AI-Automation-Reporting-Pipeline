@@ -4,11 +4,14 @@ Phase 3: Validate Gemini output, count themes in Python, enrich verbatims
 with profile from parquet, write qualitative_results.json.
 """
 import json
+import logging
 from collections import Counter
 from datetime import datetime, timezone
 from pathlib import Path
 
 import pandas as pd
+
+log = logging.getLogger(__name__)
 
 
 REQUIRED_TOP_KEYS = {
@@ -197,6 +200,6 @@ def parse_and_save(
         json.dumps(result, ensure_ascii=False, indent=2),
         encoding="utf-8"
     )
-    print(f"  qualitative_results.json written to {out_path}")
+    log.info(f"qualitative_results.json written to {out_path}")
 
     return result

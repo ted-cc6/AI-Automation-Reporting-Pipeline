@@ -2,12 +2,15 @@
 
 Phase 4: Build the final .docx using python-docx. No Gemini calls here.
 """
+import logging
 from datetime import datetime
 from pathlib import Path
 
 from docx import Document
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 from docx.shared import Inches, Pt
+
+log = logging.getLogger(__name__)
 
 ROOT = Path(__file__).parent.parent
 
@@ -96,6 +99,16 @@ def _add_image_or_placeholder(doc, visual_info: dict):
         )
         if p.runs:
             p.runs[0].italic = True
+
+
+def _add_generation_failure_notice(doc, error: str):
+    p = doc.add_paragraph(
+        f"[NARRATIVE GENERATION FAILED — Gemini call did not succeed after retries "
+        f"({error}). This section requires manual write-up before publishing.]"
+    )
+    if p.runs:
+        p.runs[0].italic = True
+        p.runs[0].bold = True
 
 
 def _add_table(doc, headers: list, rows: list) -> object:
@@ -377,9 +390,12 @@ def assemble(packages: list, written_texts: dict, run_id: str, output_path: Path
         builder  = builders.get(part_key)
         if builder:
             builder(doc, package, texts)
+            if texts.get("_generation_failed"):
+                log.warning(f"{part_key}: inserting manual-write-up placeholder (generation failed)")
+                _add_generation_failure_notice(doc, texts.get("_error", "unknown error"))
             doc.add_page_break()
         else:
-            print(f"  [WARN] No builder for {part_key} — skipping")
+            log.warning(f"No builder for {part_key} — skipping")
 
     doc.save(str(output_path))
-    print(f"  Report saved: {output_path}")
+    log.info(f"Report saved: {output_path}")

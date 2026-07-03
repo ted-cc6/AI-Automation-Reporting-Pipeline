@@ -3,11 +3,14 @@
 Phase 2: Extract and package all data for each of 7 report parts.
 """
 import json
+import logging
 from pathlib import Path
 
 import yaml
 
 from utils import get_nested, format_value
+
+log = logging.getLogger(__name__)
 
 ROOT = Path(__file__).parent.parent
 SPEC_PATH = ROOT / "generation" / "report_spec.yaml"
@@ -48,9 +51,9 @@ def preflight_check(run_id: str) -> dict:
 
     ok = len(errors) == 0
     for e in errors:
-        print(f"[ERROR] {e}")
+        log.error(e)
     for w in warnings:
-        print(f"[WARN] {w}")
+        log.warning(w)
     return {"ok": ok, "errors": errors, "warnings": warnings}
 
 
