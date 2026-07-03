@@ -6,7 +6,7 @@ All functions are pure — no I/O, no side effects.
 from __future__ import annotations
 
 from .errors import Category, Finding, Severity
-from .models import FillMode, MetricMethod, OutputType, ReportSpec, Subsection
+from .models import FillMode, MetricMethod, OutputType, ReportSpec
 
 # Variable references in these methods require the 'against' field (R6)
 _AGAINST_REQUIRED = {MetricMethod.correlation, MetricMethod.significance_test, MetricMethod.gap_analysis}

@@ -19,15 +19,13 @@ import numpy as np
 import pandas as pd
 import yaml
 
-PROJECT_ROOT = Path(__file__).parent
-sys.path.insert(0, str(PROJECT_ROOT))
-
 from data_loader.data_loader_api import load_survey_data
 from analysis_engine.country_config import load_country_config, DEFAULT_COUNTRY
 from analysis_engine.segments import describe_segments, get_all_segment_masks
 from analysis_engine.sections import part_1, part_2, part_3, part_4, part_5, part_6, part_7, part_8
 from analysis_engine.stats import LOW_N_THRESHOLD
 
+PROJECT_ROOT = Path(__file__).parent
 log = logging.getLogger("run_analysis")
 
 SCHEMA_VERSION = "1.5"   # was "1.4" — inverted Likert scale corrected:

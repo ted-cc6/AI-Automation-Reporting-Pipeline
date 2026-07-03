@@ -2,7 +2,7 @@
 import logging
 
 from analysis_engine.stats import (
-    top_two_box, bottom_two_box, share_true, share_selecting, disaggregate, significance_test,
+    bottom_two_box, share_true, share_selecting, disaggregate, significance_test,
 )
 
 log = logging.getLogger("analysis_engine.sections.part_7")

@@ -211,7 +211,7 @@ def derive_ms_list(out: pd.DataFrame, children_by_parent: dict[str, list[tuple[s
         labels_map = option_labels.get(parent_ref, {})
         children_sorted = sorted(children, key=lambda x: x[0])
         child_col_names = [c for _, c in children_sorted]
-        letters = [l for l, _ in children_sorted]
+        letters = [letter for letter, _ in children_sorted]
 
         def make_list_for_row(row: pd.Series) -> list[str]:
             result = []

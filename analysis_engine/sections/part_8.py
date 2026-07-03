@@ -4,7 +4,6 @@ import logging
 import pandas as pd
 
 from analysis_engine.stats import (
-    top_two_box,
     bottom_two_box,
     share_selecting,
     nps_score,

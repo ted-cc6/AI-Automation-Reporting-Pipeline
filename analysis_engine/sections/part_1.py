@@ -1,7 +1,7 @@
 """analysis_engine/sections/part_1.py — Part 1: Client Understanding & Value Perception."""
 import logging
 
-from analysis_engine.stats import top_two_box, bottom_two_box, disaggregate
+from analysis_engine.stats import bottom_two_box, disaggregate
 
 log = logging.getLogger("analysis_engine.sections.part_1")
 

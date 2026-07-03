@@ -15,12 +15,11 @@ from pathlib import Path
 
 import yaml
 
-ROOT = Path(__file__).parent.parent
-sys.path.insert(0, str(ROOT))
-
 from generation.orchestrator import preflight_check, orchestrate
 from generation.writer import write_all_parts
 from generation.assembler import assemble
+
+ROOT = Path(__file__).parent.parent
 
 
 def parse_args():
@@ -97,7 +96,7 @@ def main():
     output_path     = ROOT / "runs" / run_id / output_filename
     assemble(packages, written_texts, run_id, output_path)
 
-    print(f"\n── Report complete ──────────────────────────────────────────────")
+    print("\n── Report complete ──────────────────────────────────────────────")
     print(f"  Output: {output_path}")
     print("────────────────────────────────────────────────────────────────\n")
 

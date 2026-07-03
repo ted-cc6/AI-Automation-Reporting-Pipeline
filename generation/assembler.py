@@ -2,7 +2,6 @@
 
 Phase 4: Build the final .docx using python-docx. No Gemini calls here.
 """
-import sys
 from datetime import datetime
 from pathlib import Path
 
@@ -11,9 +10,7 @@ from docx.enum.text import WD_ALIGN_PARAGRAPH
 from docx.shared import Inches, Pt
 
 ROOT = Path(__file__).parent.parent
-sys.path.insert(0, str(ROOT))
 
-from utils import format_value
 
 
 # ---------------------------------------------------------------------------
@@ -316,7 +313,6 @@ def build_part_6(doc, package: dict, texts: dict):
     if visuals:
         _add_image_or_placeholder(doc, visuals[0])
 
-    narr = sections.get("narrative", {})
     _add_heading(doc, "Findings", level=2)
     _add_paragraph(doc, texts.get("narrative", ""))
 

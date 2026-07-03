@@ -634,7 +634,7 @@ def main():
     chart_part5_healthcare(data, out_dir)
     chart_part6_scorecard(data, out_dir)
     chart_part7_scorecard(data, out_dir)
-    print(f'\n  Done. Now run:')
+    print('\n  Done. Now run:')
     print(f'  python generation/run_generation.py --run-id {args.run_id}')
 
 

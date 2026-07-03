@@ -3,16 +3,13 @@
 Phase 2: Extract and package all data for each of 7 report parts.
 """
 import json
-import sys
 from pathlib import Path
 
 import yaml
 
-ROOT = Path(__file__).parent.parent
-sys.path.insert(0, str(ROOT))
-
 from utils import get_nested, format_value
 
+ROOT = Path(__file__).parent.parent
 SPEC_PATH = ROOT / "generation" / "report_spec.yaml"
 
 _DRIVER_LABELS = {

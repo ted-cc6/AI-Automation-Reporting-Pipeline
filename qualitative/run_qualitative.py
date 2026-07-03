@@ -20,13 +20,11 @@ from pathlib import Path
 
 import pandas as pd
 
-ROOT = Path(__file__).parent.parent
-sys.path.insert(0, str(ROOT))
-
 from qualitative.prepare_payload import load_config, build_payload, print_payload_stats
 from qualitative.gemini_call import call_gemini
 from qualitative.parse_results import parse_and_save
 
+ROOT = Path(__file__).parent.parent
 PARQUET_PATH = ROOT / "data" / "survey_clean.parquet"
 
 

@@ -4,12 +4,10 @@ Compares analysis engine output against Vietnam Power BI dashboard values.
 Run from the project root: python dashboard_alignment/check_alignment.py
 """
 import json
-import sys
 from pathlib import Path
 
 import yaml
 
-sys.path.insert(0, str(Path(__file__).parent.parent))
 from data_loader.data_loader_api import load_survey_data
 
 RUN_ID       = "2026_Q2"

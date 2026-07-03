@@ -4,17 +4,15 @@ Phase 3: Seven Gemini 2.5 Pro calls (one per part); house-voice system prompt.
 """
 import json
 import os
-import sys
 import time
 from pathlib import Path
 
 from google import genai
 from google.genai import types
 
-ROOT = Path(__file__).parent.parent
-sys.path.insert(0, str(ROOT))
-
 from utils import word_count, truncate_to_limit
+
+ROOT = Path(__file__).parent.parent
 
 HOUSE_VOICE = """
 You are writing the VisionFund International Insurance Impact Report — Vietnam 2026 Q2.
@@ -220,7 +218,7 @@ def _build_part_prompt(package: dict, part_key: str) -> str:
     schema   = _OUTPUT_SCHEMAS.get(part_key, {})
 
     lines = [
-        f"REPORT: VisionFund International Insurance Impact Report — Vietnam 2026 Q2",
+        "REPORT: VisionFund International Insurance Impact Report — Vietnam 2026 Q2",
         f"PART {part_num}: {title}",
         "",
     ]
