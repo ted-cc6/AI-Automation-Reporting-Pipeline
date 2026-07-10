@@ -1,27 +1,44 @@
 """generation/writer.py
 
-Phase 3: Seven Gemini 2.5 Pro calls (one per part); house-voice system prompt.
+Phase 3: Seven LLM calls (one per part); house-voice system prompt. Provider/
+api_key are passed in explicitly by the caller (the dashboard backend threads
+these through from the user's browser session; the CLI entrypoint in
+run_generation.py falls back to GEMINI_API_KEY for standalone use).
 """
 import json
 import logging
-import os
 import time
 from pathlib import Path
 
-from google import genai
-from google.genai import types
-
-from utils import word_count, truncate_to_limit
+from llm_providers import call_llm
+from utils import word_count, truncate_to_limit, format_period_label
 
 log = logging.getLogger(__name__)
 
 ROOT = Path(__file__).parent.parent
 
-HOUSE_VOICE = """
-You are writing the VisionFund International Insurance Impact Report — Vietnam 2026 Q2.
+
+def _report_title(run_id: str) -> str:
+    return f"VisionFund International Insurance Impact Report — Global Portfolio, {format_period_label(run_id)}"
+
+
+def _house_voice(report_title: str) -> str:
+    return f"""
+You are writing the {report_title}.
 
 AUDIENCE: Senior MFI leaders, impact investors, and programme managers.
 Assume they understand financial inclusion concepts but not statistical methods.
+
+SCOPE: This report covers VisionFund's insurance client portfolio across MULTIPLE
+countries in one combined analysis — it is not a single-country report. Some
+metrics only apply to a subset of clients (for example, a product that is only
+sold in one country, or a question that was only asked to certain product
+types). Whenever a metric's data package states a "population" for it, use that
+population description in your sentence (e.g. "among health and credit-life
+clients" or "among Vietnam's crop-insurance clients") instead of implying the
+figure describes all surveyed clients. Never present two metrics as a
+before/after or "however" contrast unless they describe the same population —
+check each metric's stated population before connecting it to another.
 
 VOICE RULES:
 - Professional, empathetic, evidence-based
@@ -45,22 +62,22 @@ No markdown code fences, no explanation text outside the JSON.
 
 # Word limits per text block key
 WORD_LIMITS = {
-    "s1_1": 90, "s1_2": 90, "s1_3": 80,
+    "s1_1": 90, "s1_2": 90, "s1_2b": 70, "s1_3": 80,
     "s2_1": 100, "s2_2": 70, "s2_3": 80, "s2_4": 100,
-    "s3_1": 80, "s3_2": 70,
+    "s3_0": 70, "s3_1": 80, "s3_2": 70,
     "s4_1": 90, "s4_2": 90, "s4_3": 80,
-    "s5_1": 90, "s5_2": 80,
+    "s5_1": 90, "s5_2": 80, "s5_3": 80,
     "narrative": 100,
     "insight": 120,
 }
 
 # Expected output keys per part
 _OUTPUT_SCHEMAS = {
-    "part_1": {"s1_1": 90, "s1_2": 90, "s1_3": 80, "insight": 120},
+    "part_1": {"s1_1": 90, "s1_2": 90, "s1_2b": 70, "s1_3": 80, "insight": 120},
     "part_2": {"s2_1": 100, "s2_2": 70, "s2_3": 80, "s2_4": 100, "insight": 120},
-    "part_3": {"s3_1": 80, "s3_2": 70, "insight": 120},
+    "part_3": {"s3_0": 70, "s3_1": 80, "s3_2": 70, "insight": 120},
     "part_4": {"s4_1": 90, "s4_2": 90, "s4_3": 80, "insight": 120},
-    "part_5": {"s5_1": 90, "s5_2": 80, "insight": 120},
+    "part_5": {"s5_1": 90, "s5_2": 80, "s5_3": 80, "insight": 120},
     "part_6": {"narrative": 100, "insight": 120},
     "part_7": {"narrative": 100, "insight": 120},
 }
@@ -76,8 +93,12 @@ def _fmt_profile(profile: dict) -> str:
         parts.append(profile["sex"])
     if profile.get("age"):
         parts.append(f"age {profile['age']}")
-    if profile.get("branch"):
+    if profile.get("branch") and profile.get("country"):
+        parts.append(f"{profile['branch']}, {profile['country']}")
+    elif profile.get("branch"):
         parts.append(profile["branch"])
+    elif profile.get("country"):
+        parts.append(profile["country"])
     flags = []
     if profile.get("is_claimant"):
         flags.append("claimant")
@@ -161,12 +182,18 @@ def _build_sections_text(package: dict) -> str:
         lines.append(f"\nSECTION {s_key} — {label} (word_limit: {wl} words)")
 
         # Metrics
-        for m_key, m_val in s_data.get("metrics", {}).items():
-            if m_key.endswith("_n"):
-                base = m_key[:-2]
-                lines.append(f"  {base}: {s_data['metrics'].get(base, '?')}  (n={m_val})")
-            elif m_key + "_n" not in s_data.get("metrics", {}):
-                lines.append(f"  {m_key}: {m_val}")
+        metrics = s_data.get("metrics", {})
+        for m_key, m_val in metrics.items():
+            if m_key.endswith("_n") or m_key.endswith("_population"):
+                continue
+            line = f"  {m_key}: {m_val}"
+            n_val = metrics.get(m_key + "_n")
+            if n_val is not None:
+                line += f"  (n={n_val})"
+            pop_val = metrics.get(m_key + "_population")
+            if pop_val:
+                line += f"  [population: {pop_val}]"
+            lines.append(line)
 
         # Distributions
         for dist_label, dist_items in s_data.get("distributions", {}).items():
@@ -192,6 +219,8 @@ def _build_sections_text(package: dict) -> str:
                     p   = f"{d['p_value']:.4f}" if d["p_value"] is not None else "?"
                     n   = d["n_valid"] or "?"
                     lines.append(f"    {d['label']}: rho={rho}, p={p}, n={n}")
+                if d.get("population"):
+                    lines.append(f"      [population: {d['population']}]")
 
         # Note
         note = s_data.get("note", "")
@@ -212,16 +241,18 @@ def _build_scorecard_text(scorecard: list, group_a: str, group_b: str) -> str:
         lines.append(
             f"  {row['label']:<40} {row['group_a_value']:<18} {row['group_b_value']:<18} {sig_mark} {p_note}"
         )
+        if row.get("population"):
+            lines.append(f"    [population: {row['population']}]")
     return "\n".join(lines)
 
 
-def _build_part_prompt(package: dict, part_key: str) -> str:
+def _build_part_prompt(package: dict, part_key: str, report_title: str) -> str:
     part_num = part_key.replace("part_", "")
     title    = package["title"]
     schema   = _OUTPUT_SCHEMAS.get(part_key, {})
 
     lines = [
-        "REPORT: VisionFund International Insurance Impact Report — Vietnam 2026 Q2",
+        f"REPORT: {report_title}",
         f"PART {part_num}: {title}",
         "",
     ]
@@ -253,6 +284,12 @@ def _build_part_prompt(package: dict, part_key: str) -> str:
 
     else:
         lines.append(_build_sections_text(package))
+        # Part 5's caregiver vs non-caregiver comparison (the only non-6/7 part
+        # with a scorecard) -- appended after the generic sections text so the
+        # LLM sees both the drivers/healthcare content and this table.
+        if package.get("scorecard"):
+            lines.append("\nSCORECARD TABLE (Caregiver vs Non-Caregiver):")
+            lines.append(_build_scorecard_text(package["scorecard"], "Caregiver", "Non-Caregiver"))
 
     # Required output schema
     lines.append("\n\nREQUIRED OUTPUT JSON:")
@@ -288,40 +325,50 @@ def enforce_word_limits(texts: dict) -> dict:
 # API calls
 # ---------------------------------------------------------------------------
 
-def write_part(package: dict, part_key: str, client, model: str) -> dict:
-    user_message = _build_part_prompt(package, part_key)
-    response = client.models.generate_content(
+def write_part(package: dict, part_key: str, provider: str, api_key: str, model: str | None,
+              report_title: str) -> dict:
+    user_message = _build_part_prompt(package, part_key, report_title)
+    result_text = call_llm(
+        provider=provider,
+        api_key=api_key,
+        system_prompt=_house_voice(report_title),
+        user_content=user_message,
+        max_output_tokens=8192,
+        temperature=0.3,
         model=model,
-        contents=user_message,
-        config=types.GenerateContentConfig(
-            system_instruction=HOUSE_VOICE,
-            response_mime_type="application/json",
-            max_output_tokens=8192,
-            temperature=0.3,
-        ),
     )
-    return json.loads(response.text)
+    return json.loads(result_text)
 
 
-def write_all_parts(packages: list, run_id: str, model: str,
-                    max_retries: int = 2, retry_delay: int = 30) -> dict:
-    """Write all report parts via Gemini.
+def write_all_parts(packages: list, run_id: str, model: str | None,
+                    max_retries: int = 2, retry_delay: int = 30,
+                    provider: str = "gemini", api_key: str | None = None,
+                    progress_cb=None) -> dict:
+    """Write all report parts via the chosen LLM provider.
 
     A part that fails every retry does NOT abort the run: it's recorded as
     failed (marked with a `_generation_failed` sentinel in its texts dict, so
     the assembler can render a manual-write-up placeholder instead of blank
     prose) and the remaining parts still get written. Callers can find out
     which parts need manual follow-up via the `_generation_failed` marker.
-    """
-    api_key = os.environ.get("GEMINI_API_KEY")
-    if not api_key:
-        raise EnvironmentError(
-            "GEMINI_API_KEY environment variable is not set. "
-            "Set it before running: $env:GEMINI_API_KEY = 'your_key_here'"
-        )
 
-    client   = genai.Client(api_key=api_key)
+    progress_cb(part_key: str, status: dict), if given, is invoked once per
+    part immediately after it either succeeds or exhausts its retries -- this
+    is the hook the dashboard uses to stream per-part progress over SSE.
+    """
+    if api_key is None:
+        if provider == "gemini":
+            import os
+            api_key = os.environ.get("GEMINI_API_KEY")
+        if not api_key:
+            raise EnvironmentError(
+                "No API key provided for provider "
+                f"{provider!r}. Pass api_key=..., or for Gemini set "
+                "$env:GEMINI_API_KEY = 'your_key_here'"
+            )
+
     run_dir  = ROOT / "runs" / run_id
+    report_title = _report_title(run_id)
     all_texts: dict = {}
     failed_parts: list[str] = []
 
@@ -333,7 +380,7 @@ def write_all_parts(packages: list, run_id: str, model: str,
         last_error: Exception | None = None
         for attempt in range(max_retries + 1):
             try:
-                raw_result = write_part(package, part_key, client, model)
+                raw_result = write_part(package, part_key, provider, api_key, model, report_title)
                 break
             except Exception as exc:
                 last_error = exc
@@ -342,11 +389,13 @@ def write_all_parts(packages: list, run_id: str, model: str,
                     log.warning(f"{part_key}: attempt {attempt + 1} failed: {exc}. Retrying in {delay}s...")
                     time.sleep(delay)
                 else:
-                    log.error(f"{part_key}: Gemini call failed after {max_retries + 1} attempts: {exc}")
+                    log.error(f"{part_key}: {provider} call failed after {max_retries + 1} attempts: {exc}")
 
         if raw_result is None:
             failed_parts.append(part_key)
             all_texts[part_key] = {"_generation_failed": True, "_error": str(last_error)}
+            if progress_cb:
+                progress_cb(part_key, {"status": "failed", "error": str(last_error)})
             continue
 
         # Save raw response
@@ -355,6 +404,8 @@ def write_all_parts(packages: list, run_id: str, model: str,
 
         enforced = enforce_word_limits(raw_result)
         all_texts[part_key] = enforced
+        if progress_cb:
+            progress_cb(part_key, {"status": "succeeded"})
 
     # Save final collection
     out_path = run_dir / "written_texts.json"

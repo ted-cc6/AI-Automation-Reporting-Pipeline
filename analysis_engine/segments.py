@@ -88,6 +88,13 @@ SEGMENT_REGISTRY: dict[str, dict] = {
         "available": True,
         "mask_fn": lambda df: df[COL_CHILD_WELLBEING_DENOM] == True,  # noqa: E712
     },
+    "non_caregiver": {
+        "label": "Non-Caregiver",
+        "description": "Does not support children (answered 'Do not support any children', or left the child wellbeing question blank)",
+        "required_columns": [COL_CHILD_WELLBEING_DENOM],
+        "available": True,
+        "mask_fn": lambda df: df[COL_CHILD_WELLBEING_DENOM] == False,  # noqa: E712
+    },
     "pwd": {
         "label": "PWD",
         "description": "Person with disability in household",

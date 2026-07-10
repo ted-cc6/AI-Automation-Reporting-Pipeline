@@ -1,23 +1,26 @@
 """qualitative/gemini_call.py
 
-Phase 2: Send payload to Gemini 2.5 Pro, save raw response, return parsed dict.
-Requires GEMINI_API_KEY environment variable.
+Phase 2: Send payload to an LLM provider, save raw response, return parsed dict.
+Provider/api_key are passed in explicitly by the caller (the dashboard backend
+threads these through from the user's browser session; the CLI entrypoint in
+run_qualitative.py falls back to GEMINI_API_KEY for standalone use).
 """
 import json
 import logging
-import os
 import time
 from pathlib import Path
 
-from google import genai
-from google.genai import types
+from llm_providers import call_llm
 
 log = logging.getLogger(__name__)
 
 SYSTEM_PROMPT = """
 You are an expert microinsurance survey analyst for VisionFund International.
 You are analyzing open-ended survey responses from the VisionFund Insurance
-Impact Survey (Vietnam, 2026 Q2). All responses are already in English.
+Impact Survey, 2026 Q2. This survey spans multiple country programmes (mostly
+in Africa, plus a Vietnam crop-insurance programme and a small Latin America
+sample) analyzed together as one combined client portfolio — it is not a
+single-country survey. All responses are already in English.
 
 ## INPUT FORMAT
 
@@ -184,48 +187,54 @@ Return ONLY valid JSON. No markdown, no explanation, no extra keys.
 def call_gemini(
     payload: dict,
     raw_response_path: Path,
-    model: str = "gemini-2.5-pro",
+    model: str | None = "gemini-2.5-pro",
     max_retries: int = 2,
     retry_delay_seconds: int = 30,
+    provider: str = "gemini",
+    api_key: str | None = None,
 ) -> dict:
     """
-    Send the qualitative analysis payload to Gemini.
+    Send the qualitative analysis payload to an LLM provider.
     Saves raw response JSON to raw_response_path before returning.
 
     Args:
         payload:            Dict built by prepare_payload.build_payload()
-        raw_response_path:  Path to save the raw Gemini response (for debugging)
-        model:              Gemini model name
+        raw_response_path:  Path to save the raw response (for debugging)
+        model:              Model name (defaults per-provider if not given)
         max_retries:        Number of retry attempts on API error
         retry_delay_seconds: Seconds to wait between retries
+        provider:           "gemini" | "anthropic" | "openai"
+        api_key:            API key for the chosen provider. Falls back to the
+                             GEMINI_API_KEY env var when provider="gemini" and
+                             no key is passed, for standalone CLI use.
 
     Returns:
-        Parsed dict from Gemini response text
+        Parsed dict from the provider's response text
     """
-    api_key = os.environ.get("GEMINI_API_KEY")
-    if not api_key:
-        raise EnvironmentError(
-            "GEMINI_API_KEY environment variable is not set. "
-            "Set it before running: $env:GEMINI_API_KEY = 'your_key_here'"
-        )
-
-    client = genai.Client(api_key=api_key)
+    if api_key is None:
+        if provider == "gemini":
+            import os
+            api_key = os.environ.get("GEMINI_API_KEY")
+        if not api_key:
+            raise EnvironmentError(
+                "No API key provided for provider "
+                f"{provider!r}. Pass api_key=..., or for Gemini set "
+                "$env:GEMINI_API_KEY = 'your_key_here'"
+            )
 
     user_message = json.dumps(payload, ensure_ascii=False)
 
     for attempt in range(max_retries + 1):
         try:
-            response = client.models.generate_content(
+            result_text = call_llm(
+                provider=provider,
+                api_key=api_key,
+                system_prompt=SYSTEM_PROMPT,
+                user_content=user_message,
+                max_output_tokens=65536,
+                temperature=0.2,
                 model=model,
-                contents=user_message,
-                config=types.GenerateContentConfig(
-                    system_instruction=SYSTEM_PROMPT,
-                    response_mime_type="application/json",
-                    max_output_tokens=65536,
-                    temperature=0.2,
-                ),
             )
-            result_text = response.text
             break
 
         except Exception as exc:

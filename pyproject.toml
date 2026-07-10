@@ -23,6 +23,13 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = ["pytest>=8.0", "rich>=13.0", "ruff>=0.6"]
+dashboard = [
+    "fastapi>=0.110",
+    "uvicorn[standard]>=0.29",
+    "python-multipart>=0.0.9",   # required by FastAPI for UploadFile/Form
+    "anthropic>=0.40",
+    "openai>=1.50",
+]
 
 [project.scripts]
 vf-load-data = "run_pipeline:main"
@@ -30,8 +37,8 @@ vf-analyze   = "run_analysis:main"
 vf-generate  = "generation.run_generation:main"
 
 [tool.setuptools]
-py-modules = ["run_pipeline", "run_analysis", "utils", "coverage_report", "inspect_spec", "generate_visuals"]
-packages = ["analysis_engine", "analysis_engine.sections", "data_loader", "generation", "qualitative", "report_spec", "dashboard_alignment"]
+py-modules = ["run_pipeline", "run_analysis", "utils", "coverage_report", "inspect_spec", "generate_visuals", "llm_providers"]
+packages = ["analysis_engine", "analysis_engine.sections", "data_loader", "generation", "qualitative", "report_spec", "dashboard_alignment", "dashboard", "dashboard.api", "dashboard.api.routes"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

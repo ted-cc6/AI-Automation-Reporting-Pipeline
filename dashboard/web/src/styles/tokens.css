@@ -1,0 +1,104 @@
+@import "@fontsource/source-serif-4/600.css";
+@import "@fontsource/source-serif-4/700.css";
+@import "@fontsource/ibm-plex-sans/400.css";
+@import "@fontsource/ibm-plex-sans/500.css";
+@import "@fontsource/ibm-plex-sans/600.css";
+@import "@fontsource/ibm-plex-mono/400.css";
+@import "@fontsource/ibm-plex-mono/500.css";
+
+:root {
+  /* Brand -- taken directly from the VisionFund logo */
+  --color-ink: #211d1d;
+  --color-orange: #f3661f;
+  --color-orange-strong: #d6540f;
+  --color-surface: #ffffff;
+  --color-surface-alt: #f7f5f3;
+  --color-border: #e4e0dc;
+  --color-ink-soft: #6b6360;
+
+  /* Semantic -- kept distinct from the orange brand accent */
+  --color-success: #2f8f5b;
+  --color-success-soft: #e7f3ec;
+  --color-error: #c1442e;
+  --color-error-soft: #fbebe7;
+  --color-warning: #a8730f;
+  --color-warning-soft: #faf1de;
+  --color-pending: #9a938f;
+
+  --font-display: "Source Serif 4", Georgia, serif;
+  --font-body: "IBM Plex Sans", "Segoe UI", sans-serif;
+  --font-mono: "IBM Plex Mono", Consolas, monospace;
+
+  /* 1.25 modular scale from a 16px base */
+  --text-caption: 0.8rem;
+  --text-body: 1rem;
+  --text-h4: 1.25rem;
+  --text-h3: 1.563rem;
+  --text-h2: 1.953rem;
+  --text-h1: 2.441rem;
+
+  --radius: 4px;
+  --shadow-card: 0 1px 2px rgba(33, 29, 29, 0.06), 0 1px 6px rgba(33, 29, 29, 0.05);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--color-surface);
+  color: var(--color-ink);
+  font-family: var(--font-body);
+  font-size: var(--text-body);
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+h1,
+h2,
+h3,
+h4 {
+  font-family: var(--font-display);
+  font-weight: 600;
+  margin: 0;
+  text-wrap: balance;
+  color: var(--color-ink);
+}
+
+h1 {
+  font-size: var(--text-h1);
+}
+h2 {
+  font-size: var(--text-h2);
+}
+h3 {
+  font-size: var(--text-h3);
+}
+h4 {
+  font-size: var(--text-h4);
+}
+
+code,
+pre,
+.mono {
+  font-family: var(--font-mono);
+}
+
+button {
+  font-family: inherit;
+}
+
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+select:focus-visible {
+  outline: 2px solid var(--color-orange);
+  outline-offset: 2px;
+}

@@ -2,7 +2,7 @@
 import logging
 
 from analysis_engine.stats import (
-    bottom_two_box, share_true, share_selecting, disaggregate, significance_test,
+    bottom_two_box, share_true, share_selecting, scorecard_row as _scorecard_row_base,
 )
 
 log = logging.getLogger("analysis_engine.sections.part_7")
@@ -21,23 +21,7 @@ _B = "male"
 
 
 def _scorecard_row(scoped_df, col_or_series, stat_fn, segment_masks, label, **stat_kwargs) -> dict:
-    disag = disaggregate(scoped_df, col_or_series, stat_fn, segment_masks, **stat_kwargs)
-    _absent = {"value": None, "n_valid": 0, "suppressed": True, "suppress_reason": "segment absent"}
-    a = disag.get(_A, _absent)
-    b = disag.get(_B, _absent)
-
-    if a.get("value") is not None and b.get("value") is not None:
-        sig = significance_test(
-            round(a["value"] * a["n_valid"]), a["n_valid"],
-            round(b["value"] * b["n_valid"]), b["n_valid"],
-        )
-    else:
-        sig = None
-
-    row = {"label": label}
-    row.update(disag)   # all segment keys present (including any country-config segments)
-    row["significance"] = sig
-    return row
+    return _scorecard_row_base(scoped_df, col_or_series, stat_fn, segment_masks, label, _A, _B, **stat_kwargs)
 
 
 def calculate(ds, segment_masks: dict) -> dict:

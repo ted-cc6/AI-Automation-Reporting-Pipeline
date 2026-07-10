@@ -77,9 +77,14 @@ def _lookup_profile(row_id: str, df: pd.DataFrame) -> dict:
         "age": (None if pd.isna(row.get("q_client_age"))
                 else int(row["q_client_age"])),
         "branch": str(row.get("branch", "")) or None,
+        "country": str(row.get("country", "")) or None,
         "is_claimant": (False if pd.isna(row.get("flag_paid_claimant"))
                         else bool(row["flag_paid_claimant"])),
-        "is_caregiver": str(row.get("q_child_wellbeing", "")) == "Yes",
+        # Canonical caregiver definition (matches analysis_engine/segments.py's
+        # "caregiver" segment): answered Yes OR No to child wellbeing (i.e. has
+        # children to report on) -- NOT "Yes" only, which would wrongly exclude
+        # caregivers whose child's wellbeing did not improve.
+        "is_caregiver": bool(row.get("flag_child_wellbeing_denominator", False)),
     }
 
 

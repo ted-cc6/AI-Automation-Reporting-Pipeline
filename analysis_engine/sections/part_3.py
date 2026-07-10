@@ -10,6 +10,7 @@ COL_NEGATIVE_COPING    = "flag_negative_coping"
 COL_FINANCIAL_STRESS   = "q_financial_stress"
 COL_ALTERNATIVE_ACCESS = "q_alternative_access"
 COL_CONFIDENCE_PAY     = "q_confidence_pay"
+COL_PRIOR_ACCESS       = "q_prior_access"
 
 _ALTERNATIVE_ACCESS_DIFFICULT = ["Very difficult", "Slightly difficult"]
 
@@ -94,6 +95,27 @@ def calculate(ds, segment_masks: dict) -> dict:
             "n_base": len(ds.df),
             "headline": bottom_two_box(ds.df[col]),
             "segments": disaggregate(ds.df, col, bottom_two_box, segment_masks),
+        }
+
+    # no_prior_access ("first-time access to insurance") — base: all_respondents.
+    # q_prior_access == True means the client already had some insurance before
+    # VisionFund; this metric is the inverse (share with NO prior access, i.e.
+    # VisionFund was their first insurer) -- a market-reach/inclusion metric,
+    # distinct from the protection/coping metrics elsewhere in this part.
+    col = COL_PRIOR_ACCESS
+    if col not in ds.df.columns:
+        log.warning(f"Part 3: column '{col}' missing — skipping 'no_prior_access'")
+        metrics["no_prior_access"] = {
+            "base": "all_respondents", "n_base": len(ds.df),
+            "headline": _missing_col(col), "segments": {},
+        }
+    else:
+        no_prior_access = ~ds.df[col]
+        metrics["no_prior_access"] = {
+            "base": "all_respondents",
+            "n_base": len(ds.df),
+            "headline": share_true(no_prior_access),
+            "segments": disaggregate(ds.df, no_prior_access, share_true, segment_masks),
         }
 
     return {"metrics": metrics}

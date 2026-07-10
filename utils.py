@@ -2,6 +2,16 @@
 import re
 
 
+def format_period_label(run_id: str) -> str:
+    """Extract a human-readable 'YYYY QN' label from a run_id like '2026_Q2',
+    'default_2026_Q2', or 'Vietnam_2026_Q2'. Falls back to the raw run_id if
+    no year/quarter pattern is found, so unusual run_ids never raise."""
+    m = re.search(r"(\d{4})[_-]?Q([1-4])", run_id, re.IGNORECASE)
+    if m:
+        return f"{m.group(1)} Q{m.group(2)}"
+    return run_id
+
+
 def get_nested(d: dict, path: str, default=None):
     """Traverse a nested dict using a dot-separated path string."""
     keys = path.split(".")

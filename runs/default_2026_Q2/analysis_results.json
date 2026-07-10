@@ -1,0 +1,5478 @@
+{
+  "meta": {
+    "run_id": "default_2026_Q2",
+    "generated_at": "2026-07-09T16:57:18+00:00",
+    "schema_version": "1.5",
+    "n_total": 2111,
+    "low_n_threshold": 30,
+    "country": "default",
+    "country_label": "Default",
+    "report_context": "",
+    "metric_notes": {},
+    "segments_active": [
+      "female",
+      "male",
+      "claimant",
+      "non_claimant",
+      "first_time_access",
+      "caregiver",
+      "non_caregiver",
+      "pwd",
+      "bundled_service_client"
+    ],
+    "segments_skipped": [
+      "female_hh_head",
+      "climate_shock"
+    ],
+    "skip_reasons": {
+      "female_hh_head": "Not applicable to insurance survey — household head status is only captured in the core credit survey",
+      "climate_shock": "Vietnam-only segment — activated via country config when --country vietnam is used"
+    },
+    "section_timing_seconds": {
+      "part_1": 0.031,
+      "part_2": 0.074,
+      "part_3": 0.099,
+      "part_4": 0.096,
+      "part_5": 0.861,
+      "part_6": 0.094,
+      "part_7": 0.082,
+      "part_8": 0.212
+    },
+    "section_errors": {}
+  },
+  "segments_summary": [
+    {
+      "name": "female",
+      "label": "Female",
+      "available": true,
+      "n": 1518,
+      "pct_of_total": 71.9
+    },
+    {
+      "name": "male",
+      "label": "Male",
+      "available": true,
+      "n": 586,
+      "pct_of_total": 27.8
+    },
+    {
+      "name": "claimant",
+      "label": "Claimant",
+      "available": true,
+      "n": 153,
+      "pct_of_total": 7.2
+    },
+    {
+      "name": "non_claimant",
+      "label": "Non-Claimant",
+      "available": true,
+      "n": 210,
+      "pct_of_total": 9.9
+    },
+    {
+      "name": "first_time_access",
+      "label": "First-Time Access",
+      "available": true,
+      "n": 1803,
+      "pct_of_total": 85.4
+    },
+    {
+      "name": "caregiver",
+      "label": "Caregiver",
+      "available": true,
+      "n": 1928,
+      "pct_of_total": 91.3
+    },
+    {
+      "name": "non_caregiver",
+      "label": "Non-Caregiver",
+      "available": true,
+      "n": 183,
+      "pct_of_total": 8.7
+    },
+    {
+      "name": "pwd",
+      "label": "PWD",
+      "available": true,
+      "n": 477,
+      "pct_of_total": 22.6
+    },
+    {
+      "name": "bundled_service_client",
+      "label": "Bundled Service Client",
+      "available": true,
+      "n": 9,
+      "pct_of_total": 0.4
+    },
+    {
+      "name": "female_hh_head",
+      "label": "Female HH Head",
+      "available": false,
+      "n": null,
+      "skip_reason": "Not applicable to insurance survey — household head status is only captured in the core credit survey"
+    },
+    {
+      "name": "climate_shock",
+      "label": "Climate Shock",
+      "available": false,
+      "n": null,
+      "skip_reason": "Vietnam-only segment — activated via country config when --country vietnam is used"
+    }
+  ],
+  "parts": {
+    "part_1": {
+      "base": "all_respondents",
+      "n_base": 2111,
+      "metrics": {
+        "coverage_understanding": {
+          "headline": {
+            "value": 0.7656844106463878,
+            "n_valid": 2104,
+            "n_total": 2111,
+            "suppressed": false,
+            "suppress_reason": null,
+            "ci_lower": 0.747111390212041,
+            "ci_upper": 0.7832890321354273,
+            "ci_level": 0.95,
+            "bottom_values": [
+              1,
+              2
+            ],
+            "scale_min": 1
+          },
+          "segments": {
+            "female": {
+              "value": 0.7549407114624506,
+              "n_valid": 1518,
+              "n_total": 1518,
+              "suppressed": false,
+              "suppress_reason": null,
+              "ci_lower": 0.732677574860863,
+              "ci_upper": 0.7759167964606991,
+              "ci_level": 0.95,
+              "bottom_values": [
+                1,
+                2
+              ],
+              "scale_min": 1
+            },
+            "male": {
+              "value": 0.7935153583617748,
+              "n_valid": 586,
+              "n_total": 586,
+              "suppressed": false,
+              "suppress_reason": null,
+              "ci_lower": 0.7588814449933772,
+              "ci_upper": 0.8243261184216804,
+              "ci_level": 0.95,
+              "bottom_values": [
+                1,
+                2
+              ],
+              "scale_min": 1
+            },
+            "claimant": {
+              "value": 0.9477124183006536,
+              "n_valid": 153,
+              "n_total": 153,
+              "suppressed": false,
+              "suppress_reason": null,
+              "ci_lower": 0.9002235826723421,
+              "ci_upper": 0.9732699504158864,
+              "ci_level": 0.95,
+              "bottom_values": [
+                1,
+                2
+              ],
+              "scale_min": 1
+            },
+            "non_claimant": {
+              "value": 0.6190476190476191,
+              "n_valid": 210,
+              "n_total": 210,
+              "suppressed": false,
+              "suppress_reason": null,
+              "ci_lower": 0.5517861297302177,
+              "ci_upper": 0.6820319534223339,
+              "ci_level": 0.95,
+              "bottom_values": [
+                1,
+                2
+              ],
+              "scale_min": 1
+            },
+            "first_time_access": {
+              "value": 0.7581808097615086,
+              "n_valid": 1803,
+              "n_total": 1803,
+              "suppressed": false,
+              "suppress_reason": null,
+              "ci_lower": 0.7378809676537968,
+              "ci_upper": 0.7773828345215493,
+              "ci_level": 0.95,
+              "bottom_values": [
+                1,
+                2
+              ],
+              "scale_min": 1
+            },
+            "caregiver": {
+              "value": 0.7671161825726142,
+              "n_valid": 1928,
+              "n_total": 1928,
+              "suppressed": false,
+              "suppress_reason": null,
+              "ci_lower": 0.7477296571897986,
+              "ci_upper": 0.7854403890875864,
+              "ci_level": 0.95,
+              "bottom_values": [
+                1,
+                2
+              ],
+              "scale_min": 1
+            },
+            "non_caregiver": {
+              "value": 0.75,
+              "n_valid": 176,
+              "n_total": 183,
+              "suppressed": false,
+              "suppress_reason": null,
+              "ci_lower": 0.6811495957232009,
+              "ci_upper": 0.8081702784429553,
+              "ci_level": 0.95,
+              "bottom_values": [
+                1,
+                2
+              ],
+              "scale_min": 1
+            },
+            "pwd": {
+              "value": 0.7568134171907757,
+              "n_valid": 477,
+              "n_total": 477,
+              "suppressed": false,
+              "suppress_reason": null,
+              "ci_lower": 0.716361645951773,
+              "ci_upper": 0.7931618061251007,
+              "ci_level": 0.95,
+              "bottom_values": [
+                1,
+                2
+              ],
+              "scale_min": 1
+            },
+            "bundled_service_client": {
+              "value": null,
+              "n_valid": 9,
+              "n_total": 9,
+              "suppressed": true,
+              "suppress_reason": "n_valid=9 below threshold=30",
+              "ci_lower": null,
+              "ci_upper": null,
+              "ci_level": 0.95,
+              "bottom_values": [
+                1,
+                2
+              ],
+              "scale_min": 1
+            }
+          }
+        },
+        "claim_process_understanding": {
+          "headline": {
+            "value": 0.6820342205323194,
+            "n_valid": 2104,
+            "n_total": 2111,
+            "suppressed": false,
+            "suppress_reason": null,
+            "ci_lower": 0.6618194271514548,
+            "ci_upper": 0.7015855133835729,
+            "ci_level": 0.95,
+            "bottom_values": [
+              1,
+              2
+            ],
+            "scale_min": 1
+          },
+          "segments": {
+            "female": {
+              "value": 0.6791831357048749,
+              "n_valid": 1518,
+              "n_total": 1518,
+              "suppressed": false,
+              "suppress_reason": null,
+              "ci_lower": 0.6552741781919977,
+              "ci_upper": 0.7021874988092036,
+              "ci_level": 0.95,
+              "bottom_values": [
+                1,
+                2
+              ],
+              "scale_min": 1
+            },
+            "male": {
+              "value": 0.689419795221843,
+              "n_valid": 586,
+              "n_total": 586,
+              "suppressed": false,
+              "suppress_reason": null,
+              "ci_lower": 0.6508227903846561,
+              "ci_upper": 0.7255495325169218,
+              "ci_level": 0.95,
+              "bottom_values": [
+                1,
+                2
+              ],
+              "scale_min": 1
+            },
+            "claimant": {
+              "value": 0.9019607843137255,
+              "n_valid": 153,
+              "n_total": 153,
+              "suppressed": false,
+              "suppress_reason": null,
+              "ci_lower": 0.844547363017974,
+              "ci_upper": 0.9396840571999246,
+              "ci_level": 0.95,
+              "bottom_values": [
+                1,
+                2
+              ],
+              "scale_min": 1
+            },
+            "non_claimant": {
+              "value": 0.49047619047619045,
+              "n_valid": 210,
+              "n_total": 210,
+              "suppressed": false,
+              "suppress_reason": null,
+              "ci_lower": 0.4236441978793475,
+              "ci_upper": 0.5576503554684483,
+              "ci_level": 0.95,
+              "bottom_values": [
+                1,
+                2
+              ],
+              "scale_min": 1
+            },
+            "first_time_access": {
+              "value": 0.6799778147531891,
+              "n_valid": 1803,
+              "n_total": 1803,
+              "suppressed": false,
+              "suppress_reason": null,
+              "ci_lower": 0.6580825066231355,
+              "ci_upper": 0.7011078345280992,
+              "ci_level": 0.95,
+              "bottom_values": [
+                1,
+                2
+              ],
+              "scale_min": 1
+            },
+            "caregiver": {
+              "value": 0.691908713692946,
+              "n_valid": 1928,
+              "n_total": 1928,
+              "suppressed": false,
+              "suppress_reason": null,
+              "ci_lower": 0.6709349847286856,
+              "ci_upper": 0.7121192232764257,
+              "ci_level": 0.95,
+              "bottom_values": [
+                1,
+                2
+              ],
+              "scale_min": 1
+            },
+            "non_caregiver": {
+              "value": 0.5738636363636364,
+              "n_valid": 176,
+              "n_total": 183,
+              "suppressed": false,
+              "suppress_reason": null,
+              "ci_lower": 0.4999947143299311,
+              "ci_upper": 0.6445770666737061,
+              "ci_level": 0.95,
+              "bottom_values": [
+                1,
+                2
+              ],
+              "scale_min": 1
+            },
+            "pwd": {
+              "value": 0.6519916142557652,
+              "n_valid": 477,
+              "n_total": 477,
+              "suppressed": false,
+              "suppress_reason": null,
+              "ci_lower": 0.60818421841069,
+              "ci_upper": 0.6933704777164393,
+              "ci_level": 0.95,
+              "bottom_values": [
+                1,
+                2
+              ],
+              "scale_min": 1
+            },
+            "bundled_service_client": {
+              "value": null,
+              "n_valid": 9,
+              "n_total": 9,
+              "suppressed": true,
+              "suppress_reason": "n_valid=9 below threshold=30",
+              "ci_lower": null,
+              "ci_upper": null,
+              "ci_level": 0.95,
+              "bottom_values": [
+                1,
+                2
+              ],
+              "scale_min": 1
+            }
+          }
+        },
+        "worth_premium": {
+          "headline": {
+            "value": 0.8947368421052632,
+            "n_valid": 1957,
+            "n_total": 2111,
+            "suppressed": false,
+            "suppress_reason": null,
+            "ci_lower": 0.8803579911585573,
+            "ci_upper": 0.9075690454970258,
+            "ci_level": 0.95,
+            "bottom_values": [
+              1,
+              2
+            ],
+            "scale_min": 1
+          },
+          "segments": {
+            "female": {
+              "value": 0.889367816091954,
+              "n_valid": 1392,
+              "n_total": 1518,
+              "suppressed": false,
+              "suppress_reason": null,
+              "ci_lower": 0.8718058786854237,
+              "ci_upper": 0.904786615505027,
+              "ci_level": 0.95,
+              "bottom_values": [
+                1,
+                2
+              ],
+              "scale_min": 1
+            },
+            "male": {
+              "value": 0.9079646017699115,
+              "n_valid": 565,
+              "n_total": 586,
+              "suppressed": false,
+              "suppress_reason": null,
+              "ci_lower": 0.8812948302520335,
+              "ci_upper": 0.9291242994572039,
+              "ci_level": 0.95,
+              "bottom_values": [
+                1,
+                2
+              ],
+              "scale_min": 1
+            },
+            "claimant": {
+              "value": 0.8562091503267973,
+              "n_valid": 153,
+              "n_total": 153,
+              "suppressed": false,
+              "suppress_reason": null,
+              "ci_lower": 0.7918831500079815,
+              "ci_upper": 0.9030861573395872,
+              "ci_level": 0.95,
+              "bottom_values": [
+                1,
+                2
+              ],
+              "scale_min": 1
+            },
+            "non_claimant": {
+              "value": 0.8714285714285714,
+              "n_valid": 210,
+              "n_total": 210,
+              "suppressed": false,
+              "suppress_reason": null,
+              "ci_lower": 0.8193995418245132,
+              "ci_upper": 0.9101128776114478,
+              "ci_level": 0.95,
+              "bottom_values": [
+                1,
+                2
+              ],
+              "scale_min": 1
+            },
+            "first_time_access": {
+              "value": 0.8992762364294331,
+              "n_valid": 1658,
+              "n_total": 1803,
+              "suppressed": false,
+              "suppress_reason": null,
+              "ci_lower": 0.8838539673734856,
+              "ci_upper": 0.9128525974871363,
+              "ci_level": 0.95,
+              "bottom_values": [
+                1,
+                2
+              ],
+              "scale_min": 1
+            },
+            "caregiver": {
+              "value": 0.9083842309827873,
+              "n_valid": 1801,
+              "n_total": 1928,
+              "suppressed": false,
+              "suppress_reason": null,
+              "ci_lower": 0.894177571094661,
+              "ci_upper": 0.9208524653724587,
+              "ci_level": 0.95,
+              "bottom_values": [
+                1,
+                2
+              ],
+              "scale_min": 1
+            },
+            "non_caregiver": {
+              "value": 0.7371794871794872,
+              "n_valid": 156,
+              "n_total": 183,
+              "suppressed": false,
+              "suppress_reason": null,
+              "ci_lower": 0.6630047526486745,
+              "ci_upper": 0.7999539850028082,
+              "ci_level": 0.95,
+              "bottom_values": [
+                1,
+                2
+              ],
+              "scale_min": 1
+            },
+            "pwd": {
+              "value": 0.8896247240618101,
+              "n_valid": 453,
+              "n_total": 477,
+              "suppressed": false,
+              "suppress_reason": null,
+              "ci_lower": 0.8574277335064582,
+              "ci_upper": 0.9152692124126931,
+              "ci_level": 0.95,
+              "bottom_values": [
+                1,
+                2
+              ],
+              "scale_min": 1
+            },
+            "bundled_service_client": {
+              "value": null,
+              "n_valid": 9,
+              "n_total": 9,
+              "suppressed": true,
+              "suppress_reason": "n_valid=9 below threshold=30",
+              "ci_lower": null,
+              "ci_upper": null,
+              "ci_level": 0.95,
+              "bottom_values": [
+                1,
+                2
+              ],
+              "scale_min": 1
+            }
+          }
+        },
+        "renewal_intent": {
+          "headline": {
+            "value": 0.5850340136054422,
+            "n_valid": 147,
+            "n_total": 2111,
+            "suppressed": false,
+            "suppress_reason": null,
+            "ci_lower": 0.5042093254954073,
+            "ci_upper": 0.6615276025047229,
+            "ci_level": 0.95,
+            "bottom_values": [
+              1,
+              2
+            ],
+            "scale_min": 1
+          },
+          "segments": {
+            "female": {
+              "value": 0.5793650793650794,
+              "n_valid": 126,
+              "n_total": 1518,
+              "suppressed": false,
+              "suppress_reason": null,
+              "ci_lower": 0.49207231903835913,
+              "ci_upper": 0.6619616865993871,
+              "ci_level": 0.95,
+              "bottom_values": [
+                1,
+                2
+              ],
+              "scale_min": 1
+            },
+            "male": {
+              "value": null,
+              "n_valid": 21,
+              "n_total": 586,
+              "suppressed": true,
+              "suppress_reason": "n_valid=21 below threshold=30",
+              "ci_lower": null,
+              "ci_upper": null,
+              "ci_level": 0.95,
+              "bottom_values": [
+                1,
+                2
+              ],
+              "scale_min": 1
+            },
+            "claimant": {
+              "value": null,
+              "n_valid": 0,
+              "n_total": 153,
+              "suppressed": true,
+              "suppress_reason": "n_valid=0 below threshold=30",
+              "ci_lower": null,
+              "ci_upper": null,
+              "ci_level": 0.95,
+              "bottom_values": [],
+              "scale_min": null
+            },
+            "non_claimant": {
+              "value": null,
+              "n_valid": 0,
+              "n_total": 210,
+              "suppressed": true,
+              "suppress_reason": "n_valid=0 below threshold=30",
+              "ci_lower": null,
+              "ci_upper": null,
+              "ci_level": 0.95,
+              "bottom_values": [],
+              "scale_min": null
+            },
+            "first_time_access": {
+              "value": 0.5862068965517241,
+              "n_valid": 145,
+              "n_total": 1803,
+              "suppressed": false,
+              "suppress_reason": null,
+              "ci_lower": 0.5048276152506097,
+              "ci_upper": 0.6631363391346863,
+              "ci_level": 0.95,
+              "bottom_values": [
+                1,
+                2
+              ],
+              "scale_min": 1
+            },
+            "caregiver": {
+              "value": 0.5984251968503937,
+              "n_valid": 127,
+              "n_total": 1928,
+              "suppressed": false,
+              "suppress_reason": null,
+              "ci_lower": 0.5114888159154837,
+              "ci_upper": 0.679582120050311,
+              "ci_level": 0.95,
+              "bottom_values": [
+                1,
+                2
+              ],
+              "scale_min": 1
+            },
+            "non_caregiver": {
+              "value": null,
+              "n_valid": 20,
+              "n_total": 183,
+              "suppressed": true,
+              "suppress_reason": "n_valid=20 below threshold=30",
+              "ci_lower": null,
+              "ci_upper": null,
+              "ci_level": 0.95,
+              "bottom_values": [
+                1,
+                2
+              ],
+              "scale_min": 1
+            },
+            "pwd": {
+              "value": null,
+              "n_valid": 24,
+              "n_total": 477,
+              "suppressed": true,
+              "suppress_reason": "n_valid=24 below threshold=30",
+              "ci_lower": null,
+              "ci_upper": null,
+              "ci_level": 0.95,
+              "bottom_values": [
+                1,
+                2
+              ],
+              "scale_min": 1
+            },
+            "bundled_service_client": {
+              "value": null,
+              "n_valid": 0,
+              "n_total": 9,
+              "suppressed": true,
+              "suppress_reason": "n_valid=0 below threshold=30",
+              "ci_lower": null,
+              "ci_upper": null,
+              "ci_level": 0.95,
+              "bottom_values": [],
+              "scale_min": null
+            }
+          }
+        }
+      },
+      "claim_channel_preferred": {
+        "base": "all_respondents",
+        "n_base": 2111,
+        "distribution": [
+          {
+            "value": "Through an MFI officer coming to collect the documents",
+            "n": 1328,
+            "pct": 0.6311787072243346
+          },
+          {
+            "value": "Whatsapp or other messages applications",
+            "n": 345,
+            "pct": 0.16397338403041825
+          },
+          {
+            "value": "Directly at VisionFund office/ counter",
+            "n": 323,
+            "pct": 0.1535171102661597
+          },
+          {
+            "value": "Other (please specify)",
+            "n": 59,
+            "pct": 0.028041825095057035
+          },
+          {
+            "value": "Through the insurer smartphone application",
+            "n": 35,
+            "pct": 0.016634980988593156
+          },
+          {
+            "value": "E-mail",
+            "n": 14,
+            "pct": 0.006653992395437262
+          }
+        ]
+      }
+    },
+    "part_2": {
+      "base": "all_respondents",
+      "n_base": 2111,
+      "claims_funnel": {
+        "experienced_event": {
+          "n": 363,
+          "n_total": 2111,
+          "pct_of_total": 0.17195641875888204
+        },
+        "filed_claim": {
+          "n": 153,
+          "n_total": 363,
+          "pct_of_event_base": 0.4214876033057851,
+          "leakage": 0.578512396694215
+        },
+        "claim_paid": {
+          "n": 58,
+          "n_total": 153,
+          "pct_of_claimants": 0.3790849673202614
+        },
+        "payout_adequacy": {
+          "n_valid": 58,
+          "n_total": 58,
+          "distribution": [
+            {
+              "value": "All of the cost",
+              "n": 37,
+              "pct": 0.6379310344827587
+            },
+            {
+              "value": "Some of the cost",
+              "n": 14,
+              "pct": 0.2413793103448276
+            },
+            {
+              "value": "Most of the cost",
+              "n": 7,
+              "pct": 0.1206896551724138
+            }
+          ]
+        }
+      },
+      "no_claim_reasons": {
+        "base": "leakage_respondents",
+        "n_base": 210,
+        "distribution": [
+          {
+            "value": "I was not covered at that time",
+            "n": 72,
+            "pct": 0.34285714285714286
+          },
+          {
+            "value": "I did not know how to file a claim",
+            "n": 69,
+            "pct": 0.32857142857142857
+          },
+          {
+            "value": "Other (please specify)",
+            "n": 50,
+            "pct": 0.23809523809523808
+          },
+          {
+            "value": "The loss was not significant",
+            "n": 12,
+            "pct": 0.05714285714285714
+          },
+          {
+            "value": "Claim process is cumbersome",
+            "n": 6,
+            "pct": 0.02857142857142857
+          },
+          {
+            "value": "The benefit I would receive is low",
+            "n": 1,
+            "pct": 0.004761904761904762
+          }
+        ]
+      },
+      "claim_challenges": {
+        "base": "claimants_with_challenges",
+        "n_base": 85,
+        "ranked": {
+          "value": null,
+          "n_valid": 85,
+          "n_total": 85,
+          "suppressed": false,
+          "suppress_reason": null,
+          "ci_lower": null,
+          "ci_upper": null,
+          "ci_level": 0.95,
+          "ranked": [
+            {
+              "option": "It was difficult to know the status of the claim once documents were submitted",
+              "n": 44,
+              "pct": 0.5176470588235295
+            },
+            {
+              "option": "Claim documents were difficult to collect from hospitals or authorities",
+              "n": 31,
+              "pct": 0.36470588235294116
+            },
+            {
+              "option": "It took a long time to receive the claim amount",
+              "n": 30,
+              "pct": 0.35294117647058826
+            },
+            {
+              "option": "I did not receive enough support or guidance on the claim process",
+              "n": 16,
+              "pct": 0.18823529411764706
+            },
+            {
+              "option": "Claim documents were difficult to submit",
+              "n": 12,
+              "pct": 0.1411764705882353
+            },
+            {
+              "option": "Other",
+              "n": 7,
+              "pct": 0.08235294117647059
+            }
+          ]
+        }
+      },
+      "claim_result": {
+        "base": "claimants",
+        "n_base": 153,
+        "distribution": [
+          {
+            "value": "It was approved and paid",
+            "n": 58,
+            "pct": 0.3790849673202614
+          },
+          {
+            "value": "It was approved and not yet paid",
+            "n": 35,
+            "pct": 0.22875816993464052
+          },
+          {
+            "value": "It was rejected",
+            "n": 23,
+            "pct": 0.1503267973856209
+          },
+          {
+            "value": "I don't know",
+            "n": 21,
+            "pct": 0.13725490196078433
+          },
+          {
+            "value": "It is currently in process",
+            "n": 16,
+            "pct": 0.10457516339869281
+          }
+        ]
+      },
+      "payout_cost_coverage": {
+        "base": "paid_claimants",
+        "n_base": 58,
+        "distribution": [
+          {
+            "value": "All of the cost",
+            "n": 37,
+            "pct": 0.6379310344827587
+          },
+          {
+            "value": "Some of the cost",
+            "n": 14,
+            "pct": 0.2413793103448276
+          },
+          {
+            "value": "Most of the cost",
+            "n": 7,
+            "pct": 0.1206896551724138
+          }
+        ]
+      }
+    },
+    "part_3": {
+      "metrics": {
+        "negative_coping": {
+          "base": "insured_event_base",
+          "n_base": 363,
+          "headline": {
+            "value": 0.20110192837465565,
+            "n_valid": 363,
+            "n_total": 363,
+            "suppressed": false,
+            "suppress_reason": null,
+            "ci_lower": 0.16309576720437988,
+            "ci_upper": 0.245368039755711,
+            "ci_level": 0.95,
+            "n_true": 73,
+            "n_false": 290
+          },
+          "segments": {
+            "female": {
+              "value": 0.17886178861788618,
+              "n_valid": 246,
+              "n_total": 246,
+              "suppressed": false,
+              "suppress_reason": null,
+              "ci_lower": 0.1360229459098291,
+              "ci_upper": 0.23157600765938935,
+              "ci_level": 0.95,
+              "n_true": 44,
+              "n_false": 202
+            },
+            "male": {
+              "value": 0.24786324786324787,
+              "n_valid": 117,
+              "n_total": 117,
+              "suppressed": false,
+              "suppress_reason": null,
+              "ci_lower": 0.17847939213759073,
+              "ci_upper": 0.3332775778974629,
+              "ci_level": 0.95,
+              "n_true": 29,
+              "n_false": 88
+            },
+            "claimant": {
+              "value": 0.11764705882352941,
+              "n_valid": 153,
+              "n_total": 153,
+              "suppressed": false,
+              "suppress_reason": null,
+              "ci_lower": 0.0757265380767955,
+              "ci_upper": 0.1782972329354474,
+              "ci_level": 0.95,
+              "n_true": 18,
+              "n_false": 135
+            },
+            "non_claimant": {
+              "value": 0.2619047619047619,
+              "n_valid": 210,
+              "n_total": 210,
+              "suppressed": false,
+              "suppress_reason": null,
+              "ci_lower": 0.20709776905994629,
+              "ci_upper": 0.32526606463495056,
+              "ci_level": 0.95,
+              "n_true": 55,
+              "n_false": 155
+            },
+            "first_time_access": {
+              "value": 0.19344262295081968,
+              "n_valid": 305,
+              "n_total": 305,
+              "suppressed": false,
+              "suppress_reason": null,
+              "ci_lower": 0.1530381077559495,
+              "ci_upper": 0.24147323565611595,
+              "ci_level": 0.95,
+              "n_true": 59,
+              "n_false": 246
+            },
+            "caregiver": {
+              "value": 0.19705882352941176,
+              "n_valid": 340,
+              "n_total": 340,
+              "suppressed": false,
+              "suppress_reason": null,
+              "ci_lower": 0.1582628730040167,
+              "ci_upper": 0.24262380102727127,
+              "ci_level": 0.95,
+              "n_true": 67,
+              "n_false": 273
+            },
+            "non_caregiver": {
+              "value": null,
+              "n_valid": 23,
+              "n_total": 23,
+              "suppressed": true,
+              "suppress_reason": "n_valid=23 below threshold=30",
+              "ci_lower": null,
+              "ci_upper": null,
+              "ci_level": 0.95,
+              "n_true": 6,
+              "n_false": 17
+            },
+            "pwd": {
+              "value": 0.19672131147540983,
+              "n_valid": 122,
+              "n_total": 122,
+              "suppressed": false,
+              "suppress_reason": null,
+              "ci_lower": 0.13591129570453556,
+              "ci_upper": 0.2760472059412591,
+              "ci_level": 0.95,
+              "n_true": 24,
+              "n_false": 98
+            },
+            "bundled_service_client": {
+              "value": null,
+              "n_valid": 4,
+              "n_total": 4,
+              "suppressed": true,
+              "suppress_reason": "n_valid=4 below threshold=30",
+              "ci_lower": null,
+              "ci_upper": null,
+              "ci_level": 0.95,
+              "n_true": 3,
+              "n_false": 1
+            }
+          }
+        },
+        "financial_stress_high": {
+          "base": "insured_event_base",
+          "n_base": 363,
+          "headline": {
+            "value": 0.03305785123966942,
+            "n_valid": 363,
+            "n_total": 363,
+            "suppressed": false,
+            "suppress_reason": null,
+            "ci_lower": 0.019009804650211248,
+            "ci_upper": 0.05688526705241918,
+            "ci_level": 0.95,
+            "top_values": [
+              4,
+              5
+            ],
+            "scale_max": 5
+          },
+          "segments": {
+            "female": {
+              "value": 0.036585365853658534,
+              "n_valid": 246,
+              "n_total": 246,
+              "suppressed": false,
+              "suppress_reason": null,
+              "ci_lower": 0.019364983182769233,
+              "ci_upper": 0.0680562915880016,
+              "ci_level": 0.95,
+              "top_values": [
+                4,
+                5
+              ],
+              "scale_max": 5
+            },
+            "male": {
+              "value": 0.02564102564102564,
+              "n_valid": 117,
+              "n_total": 117,
+              "suppressed": false,
+              "suppress_reason": null,
+              "ci_lower": 0.00875805570382017,
+              "ci_upper": 0.07268302351467049,
+              "ci_level": 0.95,
+              "top_values": [
+                4,
+                5
+              ],
+              "scale_max": 5
+            },
+            "claimant": {
+              "value": 0.05228758169934641,
+              "n_valid": 153,
+              "n_total": 153,
+              "suppressed": false,
+              "suppress_reason": null,
+              "ci_lower": 0.02673004958411372,
+              "ci_upper": 0.09977641732765787,
+              "ci_level": 0.95,
+              "top_values": [
+                4,
+                5
+              ],
+              "scale_max": 5
+            },
+            "non_claimant": {
+              "value": 0.01904761904761905,
+              "n_valid": 210,
+              "n_total": 210,
+              "suppressed": false,
+              "suppress_reason": null,
+              "ci_lower": 0.0074315621394835905,
+              "ci_upper": 0.04794338192420791,
+              "ci_level": 0.95,
+              "top_values": [
+                4,
+                5
+              ],
+              "scale_max": 5
+            },
+            "first_time_access": {
+              "value": 0.029508196721311476,
+              "n_valid": 305,
+              "n_total": 305,
+              "suppressed": false,
+              "suppress_reason": null,
+              "ci_lower": 0.015600546502992054,
+              "ci_upper": 0.055120071460980025,
+              "ci_level": 0.95,
+              "top_values": [
+                4,
+                5
+              ],
+              "scale_max": 5
+            },
+            "caregiver": {
+              "value": 0.03235294117647059,
+              "n_valid": 340,
+              "n_total": 340,
+              "suppressed": false,
+              "suppress_reason": null,
+              "ci_lower": 0.01815965720413458,
+              "ci_upper": 0.056995499795620616,
+              "ci_level": 0.95,
+              "top_values": [
+                4,
+                5
+              ],
+              "scale_max": 5
+            },
+            "non_caregiver": {
+              "value": null,
+              "n_valid": 23,
+              "n_total": 23,
+              "suppressed": true,
+              "suppress_reason": "n_valid=23 below threshold=30",
+              "ci_lower": null,
+              "ci_upper": null,
+              "ci_level": 0.95,
+              "top_values": [
+                4,
+                5
+              ],
+              "scale_max": 5
+            },
+            "pwd": {
+              "value": 0.01639344262295082,
+              "n_valid": 122,
+              "n_total": 122,
+              "suppressed": false,
+              "suppress_reason": null,
+              "ci_lower": 0.004507246613595466,
+              "ci_upper": 0.05780495871348255,
+              "ci_level": 0.95,
+              "top_values": [
+                4,
+                5
+              ],
+              "scale_max": 5
+            },
+            "bundled_service_client": {
+              "value": null,
+              "n_valid": 4,
+              "n_total": 4,
+              "suppressed": true,
+              "suppress_reason": "n_valid=4 below threshold=30",
+              "ci_lower": null,
+              "ci_upper": null,
+              "ci_level": 0.95,
+              "top_values": [
+                1,
+                2
+              ],
+              "scale_max": 2
+            }
+          }
+        },
+        "alternative_access_difficult": {
+          "base": "all_respondents",
+          "n_base": 2111,
+          "headline": {
+            "value": 0.6981939163498099,
+            "n_valid": 2104,
+            "n_total": 2111,
+            "suppressed": false,
+            "suppress_reason": null,
+            "ci_lower": 0.6782327683545083,
+            "ci_upper": 0.7174326629851954,
+            "ci_level": 0.95,
+            "matched_values": [
+              "Very difficult",
+              "Slightly difficult"
+            ]
+          },
+          "segments": {
+            "female": {
+              "value": 0.6982872200263505,
+              "n_valid": 1518,
+              "n_total": 1518,
+              "suppressed": false,
+              "suppress_reason": null,
+              "ci_lower": 0.6747203140494742,
+              "ci_upper": 0.7208530858672964,
+              "ci_level": 0.95,
+              "matched_values": [
+                "Very difficult",
+                "Slightly difficult"
+              ]
+            },
+            "male": {
+              "value": 0.6979522184300341,
+              "n_valid": 586,
+              "n_total": 586,
+              "suppressed": false,
+              "suppress_reason": null,
+              "ci_lower": 0.6595869346103843,
+              "ci_upper": 0.7337390965300034,
+              "ci_level": 0.95,
+              "matched_values": [
+                "Very difficult",
+                "Slightly difficult"
+              ]
+            },
+            "claimant": {
+              "value": 0.7973856209150327,
+              "n_valid": 153,
+              "n_total": 153,
+              "suppressed": false,
+              "suppress_reason": null,
+              "ci_lower": 0.7267763170887855,
+              "ci_upper": 0.8534274165683591,
+              "ci_level": 0.95,
+              "matched_values": [
+                "Very difficult",
+                "Slightly difficult"
+              ]
+            },
+            "non_claimant": {
+              "value": 0.7238095238095238,
+              "n_valid": 210,
+              "n_total": 210,
+              "suppressed": false,
+              "suppress_reason": null,
+              "ci_lower": 0.6597278178056276,
+              "ci_upper": 0.7798501785211693,
+              "ci_level": 0.95,
+              "matched_values": [
+                "Very difficult",
+                "Slightly difficult"
+              ]
+            },
+            "first_time_access": {
+              "value": 0.7387687188019967,
+              "n_valid": 1803,
+              "n_total": 1803,
+              "suppressed": false,
+              "suppress_reason": null,
+              "ci_lower": 0.7179986646744334,
+              "ci_upper": 0.7585234982396085,
+              "ci_level": 0.95,
+              "matched_values": [
+                "Very difficult",
+                "Slightly difficult"
+              ]
+            },
+            "caregiver": {
+              "value": 0.7266597510373444,
+              "n_valid": 1928,
+              "n_total": 1928,
+              "suppressed": false,
+              "suppress_reason": null,
+              "ci_lower": 0.7063301847114406,
+              "ci_upper": 0.7460878933918936,
+              "ci_level": 0.95,
+              "matched_values": [
+                "Very difficult",
+                "Slightly difficult"
+              ]
+            },
+            "non_caregiver": {
+              "value": 0.38636363636363635,
+              "n_valid": 176,
+              "n_total": 183,
+              "suppressed": false,
+              "suppress_reason": null,
+              "ci_lower": 0.31758612737077857,
+              "ci_upper": 0.45999574800824145,
+              "ci_level": 0.95,
+              "matched_values": [
+                "Very difficult",
+                "Slightly difficult"
+              ]
+            },
+            "pwd": {
+              "value": 0.7023060796645703,
+              "n_valid": 477,
+              "n_total": 477,
+              "suppressed": false,
+              "suppress_reason": null,
+              "ci_lower": 0.6597887793373692,
+              "ci_upper": 0.7415909196456375,
+              "ci_level": 0.95,
+              "matched_values": [
+                "Very difficult",
+                "Slightly difficult"
+              ]
+            },
+            "bundled_service_client": {
+              "value": null,
+              "n_valid": 9,
+              "n_total": 9,
+              "suppressed": true,
+              "suppress_reason": "n_valid=9 below threshold=30",
+              "ci_lower": null,
+              "ci_upper": null,
+              "ci_level": 0.95,
+              "matched_values": [
+                "Very difficult",
+                "Slightly difficult"
+              ]
+            }
+          }
+        },
+        "confidence_pay": {
+          "base": "all_respondents",
+          "n_base": 2111,
+          "headline": {
+            "value": 0.8773764258555133,
+            "n_valid": 2104,
+            "n_total": 2111,
+            "suppressed": false,
+            "suppress_reason": null,
+            "ci_lower": 0.8626691793347494,
+            "ci_upper": 0.8907081647509214,
+            "ci_level": 0.95,
+            "bottom_values": [
+              1,
+              2
+            ],
+            "scale_min": 1
+          },
+          "segments": {
+            "female": {
+              "value": 0.8708827404479579,
+              "n_valid": 1518,
+              "n_total": 1518,
+              "suppressed": false,
+              "suppress_reason": null,
+              "ci_lower": 0.85307306394788,
+              "ci_upper": 0.8868200395509304,
+              "ci_level": 0.95,
+              "bottom_values": [
+                1,
+                2
+              ],
+              "scale_min": 1
+            },
+            "male": {
+              "value": 0.89419795221843,
+              "n_valid": 586,
+              "n_total": 586,
+              "suppressed": false,
+              "suppress_reason": null,
+              "ci_lower": 0.8666758195303829,
+              "ci_upper": 0.9165855011026304,
+              "ci_level": 0.95,
+              "bottom_values": [
+                1,
+                2
+              ],
+              "scale_min": 1
+            },
+            "claimant": {
+              "value": 0.8627450980392157,
+              "n_valid": 153,
+              "n_total": 153,
+              "suppressed": false,
+              "suppress_reason": null,
+              "ci_lower": 0.7992779748182122,
+              "ci_upper": 0.9084430629394038,
+              "ci_level": 0.95,
+              "bottom_values": [
+                1,
+                2
+              ],
+              "scale_min": 1
+            },
+            "non_claimant": {
+              "value": 0.8380952380952381,
+              "n_valid": 210,
+              "n_total": 210,
+              "suppressed": false,
+              "suppress_reason": null,
+              "ci_lower": 0.7822777427624442,
+              "ci_upper": 0.8817656133908024,
+              "ci_level": 0.95,
+              "bottom_values": [
+                1,
+                2
+              ],
+              "scale_min": 1
+            },
+            "first_time_access": {
+              "value": 0.8874098724348308,
+              "n_valid": 1803,
+              "n_total": 1803,
+              "suppressed": false,
+              "suppress_reason": null,
+              "ci_lower": 0.8719882352030126,
+              "ci_upper": 0.90118419405473,
+              "ci_level": 0.95,
+              "bottom_values": [
+                1,
+                2
+              ],
+              "scale_min": 1
+            },
+            "caregiver": {
+              "value": 0.8947095435684648,
+              "n_valid": 1928,
+              "n_total": 1928,
+              "suppressed": false,
+              "suppress_reason": null,
+              "ci_lower": 0.8802155059179726,
+              "ci_upper": 0.9076338246006483,
+              "ci_level": 0.95,
+              "bottom_values": [
+                1,
+                2
+              ],
+              "scale_min": 1
+            },
+            "non_caregiver": {
+              "value": 0.6875,
+              "n_valid": 176,
+              "n_total": 183,
+              "suppressed": false,
+              "suppress_reason": null,
+              "ci_lower": 0.6156336459268277,
+              "ci_upper": 0.7513562596977894,
+              "ci_level": 0.95,
+              "bottom_values": [
+                1,
+                2
+              ],
+              "scale_min": 1
+            },
+            "pwd": {
+              "value": 0.8763102725366876,
+              "n_valid": 477,
+              "n_total": 477,
+              "suppressed": false,
+              "suppress_reason": null,
+              "ci_lower": 0.8437239540124457,
+              "ci_upper": 0.9028838798471366,
+              "ci_level": 0.95,
+              "bottom_values": [
+                1,
+                2
+              ],
+              "scale_min": 1
+            },
+            "bundled_service_client": {
+              "value": null,
+              "n_valid": 9,
+              "n_total": 9,
+              "suppressed": true,
+              "suppress_reason": "n_valid=9 below threshold=30",
+              "ci_lower": null,
+              "ci_upper": null,
+              "ci_level": 0.95,
+              "bottom_values": [
+                1,
+                2
+              ],
+              "scale_min": 1
+            }
+          }
+        },
+        "no_prior_access": {
+          "base": "all_respondents",
+          "n_base": 2111,
+          "headline": {
+            "value": 0.8569391634980988,
+            "n_valid": 2104,
+            "n_total": 2111,
+            "suppressed": false,
+            "suppress_reason": null,
+            "ci_lower": 0.8413271474396726,
+            "ci_upper": 0.8712501641577313,
+            "ci_level": 0.95,
+            "n_true": 1803,
+            "n_false": 301
+          },
+          "segments": {
+            "female": {
+              "value": 0.8603425559947299,
+              "n_valid": 1518,
+              "n_total": 1518,
+              "suppressed": false,
+              "suppress_reason": null,
+              "ci_lower": 0.8419939289902478,
+              "ci_upper": 0.8768720170379034,
+              "ci_level": 0.95,
+              "n_true": 1306,
+              "n_false": 212
+            },
+            "male": {
+              "value": 0.8481228668941979,
+              "n_valid": 586,
+              "n_total": 586,
+              "suppressed": false,
+              "suppress_reason": null,
+              "ci_lower": 0.8168032150192579,
+              "ci_upper": 0.8749080811241825,
+              "ci_level": 0.95,
+              "n_true": 497,
+              "n_false": 89
+            },
+            "claimant": {
+              "value": 0.8562091503267973,
+              "n_valid": 153,
+              "n_total": 153,
+              "suppressed": false,
+              "suppress_reason": null,
+              "ci_lower": 0.7918831500079815,
+              "ci_upper": 0.9030861573395872,
+              "ci_level": 0.95,
+              "n_true": 131,
+              "n_false": 22
+            },
+            "non_claimant": {
+              "value": 0.8285714285714286,
+              "n_valid": 210,
+              "n_total": 210,
+              "suppressed": false,
+              "suppress_reason": null,
+              "ci_lower": 0.7718116285173587,
+              "ci_upper": 0.8735262809836838,
+              "ci_level": 0.95,
+              "n_true": 174,
+              "n_false": 36
+            },
+            "first_time_access": {
+              "value": 1.0,
+              "n_valid": 1803,
+              "n_total": 1803,
+              "suppressed": false,
+              "suppress_reason": null,
+              "ci_lower": 0.9978739369733072,
+              "ci_upper": 0.9999999999999998,
+              "ci_level": 0.95,
+              "n_true": 1803,
+              "n_false": 0
+            },
+            "caregiver": {
+              "value": 0.8703319502074689,
+              "n_valid": 1928,
+              "n_total": 1928,
+              "suppressed": false,
+              "suppress_reason": null,
+              "ci_lower": 0.8545971301595415,
+              "ci_upper": 0.8845939631259977,
+              "ci_level": 0.95,
+              "n_true": 1678,
+              "n_false": 250
+            },
+            "non_caregiver": {
+              "value": 0.7102272727272727,
+              "n_valid": 176,
+              "n_total": 183,
+              "suppressed": false,
+              "suppress_reason": null,
+              "ci_lower": 0.6392822662609565,
+              "ci_upper": 0.7721912642878566,
+              "ci_level": 0.95,
+              "n_true": 125,
+              "n_false": 51
+            },
+            "pwd": {
+              "value": 0.8427672955974843,
+              "n_valid": 477,
+              "n_total": 477,
+              "suppressed": false,
+              "suppress_reason": null,
+              "ci_lower": 0.8073772655398574,
+              "ci_upper": 0.8726805664158068,
+              "ci_level": 0.95,
+              "n_true": 402,
+              "n_false": 75
+            },
+            "bundled_service_client": {
+              "value": null,
+              "n_valid": 9,
+              "n_total": 9,
+              "suppressed": true,
+              "suppress_reason": "n_valid=9 below threshold=30",
+              "ci_lower": null,
+              "ci_upper": null,
+              "ci_level": 0.95,
+              "n_true": 6,
+              "n_false": 3
+            }
+          }
+        }
+      }
+    },
+    "part_4": {
+      "nps": {
+        "base": "all_respondents_with_score",
+        "n_base": 2104,
+        "result": {
+          "value": 16.777566539923956,
+          "n_valid": 2104,
+          "n_total": 2111,
+          "suppressed": false,
+          "suppress_reason": null,
+          "ci_lower": null,
+          "ci_upper": null,
+          "ci_level": 0.95,
+          "promoters": {
+            "n": 924,
+            "pct": 0.4391634980988593
+          },
+          "passives": {
+            "n": 609,
+            "pct": 0.2894486692015209
+          },
+          "detractors": {
+            "n": 571,
+            "pct": 0.27138783269961975
+          }
+        }
+      },
+      "child_wellbeing": {
+        "base": "child_wellbeing_base",
+        "n_base": 1928,
+        "headline": {
+          "value": 0.350103734439834,
+          "n_valid": 1928,
+          "n_total": 1928,
+          "suppressed": false,
+          "suppress_reason": null,
+          "ci_lower": 0.32912896721536206,
+          "ci_upper": 0.37167463788334826,
+          "ci_level": 0.95,
+          "matched_values": [
+            "Yes"
+          ]
+        },
+        "segments": {
+          "female": {
+            "value": 0.3467048710601719,
+            "n_valid": 1396,
+            "n_total": 1396,
+            "suppressed": false,
+            "suppress_reason": null,
+            "ci_lower": 0.3221907868044531,
+            "ci_upper": 0.3720603033435902,
+            "ci_level": 0.95,
+            "matched_values": [
+              "Yes"
+            ]
+          },
+          "male": {
+            "value": 0.35902255639097747,
+            "n_valid": 532,
+            "n_total": 532,
+            "suppressed": false,
+            "suppress_reason": null,
+            "ci_lower": 0.3194032493269881,
+            "ci_upper": 0.40066320404127637,
+            "ci_level": 0.95,
+            "matched_values": [
+              "Yes"
+            ]
+          },
+          "claimant": {
+            "value": 0.4726027397260274,
+            "n_valid": 146,
+            "n_total": 146,
+            "suppressed": false,
+            "suppress_reason": null,
+            "ci_lower": 0.39336479313696243,
+            "ci_upper": 0.5532454436895952,
+            "ci_level": 0.95,
+            "matched_values": [
+              "Yes"
+            ]
+          },
+          "non_claimant": {
+            "value": 0.22164948453608246,
+            "n_valid": 194,
+            "n_total": 194,
+            "suppressed": false,
+            "suppress_reason": null,
+            "ci_lower": 0.16892478874704706,
+            "ci_upper": 0.28518356324462735,
+            "ci_level": 0.95,
+            "matched_values": [
+              "Yes"
+            ]
+          },
+          "first_time_access": {
+            "value": 0.35816448152562574,
+            "n_valid": 1678,
+            "n_total": 1678,
+            "suppressed": false,
+            "suppress_reason": null,
+            "ci_lower": 0.33557174425291264,
+            "ci_upper": 0.38140514586741353,
+            "ci_level": 0.95,
+            "matched_values": [
+              "Yes"
+            ]
+          },
+          "caregiver": {
+            "value": 0.350103734439834,
+            "n_valid": 1928,
+            "n_total": 1928,
+            "suppressed": false,
+            "suppress_reason": null,
+            "ci_lower": 0.32912896721536206,
+            "ci_upper": 0.37167463788334826,
+            "ci_level": 0.95,
+            "matched_values": [
+              "Yes"
+            ]
+          },
+          "non_caregiver": {
+            "value": null,
+            "n_valid": 0,
+            "n_total": 0,
+            "suppressed": true,
+            "suppress_reason": "n_valid=0 below threshold=30",
+            "ci_lower": null,
+            "ci_upper": null,
+            "ci_level": 0.95,
+            "matched_values": [
+              "Yes"
+            ]
+          },
+          "pwd": {
+            "value": 0.3464203233256351,
+            "n_valid": 433,
+            "n_total": 433,
+            "suppressed": false,
+            "suppress_reason": null,
+            "ci_lower": 0.30312964956110294,
+            "ci_upper": 0.3924120685737796,
+            "ci_level": 0.95,
+            "matched_values": [
+              "Yes"
+            ]
+          },
+          "bundled_service_client": {
+            "value": null,
+            "n_valid": 9,
+            "n_total": 9,
+            "suppressed": true,
+            "suppress_reason": "n_valid=9 below threshold=30",
+            "ci_lower": null,
+            "ci_upper": null,
+            "ci_level": 0.95,
+            "matched_values": [
+              "Yes"
+            ]
+          }
+        }
+      },
+      "healthcare_access": {
+        "base": "health_respondents",
+        "n_base": 1672,
+        "positive_values_used": [
+          "Yes",
+          "Yes, a lot",
+          "Yes, somewhat"
+        ],
+        "headline": {
+          "value": 0.15789473684210525,
+          "n_valid": 1672,
+          "n_total": 1672,
+          "suppressed": false,
+          "suppress_reason": null,
+          "ci_lower": 0.14120315944364756,
+          "ci_upper": 0.17615470040722161,
+          "ci_level": 0.95,
+          "matched_values": [
+            "Yes",
+            "Yes, a lot",
+            "Yes, somewhat"
+          ]
+        },
+        "distribution": [
+          {
+            "value": "No",
+            "n": 711,
+            "pct": 0.42523923444976075
+          },
+          {
+            "value": "Not applicable (I/my family have not needed medical care)",
+            "n": 697,
+            "pct": 0.416866028708134
+          },
+          {
+            "value": "Yes",
+            "n": 264,
+            "pct": 0.15789473684210525
+          }
+        ]
+      },
+      "medical_cost_change": {
+        "base": "health_respondents",
+        "n_base": 1672,
+        "note": "'Much lower' and 'Slightly lower' coded as improved; 'Not applicable' coded as null",
+        "headline": {
+          "value": 0.5399568034557235,
+          "n_valid": 926,
+          "n_total": 1672,
+          "suppressed": false,
+          "suppress_reason": null,
+          "ci_lower": 0.507756472238899,
+          "ci_upper": 0.5718269871756265,
+          "ci_level": 0.95,
+          "n_true": 500,
+          "n_false": 426
+        }
+      }
+    },
+    "part_5": {
+      "base": "child_wellbeing_base",
+      "n_base": 1928,
+      "outcome_variable": "q_child_wellbeing (Yes=1, No=0)",
+      "method": "Spearman rank correlation",
+      "drivers": {
+        "financial_stress": {
+          "value": -0.43428719187285103,
+          "n_valid": 1928,
+          "n_total": 1928,
+          "suppressed": false,
+          "suppress_reason": null,
+          "ci_lower": -0.46982059595653775,
+          "ci_upper": -0.3973487423756225,
+          "ci_level": 0.95,
+          "p_value": 1.6268881610951476e-89,
+          "significant": true
+        },
+        "coverage_understanding": {
+          "value": -0.2057900409067155,
+          "n_valid": 1928,
+          "n_total": 1928,
+          "suppressed": false,
+          "suppress_reason": null,
+          "ci_lower": -0.24815232749964786,
+          "ci_upper": -0.16264218236318895,
+          "ci_level": 0.95,
+          "p_value": 6.974933670431612e-20,
+          "significant": true
+        },
+        "claim_process_understanding": {
+          "value": -0.15357532208766309,
+          "n_valid": 1928,
+          "n_total": 1928,
+          "suppressed": false,
+          "suppress_reason": null,
+          "ci_lower": -0.19686764800713674,
+          "ci_upper": -0.1096852812980212,
+          "ci_level": 0.95,
+          "p_value": 1.2082818093152245e-11,
+          "significant": true
+        },
+        "worth_premium": {
+          "value": -0.1641688722119261,
+          "n_valid": 1801,
+          "n_total": 1928,
+          "suppressed": false,
+          "suppress_reason": null,
+          "ci_lower": -0.20877534131666248,
+          "ci_upper": -0.11888074198592495,
+          "ci_level": 0.95,
+          "p_value": 2.386543551778446e-12,
+          "significant": true
+        },
+        "renewal_intent": {
+          "value": -0.4921361167043348,
+          "n_valid": 127,
+          "n_total": 1928,
+          "suppressed": false,
+          "suppress_reason": null,
+          "ci_lower": -0.6137310982699296,
+          "ci_upper": -0.3477353759327578,
+          "ci_level": 0.95,
+          "p_value": 4.194196313758658e-09,
+          "significant": true
+        },
+        "confidence_pay": {
+          "value": -0.16219309657212552,
+          "n_valid": 1928,
+          "n_total": 1928,
+          "suppressed": false,
+          "suppress_reason": null,
+          "ci_lower": -0.20534827944673614,
+          "ci_upper": -0.11840841432917873,
+          "ci_level": 0.95,
+          "p_value": 7.801095979817647e-13,
+          "significant": true
+        },
+        "nps_score": {
+          "value": 0.2202948145281022,
+          "n_valid": 1928,
+          "n_total": 1928,
+          "suppressed": false,
+          "suppress_reason": null,
+          "ci_lower": 0.17739737910509018,
+          "ci_upper": 0.26235672503403046,
+          "ci_level": 0.95,
+          "p_value": 1.2788163413448713e-22,
+          "significant": true
+        },
+        "economic_strain_relief_proxy": {
+          "value": null,
+          "n_valid": 675,
+          "n_total": 1928,
+          "suppressed": false,
+          "suppress_reason": null,
+          "ci_lower": null,
+          "ci_upper": null,
+          "ci_level": 0.95,
+          "p_value": null,
+          "significant": false,
+          "note": "q_child_improvements__d — Reduced need to work extra hours after a shock (proxy for economic strain relief)"
+        }
+      },
+      "regression": {
+        "outcome_variable": "q_child_wellbeing (Yes=1, No=0)",
+        "predictors": [
+          "is_crop",
+          "is_credit_life",
+          "bundled_service_client",
+          "first_time_access"
+        ],
+        "reference_category_note": "insurance_type reference category: is_health (implicit baseline — not included as a predictor, to avoid the dummy-variable trap)",
+        "method": "Logistic regression (statsmodels Logit)",
+        "n_obs": 1928,
+        "n_total": 1928,
+        "suppressed": false,
+        "suppress_reason": null,
+        "converged": true,
+        "pseudo_r2": 0.06572685122163469,
+        "predictors_dropped": [],
+        "coefficients": {
+          "intercept": {
+            "coef": -0.7444743287586453,
+            "odds_ratio": 0.4749839197118951,
+            "std_err": 0.14223890076671827,
+            "p_value": 1.6590619653829973e-07,
+            "ci_lower": 0.35942223071706214,
+            "ci_upper": 0.6277010844175533,
+            "ci_level": 0.95,
+            "significant": true
+          },
+          "is_crop": {
+            "coef": 1.4365632970167894,
+            "odds_ratio": 4.206215435728033,
+            "std_err": 0.20323932813506648,
+            "p_value": 1.5680564363737042e-12,
+            "ci_lower": 2.8241898187121874,
+            "ci_upper": 6.264539364363377,
+            "ci_level": 0.95,
+            "significant": true
+          },
+          "is_credit_life": {
+            "coef": -1.7197480705310701,
+            "odds_ratio": 0.1791112656340432,
+            "std_err": 0.22522161934919818,
+            "p_value": 2.2441606091213394e-14,
+            "ci_lower": 0.11518977043213785,
+            "ci_upper": 0.2785042921491772,
+            "ci_level": 0.95,
+            "significant": true
+          },
+          "bundled_service_client": {
+            "coef": 1.306763024998878,
+            "odds_ratio": 3.6941963162778326,
+            "std_err": 0.710553499876214,
+            "p_value": 0.06590377321782401,
+            "ci_lower": 0.9176894422065195,
+            "ci_upper": 14.871138094808252,
+            "ci_level": 0.95,
+            "significant": false
+          },
+          "first_time_access": {
+            "coef": 0.1984266938490322,
+            "odds_ratio": 1.2194826285598763,
+            "std_err": 0.15196159060009043,
+            "p_value": 0.1916312154742349,
+            "ci_lower": 0.905369120247736,
+            "ci_upper": 1.6425763239554492,
+            "ci_level": 0.95,
+            "significant": false
+          }
+        },
+        "error": null
+      },
+      "caregiver_comparison": {
+        "groups": {
+          "caregiver": {
+            "label": "Caregiver",
+            "n": 1928
+          },
+          "non_caregiver": {
+            "label": "Non-Caregiver",
+            "n": 183
+          }
+        },
+        "note": "Financial stress is measured among clients who experienced an insured event in the last 12 months (same base as Part 3's financial stress metric); healthcare access is measured among health-insurance clients who needed care (same base as Part 4's healthcare access metric).",
+        "metrics": {
+          "financial_stress_high": {
+            "label": "High Financial Stress",
+            "female": {
+              "value": 0.036585365853658534,
+              "n_valid": 246,
+              "n_total": 246,
+              "suppressed": false,
+              "suppress_reason": null,
+              "ci_lower": 0.019364983182769233,
+              "ci_upper": 0.0680562915880016,
+              "ci_level": 0.95,
+              "top_values": [
+                4,
+                5
+              ],
+              "scale_max": 5
+            },
+            "male": {
+              "value": 0.02564102564102564,
+              "n_valid": 117,
+              "n_total": 117,
+              "suppressed": false,
+              "suppress_reason": null,
+              "ci_lower": 0.00875805570382017,
+              "ci_upper": 0.07268302351467049,
+              "ci_level": 0.95,
+              "top_values": [
+                4,
+                5
+              ],
+              "scale_max": 5
+            },
+            "claimant": {
+              "value": 0.05228758169934641,
+              "n_valid": 153,
+              "n_total": 153,
+              "suppressed": false,
+              "suppress_reason": null,
+              "ci_lower": 0.02673004958411372,
+              "ci_upper": 0.09977641732765787,
+              "ci_level": 0.95,
+              "top_values": [
+                4,
+                5
+              ],
+              "scale_max": 5
+            },
+            "non_claimant": {
+              "value": 0.01904761904761905,
+              "n_valid": 210,
+              "n_total": 210,
+              "suppressed": false,
+              "suppress_reason": null,
+              "ci_lower": 0.0074315621394835905,
+              "ci_upper": 0.04794338192420791,
+              "ci_level": 0.95,
+              "top_values": [
+                4,
+                5
+              ],
+              "scale_max": 5
+            },
+            "first_time_access": {
+              "value": 0.029508196721311476,
+              "n_valid": 305,
+              "n_total": 305,
+              "suppressed": false,
+              "suppress_reason": null,
+              "ci_lower": 0.015600546502992054,
+              "ci_upper": 0.055120071460980025,
+              "ci_level": 0.95,
+              "top_values": [
+                4,
+                5
+              ],
+              "scale_max": 5
+            },
+            "caregiver": {
+              "value": 0.03235294117647059,
+              "n_valid": 340,
+              "n_total": 340,
+              "suppressed": false,
+              "suppress_reason": null,
+              "ci_lower": 0.01815965720413458,
+              "ci_upper": 0.056995499795620616,
+              "ci_level": 0.95,
+              "top_values": [
+                4,
+                5
+              ],
+              "scale_max": 5
+            },
+            "non_caregiver": {
+              "value": null,
+              "n_valid": 23,
+              "n_total": 23,
+              "suppressed": true,
+              "suppress_reason": "n_valid=23 below threshold=30",
+              "ci_lower": null,
+              "ci_upper": null,
+              "ci_level": 0.95,
+              "top_values": [
+                4,
+                5
+              ],
+              "scale_max": 5
+            },
+            "pwd": {
+              "value": 0.01639344262295082,
+              "n_valid": 122,
+              "n_total": 122,
+              "suppressed": false,
+              "suppress_reason": null,
+              "ci_lower": 0.004507246613595466,
+              "ci_upper": 0.05780495871348255,
+              "ci_level": 0.95,
+              "top_values": [
+                4,
+                5
+              ],
+              "scale_max": 5
+            },
+            "bundled_service_client": {
+              "value": null,
+              "n_valid": 4,
+              "n_total": 4,
+              "suppressed": true,
+              "suppress_reason": "n_valid=4 below threshold=30",
+              "ci_lower": null,
+              "ci_upper": null,
+              "ci_level": 0.95,
+              "top_values": [
+                1,
+                2
+              ],
+              "scale_max": 2
+            },
+            "significance": null
+          },
+          "healthcare_access": {
+            "label": "Healthcare Access Improved",
+            "female": {
+              "value": 0.1482456140350877,
+              "n_valid": 1140,
+              "n_total": 1140,
+              "suppressed": false,
+              "suppress_reason": null,
+              "ci_lower": 0.12880038413686465,
+              "ci_upper": 0.1700534965164334,
+              "ci_level": 0.95,
+              "matched_values": [
+                "Yes",
+                "Yes, a lot",
+                "Yes, somewhat"
+              ]
+            },
+            "male": {
+              "value": 0.17857142857142858,
+              "n_valid": 532,
+              "n_total": 532,
+              "suppressed": false,
+              "suppress_reason": null,
+              "ci_lower": 0.14836593824270158,
+              "ci_upper": 0.21338557543694128,
+              "ci_level": 0.95,
+              "matched_values": [
+                "Yes",
+                "Yes, a lot",
+                "Yes, somewhat"
+              ]
+            },
+            "claimant": {
+              "value": 0.48148148148148145,
+              "n_valid": 135,
+              "n_total": 135,
+              "suppressed": false,
+              "suppress_reason": null,
+              "ci_lower": 0.3988809024947728,
+              "ci_upper": 0.5651067994318021,
+              "ci_level": 0.95,
+              "matched_values": [
+                "Yes",
+                "Yes, a lot",
+                "Yes, somewhat"
+              ]
+            },
+            "non_claimant": {
+              "value": 0.15168539325842698,
+              "n_valid": 178,
+              "n_total": 178,
+              "suppressed": false,
+              "suppress_reason": null,
+              "ci_lower": 0.10638925612452266,
+              "ci_upper": 0.21169804473533815,
+              "ci_level": 0.95,
+              "matched_values": [
+                "Yes",
+                "Yes, a lot",
+                "Yes, somewhat"
+              ]
+            },
+            "first_time_access": {
+              "value": 0.15265017667844524,
+              "n_valid": 1415,
+              "n_total": 1415,
+              "suppressed": false,
+              "suppress_reason": null,
+              "ci_lower": 0.1348532321835466,
+              "ci_upper": 0.1723279938168233,
+              "ci_level": 0.95,
+              "matched_values": [
+                "Yes",
+                "Yes, a lot",
+                "Yes, somewhat"
+              ]
+            },
+            "caregiver": {
+              "value": 0.15989684074790458,
+              "n_valid": 1551,
+              "n_total": 1551,
+              "suppressed": false,
+              "suppress_reason": null,
+              "ci_lower": 0.1425001410070248,
+              "ci_upper": 0.17897408775441476,
+              "ci_level": 0.95,
+              "matched_values": [
+                "Yes",
+                "Yes, a lot",
+                "Yes, somewhat"
+              ]
+            },
+            "non_caregiver": {
+              "value": 0.1322314049586777,
+              "n_valid": 121,
+              "n_total": 121,
+              "suppressed": false,
+              "suppress_reason": null,
+              "ci_lower": 0.08305917829459442,
+              "ci_upper": 0.2040366243279309,
+              "ci_level": 0.95,
+              "matched_values": [
+                "Yes",
+                "Yes, a lot",
+                "Yes, somewhat"
+              ]
+            },
+            "pwd": {
+              "value": 0.13658536585365855,
+              "n_valid": 410,
+              "n_total": 410,
+              "suppressed": false,
+              "suppress_reason": null,
+              "ci_lower": 0.10670131934311661,
+              "ci_upper": 0.17321616198125933,
+              "ci_level": 0.95,
+              "matched_values": [
+                "Yes",
+                "Yes, a lot",
+                "Yes, somewhat"
+              ]
+            },
+            "bundled_service_client": {
+              "value": null,
+              "n_valid": 9,
+              "n_total": 9,
+              "suppressed": true,
+              "suppress_reason": "n_valid=9 below threshold=30",
+              "ci_lower": null,
+              "ci_upper": null,
+              "ci_level": 0.95,
+              "matched_values": [
+                "Yes",
+                "Yes, a lot",
+                "Yes, somewhat"
+              ]
+            },
+            "significance": {
+              "a_pct": 0.15989684074790458,
+              "b_pct": 0.1322314049586777,
+              "gap": 0.027665435789226894,
+              "z_stat": 0.8038054480579052,
+              "p_value": 0.42150934287876685,
+              "significant": false,
+              "error": null
+            }
+          }
+        }
+      }
+    },
+    "part_6": {
+      "groups": {
+        "claimant": {
+          "label": "Claimant",
+          "n": 153
+        },
+        "non_claimant": {
+          "label": "Non-Claimant",
+          "n": 210
+        }
+      },
+      "metrics": {
+        "coverage_understanding": {
+          "label": "Coverage Understanding",
+          "female": {
+            "value": 0.7549407114624506,
+            "n_valid": 1518,
+            "n_total": 1518,
+            "suppressed": false,
+            "suppress_reason": null,
+            "ci_lower": 0.732677574860863,
+            "ci_upper": 0.7759167964606991,
+            "ci_level": 0.95,
+            "bottom_values": [
+              1,
+              2
+            ],
+            "scale_min": 1
+          },
+          "male": {
+            "value": 0.7935153583617748,
+            "n_valid": 586,
+            "n_total": 586,
+            "suppressed": false,
+            "suppress_reason": null,
+            "ci_lower": 0.7588814449933772,
+            "ci_upper": 0.8243261184216804,
+            "ci_level": 0.95,
+            "bottom_values": [
+              1,
+              2
+            ],
+            "scale_min": 1
+          },
+          "claimant": {
+            "value": 0.9477124183006536,
+            "n_valid": 153,
+            "n_total": 153,
+            "suppressed": false,
+            "suppress_reason": null,
+            "ci_lower": 0.9002235826723421,
+            "ci_upper": 0.9732699504158864,
+            "ci_level": 0.95,
+            "bottom_values": [
+              1,
+              2
+            ],
+            "scale_min": 1
+          },
+          "non_claimant": {
+            "value": 0.6190476190476191,
+            "n_valid": 210,
+            "n_total": 210,
+            "suppressed": false,
+            "suppress_reason": null,
+            "ci_lower": 0.5517861297302177,
+            "ci_upper": 0.6820319534223339,
+            "ci_level": 0.95,
+            "bottom_values": [
+              1,
+              2
+            ],
+            "scale_min": 1
+          },
+          "first_time_access": {
+            "value": 0.7581808097615086,
+            "n_valid": 1803,
+            "n_total": 1803,
+            "suppressed": false,
+            "suppress_reason": null,
+            "ci_lower": 0.7378809676537968,
+            "ci_upper": 0.7773828345215493,
+            "ci_level": 0.95,
+            "bottom_values": [
+              1,
+              2
+            ],
+            "scale_min": 1
+          },
+          "caregiver": {
+            "value": 0.7671161825726142,
+            "n_valid": 1928,
+            "n_total": 1928,
+            "suppressed": false,
+            "suppress_reason": null,
+            "ci_lower": 0.7477296571897986,
+            "ci_upper": 0.7854403890875864,
+            "ci_level": 0.95,
+            "bottom_values": [
+              1,
+              2
+            ],
+            "scale_min": 1
+          },
+          "non_caregiver": {
+            "value": 0.75,
+            "n_valid": 176,
+            "n_total": 183,
+            "suppressed": false,
+            "suppress_reason": null,
+            "ci_lower": 0.6811495957232009,
+            "ci_upper": 0.8081702784429553,
+            "ci_level": 0.95,
+            "bottom_values": [
+              1,
+              2
+            ],
+            "scale_min": 1
+          },
+          "pwd": {
+            "value": 0.7568134171907757,
+            "n_valid": 477,
+            "n_total": 477,
+            "suppressed": false,
+            "suppress_reason": null,
+            "ci_lower": 0.716361645951773,
+            "ci_upper": 0.7931618061251007,
+            "ci_level": 0.95,
+            "bottom_values": [
+              1,
+              2
+            ],
+            "scale_min": 1
+          },
+          "bundled_service_client": {
+            "value": null,
+            "n_valid": 9,
+            "n_total": 9,
+            "suppressed": true,
+            "suppress_reason": "n_valid=9 below threshold=30",
+            "ci_lower": null,
+            "ci_upper": null,
+            "ci_level": 0.95,
+            "bottom_values": [
+              1,
+              2
+            ],
+            "scale_min": 1
+          },
+          "significance": {
+            "a_pct": 0.9477124183006536,
+            "b_pct": 0.6190476190476191,
+            "gap": 0.3286647992530345,
+            "z_stat": 7.21529654287893,
+            "p_value": 5.382361223382759e-13,
+            "significant": true,
+            "error": null
+          }
+        },
+        "claim_process_understanding": {
+          "label": "Claim Process Understanding",
+          "female": {
+            "value": 0.6791831357048749,
+            "n_valid": 1518,
+            "n_total": 1518,
+            "suppressed": false,
+            "suppress_reason": null,
+            "ci_lower": 0.6552741781919977,
+            "ci_upper": 0.7021874988092036,
+            "ci_level": 0.95,
+            "bottom_values": [
+              1,
+              2
+            ],
+            "scale_min": 1
+          },
+          "male": {
+            "value": 0.689419795221843,
+            "n_valid": 586,
+            "n_total": 586,
+            "suppressed": false,
+            "suppress_reason": null,
+            "ci_lower": 0.6508227903846561,
+            "ci_upper": 0.7255495325169218,
+            "ci_level": 0.95,
+            "bottom_values": [
+              1,
+              2
+            ],
+            "scale_min": 1
+          },
+          "claimant": {
+            "value": 0.9019607843137255,
+            "n_valid": 153,
+            "n_total": 153,
+            "suppressed": false,
+            "suppress_reason": null,
+            "ci_lower": 0.844547363017974,
+            "ci_upper": 0.9396840571999246,
+            "ci_level": 0.95,
+            "bottom_values": [
+              1,
+              2
+            ],
+            "scale_min": 1
+          },
+          "non_claimant": {
+            "value": 0.49047619047619045,
+            "n_valid": 210,
+            "n_total": 210,
+            "suppressed": false,
+            "suppress_reason": null,
+            "ci_lower": 0.4236441978793475,
+            "ci_upper": 0.5576503554684483,
+            "ci_level": 0.95,
+            "bottom_values": [
+              1,
+              2
+            ],
+            "scale_min": 1
+          },
+          "first_time_access": {
+            "value": 0.6799778147531891,
+            "n_valid": 1803,
+            "n_total": 1803,
+            "suppressed": false,
+            "suppress_reason": null,
+            "ci_lower": 0.6580825066231355,
+            "ci_upper": 0.7011078345280992,
+            "ci_level": 0.95,
+            "bottom_values": [
+              1,
+              2
+            ],
+            "scale_min": 1
+          },
+          "caregiver": {
+            "value": 0.691908713692946,
+            "n_valid": 1928,
+            "n_total": 1928,
+            "suppressed": false,
+            "suppress_reason": null,
+            "ci_lower": 0.6709349847286856,
+            "ci_upper": 0.7121192232764257,
+            "ci_level": 0.95,
+            "bottom_values": [
+              1,
+              2
+            ],
+            "scale_min": 1
+          },
+          "non_caregiver": {
+            "value": 0.5738636363636364,
+            "n_valid": 176,
+            "n_total": 183,
+            "suppressed": false,
+            "suppress_reason": null,
+            "ci_lower": 0.4999947143299311,
+            "ci_upper": 0.6445770666737061,
+            "ci_level": 0.95,
+            "bottom_values": [
+              1,
+              2
+            ],
+            "scale_min": 1
+          },
+          "pwd": {
+            "value": 0.6519916142557652,
+            "n_valid": 477,
+            "n_total": 477,
+            "suppressed": false,
+            "suppress_reason": null,
+            "ci_lower": 0.60818421841069,
+            "ci_upper": 0.6933704777164393,
+            "ci_level": 0.95,
+            "bottom_values": [
+              1,
+              2
+            ],
+            "scale_min": 1
+          },
+          "bundled_service_client": {
+            "value": null,
+            "n_valid": 9,
+            "n_total": 9,
+            "suppressed": true,
+            "suppress_reason": "n_valid=9 below threshold=30",
+            "ci_lower": null,
+            "ci_upper": null,
+            "ci_level": 0.95,
+            "bottom_values": [
+              1,
+              2
+            ],
+            "scale_min": 1
+          },
+          "significance": {
+            "a_pct": 0.9019607843137255,
+            "b_pct": 0.49047619047619045,
+            "gap": 0.41148459383753505,
+            "z_stat": 8.19546912210505,
+            "p_value": 2.220446049250313e-16,
+            "significant": true,
+            "error": null
+          }
+        },
+        "worth_premium": {
+          "label": "Worth Premium",
+          "female": {
+            "value": 0.889367816091954,
+            "n_valid": 1392,
+            "n_total": 1518,
+            "suppressed": false,
+            "suppress_reason": null,
+            "ci_lower": 0.8718058786854237,
+            "ci_upper": 0.904786615505027,
+            "ci_level": 0.95,
+            "bottom_values": [
+              1,
+              2
+            ],
+            "scale_min": 1
+          },
+          "male": {
+            "value": 0.9079646017699115,
+            "n_valid": 565,
+            "n_total": 586,
+            "suppressed": false,
+            "suppress_reason": null,
+            "ci_lower": 0.8812948302520335,
+            "ci_upper": 0.9291242994572039,
+            "ci_level": 0.95,
+            "bottom_values": [
+              1,
+              2
+            ],
+            "scale_min": 1
+          },
+          "claimant": {
+            "value": 0.8562091503267973,
+            "n_valid": 153,
+            "n_total": 153,
+            "suppressed": false,
+            "suppress_reason": null,
+            "ci_lower": 0.7918831500079815,
+            "ci_upper": 0.9030861573395872,
+            "ci_level": 0.95,
+            "bottom_values": [
+              1,
+              2
+            ],
+            "scale_min": 1
+          },
+          "non_claimant": {
+            "value": 0.8714285714285714,
+            "n_valid": 210,
+            "n_total": 210,
+            "suppressed": false,
+            "suppress_reason": null,
+            "ci_lower": 0.8193995418245132,
+            "ci_upper": 0.9101128776114478,
+            "ci_level": 0.95,
+            "bottom_values": [
+              1,
+              2
+            ],
+            "scale_min": 1
+          },
+          "first_time_access": {
+            "value": 0.8992762364294331,
+            "n_valid": 1658,
+            "n_total": 1803,
+            "suppressed": false,
+            "suppress_reason": null,
+            "ci_lower": 0.8838539673734856,
+            "ci_upper": 0.9128525974871363,
+            "ci_level": 0.95,
+            "bottom_values": [
+              1,
+              2
+            ],
+            "scale_min": 1
+          },
+          "caregiver": {
+            "value": 0.9083842309827873,
+            "n_valid": 1801,
+            "n_total": 1928,
+            "suppressed": false,
+            "suppress_reason": null,
+            "ci_lower": 0.894177571094661,
+            "ci_upper": 0.9208524653724587,
+            "ci_level": 0.95,
+            "bottom_values": [
+              1,
+              2
+            ],
+            "scale_min": 1
+          },
+          "non_caregiver": {
+            "value": 0.7371794871794872,
+            "n_valid": 156,
+            "n_total": 183,
+            "suppressed": false,
+            "suppress_reason": null,
+            "ci_lower": 0.6630047526486745,
+            "ci_upper": 0.7999539850028082,
+            "ci_level": 0.95,
+            "bottom_values": [
+              1,
+              2
+            ],
+            "scale_min": 1
+          },
+          "pwd": {
+            "value": 0.8896247240618101,
+            "n_valid": 453,
+            "n_total": 477,
+            "suppressed": false,
+            "suppress_reason": null,
+            "ci_lower": 0.8574277335064582,
+            "ci_upper": 0.9152692124126931,
+            "ci_level": 0.95,
+            "bottom_values": [
+              1,
+              2
+            ],
+            "scale_min": 1
+          },
+          "bundled_service_client": {
+            "value": null,
+            "n_valid": 9,
+            "n_total": 9,
+            "suppressed": true,
+            "suppress_reason": "n_valid=9 below threshold=30",
+            "ci_lower": null,
+            "ci_upper": null,
+            "ci_level": 0.95,
+            "bottom_values": [
+              1,
+              2
+            ],
+            "scale_min": 1
+          },
+          "significance": {
+            "a_pct": 0.8562091503267973,
+            "b_pct": 0.8714285714285714,
+            "gap": -0.0152194211017741,
+            "z_stat": -0.4190288690901127,
+            "p_value": 0.675195034028395,
+            "significant": false,
+            "error": null
+          }
+        },
+        "renewal_intent": {
+          "label": "Renewal Intent",
+          "female": {
+            "value": 0.5793650793650794,
+            "n_valid": 126,
+            "n_total": 1518,
+            "suppressed": false,
+            "suppress_reason": null,
+            "ci_lower": 0.49207231903835913,
+            "ci_upper": 0.6619616865993871,
+            "ci_level": 0.95,
+            "bottom_values": [
+              1,
+              2
+            ],
+            "scale_min": 1
+          },
+          "male": {
+            "value": null,
+            "n_valid": 21,
+            "n_total": 586,
+            "suppressed": true,
+            "suppress_reason": "n_valid=21 below threshold=30",
+            "ci_lower": null,
+            "ci_upper": null,
+            "ci_level": 0.95,
+            "bottom_values": [
+              1,
+              2
+            ],
+            "scale_min": 1
+          },
+          "claimant": {
+            "value": null,
+            "n_valid": 0,
+            "n_total": 153,
+            "suppressed": true,
+            "suppress_reason": "n_valid=0 below threshold=30",
+            "ci_lower": null,
+            "ci_upper": null,
+            "ci_level": 0.95,
+            "bottom_values": [],
+            "scale_min": null
+          },
+          "non_claimant": {
+            "value": null,
+            "n_valid": 0,
+            "n_total": 210,
+            "suppressed": true,
+            "suppress_reason": "n_valid=0 below threshold=30",
+            "ci_lower": null,
+            "ci_upper": null,
+            "ci_level": 0.95,
+            "bottom_values": [],
+            "scale_min": null
+          },
+          "first_time_access": {
+            "value": 0.5862068965517241,
+            "n_valid": 145,
+            "n_total": 1803,
+            "suppressed": false,
+            "suppress_reason": null,
+            "ci_lower": 0.5048276152506097,
+            "ci_upper": 0.6631363391346863,
+            "ci_level": 0.95,
+            "bottom_values": [
+              1,
+              2
+            ],
+            "scale_min": 1
+          },
+          "caregiver": {
+            "value": 0.5984251968503937,
+            "n_valid": 127,
+            "n_total": 1928,
+            "suppressed": false,
+            "suppress_reason": null,
+            "ci_lower": 0.5114888159154837,
+            "ci_upper": 0.679582120050311,
+            "ci_level": 0.95,
+            "bottom_values": [
+              1,
+              2
+            ],
+            "scale_min": 1
+          },
+          "non_caregiver": {
+            "value": null,
+            "n_valid": 20,
+            "n_total": 183,
+            "suppressed": true,
+            "suppress_reason": "n_valid=20 below threshold=30",
+            "ci_lower": null,
+            "ci_upper": null,
+            "ci_level": 0.95,
+            "bottom_values": [
+              1,
+              2
+            ],
+            "scale_min": 1
+          },
+          "pwd": {
+            "value": null,
+            "n_valid": 24,
+            "n_total": 477,
+            "suppressed": true,
+            "suppress_reason": "n_valid=24 below threshold=30",
+            "ci_lower": null,
+            "ci_upper": null,
+            "ci_level": 0.95,
+            "bottom_values": [
+              1,
+              2
+            ],
+            "scale_min": 1
+          },
+          "bundled_service_client": {
+            "value": null,
+            "n_valid": 0,
+            "n_total": 9,
+            "suppressed": true,
+            "suppress_reason": "n_valid=0 below threshold=30",
+            "ci_lower": null,
+            "ci_upper": null,
+            "ci_level": 0.95,
+            "bottom_values": [],
+            "scale_min": null
+          },
+          "significance": null
+        },
+        "negative_coping": {
+          "label": "Negative Coping",
+          "female": {
+            "value": 0.17886178861788618,
+            "n_valid": 246,
+            "n_total": 246,
+            "suppressed": false,
+            "suppress_reason": null,
+            "ci_lower": 0.1360229459098291,
+            "ci_upper": 0.23157600765938935,
+            "ci_level": 0.95,
+            "n_true": 44,
+            "n_false": 202
+          },
+          "male": {
+            "value": 0.24786324786324787,
+            "n_valid": 117,
+            "n_total": 117,
+            "suppressed": false,
+            "suppress_reason": null,
+            "ci_lower": 0.17847939213759073,
+            "ci_upper": 0.3332775778974629,
+            "ci_level": 0.95,
+            "n_true": 29,
+            "n_false": 88
+          },
+          "claimant": {
+            "value": 0.11764705882352941,
+            "n_valid": 153,
+            "n_total": 153,
+            "suppressed": false,
+            "suppress_reason": null,
+            "ci_lower": 0.0757265380767955,
+            "ci_upper": 0.1782972329354474,
+            "ci_level": 0.95,
+            "n_true": 18,
+            "n_false": 135
+          },
+          "non_claimant": {
+            "value": 0.2619047619047619,
+            "n_valid": 210,
+            "n_total": 210,
+            "suppressed": false,
+            "suppress_reason": null,
+            "ci_lower": 0.20709776905994629,
+            "ci_upper": 0.32526606463495056,
+            "ci_level": 0.95,
+            "n_true": 55,
+            "n_false": 155
+          },
+          "first_time_access": {
+            "value": 0.19344262295081968,
+            "n_valid": 305,
+            "n_total": 305,
+            "suppressed": false,
+            "suppress_reason": null,
+            "ci_lower": 0.1530381077559495,
+            "ci_upper": 0.24147323565611595,
+            "ci_level": 0.95,
+            "n_true": 59,
+            "n_false": 246
+          },
+          "caregiver": {
+            "value": 0.19705882352941176,
+            "n_valid": 340,
+            "n_total": 340,
+            "suppressed": false,
+            "suppress_reason": null,
+            "ci_lower": 0.1582628730040167,
+            "ci_upper": 0.24262380102727127,
+            "ci_level": 0.95,
+            "n_true": 67,
+            "n_false": 273
+          },
+          "non_caregiver": {
+            "value": null,
+            "n_valid": 23,
+            "n_total": 23,
+            "suppressed": true,
+            "suppress_reason": "n_valid=23 below threshold=30",
+            "ci_lower": null,
+            "ci_upper": null,
+            "ci_level": 0.95,
+            "n_true": 6,
+            "n_false": 17
+          },
+          "pwd": {
+            "value": 0.19672131147540983,
+            "n_valid": 122,
+            "n_total": 122,
+            "suppressed": false,
+            "suppress_reason": null,
+            "ci_lower": 0.13591129570453556,
+            "ci_upper": 0.2760472059412591,
+            "ci_level": 0.95,
+            "n_true": 24,
+            "n_false": 98
+          },
+          "bundled_service_client": {
+            "value": null,
+            "n_valid": 4,
+            "n_total": 4,
+            "suppressed": true,
+            "suppress_reason": "n_valid=4 below threshold=30",
+            "ci_lower": null,
+            "ci_upper": null,
+            "ci_level": 0.95,
+            "n_true": 3,
+            "n_false": 1
+          },
+          "significance": {
+            "a_pct": 0.11764705882352941,
+            "b_pct": 0.2619047619047619,
+            "gap": -0.1442577030812325,
+            "z_stat": -3.3860023813815108,
+            "p_value": 0.0007091876820870535,
+            "significant": true,
+            "error": null
+          }
+        },
+        "financial_stress_high": {
+          "label": "Financial Stress (High)",
+          "female": {
+            "value": 0.036585365853658534,
+            "n_valid": 246,
+            "n_total": 246,
+            "suppressed": false,
+            "suppress_reason": null,
+            "ci_lower": 0.019364983182769233,
+            "ci_upper": 0.0680562915880016,
+            "ci_level": 0.95,
+            "top_values": [
+              4,
+              5
+            ],
+            "scale_max": 5
+          },
+          "male": {
+            "value": 0.02564102564102564,
+            "n_valid": 117,
+            "n_total": 117,
+            "suppressed": false,
+            "suppress_reason": null,
+            "ci_lower": 0.00875805570382017,
+            "ci_upper": 0.07268302351467049,
+            "ci_level": 0.95,
+            "top_values": [
+              4,
+              5
+            ],
+            "scale_max": 5
+          },
+          "claimant": {
+            "value": 0.05228758169934641,
+            "n_valid": 153,
+            "n_total": 153,
+            "suppressed": false,
+            "suppress_reason": null,
+            "ci_lower": 0.02673004958411372,
+            "ci_upper": 0.09977641732765787,
+            "ci_level": 0.95,
+            "top_values": [
+              4,
+              5
+            ],
+            "scale_max": 5
+          },
+          "non_claimant": {
+            "value": 0.01904761904761905,
+            "n_valid": 210,
+            "n_total": 210,
+            "suppressed": false,
+            "suppress_reason": null,
+            "ci_lower": 0.0074315621394835905,
+            "ci_upper": 0.04794338192420791,
+            "ci_level": 0.95,
+            "top_values": [
+              4,
+              5
+            ],
+            "scale_max": 5
+          },
+          "first_time_access": {
+            "value": 0.029508196721311476,
+            "n_valid": 305,
+            "n_total": 305,
+            "suppressed": false,
+            "suppress_reason": null,
+            "ci_lower": 0.015600546502992054,
+            "ci_upper": 0.055120071460980025,
+            "ci_level": 0.95,
+            "top_values": [
+              4,
+              5
+            ],
+            "scale_max": 5
+          },
+          "caregiver": {
+            "value": 0.03235294117647059,
+            "n_valid": 340,
+            "n_total": 340,
+            "suppressed": false,
+            "suppress_reason": null,
+            "ci_lower": 0.01815965720413458,
+            "ci_upper": 0.056995499795620616,
+            "ci_level": 0.95,
+            "top_values": [
+              4,
+              5
+            ],
+            "scale_max": 5
+          },
+          "non_caregiver": {
+            "value": null,
+            "n_valid": 23,
+            "n_total": 23,
+            "suppressed": true,
+            "suppress_reason": "n_valid=23 below threshold=30",
+            "ci_lower": null,
+            "ci_upper": null,
+            "ci_level": 0.95,
+            "top_values": [
+              4,
+              5
+            ],
+            "scale_max": 5
+          },
+          "pwd": {
+            "value": 0.01639344262295082,
+            "n_valid": 122,
+            "n_total": 122,
+            "suppressed": false,
+            "suppress_reason": null,
+            "ci_lower": 0.004507246613595466,
+            "ci_upper": 0.05780495871348255,
+            "ci_level": 0.95,
+            "top_values": [
+              4,
+              5
+            ],
+            "scale_max": 5
+          },
+          "bundled_service_client": {
+            "value": null,
+            "n_valid": 4,
+            "n_total": 4,
+            "suppressed": true,
+            "suppress_reason": "n_valid=4 below threshold=30",
+            "ci_lower": null,
+            "ci_upper": null,
+            "ci_level": 0.95,
+            "top_values": [
+              1,
+              2
+            ],
+            "scale_max": 2
+          },
+          "significance": {
+            "a_pct": 0.05228758169934641,
+            "b_pct": 0.01904761904761905,
+            "gap": 0.03323996265172736,
+            "z_stat": 1.7491418110557386,
+            "p_value": 0.08026650944634706,
+            "significant": false,
+            "error": null
+          }
+        },
+        "confidence_pay": {
+          "label": "Confidence in Pay-out",
+          "female": {
+            "value": 0.8708827404479579,
+            "n_valid": 1518,
+            "n_total": 1518,
+            "suppressed": false,
+            "suppress_reason": null,
+            "ci_lower": 0.85307306394788,
+            "ci_upper": 0.8868200395509304,
+            "ci_level": 0.95,
+            "bottom_values": [
+              1,
+              2
+            ],
+            "scale_min": 1
+          },
+          "male": {
+            "value": 0.89419795221843,
+            "n_valid": 586,
+            "n_total": 586,
+            "suppressed": false,
+            "suppress_reason": null,
+            "ci_lower": 0.8666758195303829,
+            "ci_upper": 0.9165855011026304,
+            "ci_level": 0.95,
+            "bottom_values": [
+              1,
+              2
+            ],
+            "scale_min": 1
+          },
+          "claimant": {
+            "value": 0.8627450980392157,
+            "n_valid": 153,
+            "n_total": 153,
+            "suppressed": false,
+            "suppress_reason": null,
+            "ci_lower": 0.7992779748182122,
+            "ci_upper": 0.9084430629394038,
+            "ci_level": 0.95,
+            "bottom_values": [
+              1,
+              2
+            ],
+            "scale_min": 1
+          },
+          "non_claimant": {
+            "value": 0.8380952380952381,
+            "n_valid": 210,
+            "n_total": 210,
+            "suppressed": false,
+            "suppress_reason": null,
+            "ci_lower": 0.7822777427624442,
+            "ci_upper": 0.8817656133908024,
+            "ci_level": 0.95,
+            "bottom_values": [
+              1,
+              2
+            ],
+            "scale_min": 1
+          },
+          "first_time_access": {
+            "value": 0.8874098724348308,
+            "n_valid": 1803,
+            "n_total": 1803,
+            "suppressed": false,
+            "suppress_reason": null,
+            "ci_lower": 0.8719882352030126,
+            "ci_upper": 0.90118419405473,
+            "ci_level": 0.95,
+            "bottom_values": [
+              1,
+              2
+            ],
+            "scale_min": 1
+          },
+          "caregiver": {
+            "value": 0.8947095435684648,
+            "n_valid": 1928,
+            "n_total": 1928,
+            "suppressed": false,
+            "suppress_reason": null,
+            "ci_lower": 0.8802155059179726,
+            "ci_upper": 0.9076338246006483,
+            "ci_level": 0.95,
+            "bottom_values": [
+              1,
+              2
+            ],
+            "scale_min": 1
+          },
+          "non_caregiver": {
+            "value": 0.6875,
+            "n_valid": 176,
+            "n_total": 183,
+            "suppressed": false,
+            "suppress_reason": null,
+            "ci_lower": 0.6156336459268277,
+            "ci_upper": 0.7513562596977894,
+            "ci_level": 0.95,
+            "bottom_values": [
+              1,
+              2
+            ],
+            "scale_min": 1
+          },
+          "pwd": {
+            "value": 0.8763102725366876,
+            "n_valid": 477,
+            "n_total": 477,
+            "suppressed": false,
+            "suppress_reason": null,
+            "ci_lower": 0.8437239540124457,
+            "ci_upper": 0.9028838798471366,
+            "ci_level": 0.95,
+            "bottom_values": [
+              1,
+              2
+            ],
+            "scale_min": 1
+          },
+          "bundled_service_client": {
+            "value": null,
+            "n_valid": 9,
+            "n_total": 9,
+            "suppressed": true,
+            "suppress_reason": "n_valid=9 below threshold=30",
+            "ci_lower": null,
+            "ci_upper": null,
+            "ci_level": 0.95,
+            "bottom_values": [
+              1,
+              2
+            ],
+            "scale_min": 1
+          },
+          "significance": {
+            "a_pct": 0.8627450980392157,
+            "b_pct": 0.8380952380952381,
+            "gap": 0.024649859943977614,
+            "z_stat": 0.646794663966034,
+            "p_value": 0.5177648463236535,
+            "significant": false,
+            "error": null
+          }
+        }
+      }
+    },
+    "part_7": {
+      "groups": {
+        "female": {
+          "label": "Female",
+          "n": 1518
+        },
+        "male": {
+          "label": "Male",
+          "n": 586
+        }
+      },
+      "metrics": {
+        "coverage_understanding": {
+          "label": "Coverage Understanding",
+          "female": {
+            "value": 0.7549407114624506,
+            "n_valid": 1518,
+            "n_total": 1518,
+            "suppressed": false,
+            "suppress_reason": null,
+            "ci_lower": 0.732677574860863,
+            "ci_upper": 0.7759167964606991,
+            "ci_level": 0.95,
+            "bottom_values": [
+              1,
+              2
+            ],
+            "scale_min": 1
+          },
+          "male": {
+            "value": 0.7935153583617748,
+            "n_valid": 586,
+            "n_total": 586,
+            "suppressed": false,
+            "suppress_reason": null,
+            "ci_lower": 0.7588814449933772,
+            "ci_upper": 0.8243261184216804,
+            "ci_level": 0.95,
+            "bottom_values": [
+              1,
+              2
+            ],
+            "scale_min": 1
+          },
+          "claimant": {
+            "value": 0.9477124183006536,
+            "n_valid": 153,
+            "n_total": 153,
+            "suppressed": false,
+            "suppress_reason": null,
+            "ci_lower": 0.9002235826723421,
+            "ci_upper": 0.9732699504158864,
+            "ci_level": 0.95,
+            "bottom_values": [
+              1,
+              2
+            ],
+            "scale_min": 1
+          },
+          "non_claimant": {
+            "value": 0.6190476190476191,
+            "n_valid": 210,
+            "n_total": 210,
+            "suppressed": false,
+            "suppress_reason": null,
+            "ci_lower": 0.5517861297302177,
+            "ci_upper": 0.6820319534223339,
+            "ci_level": 0.95,
+            "bottom_values": [
+              1,
+              2
+            ],
+            "scale_min": 1
+          },
+          "first_time_access": {
+            "value": 0.7581808097615086,
+            "n_valid": 1803,
+            "n_total": 1803,
+            "suppressed": false,
+            "suppress_reason": null,
+            "ci_lower": 0.7378809676537968,
+            "ci_upper": 0.7773828345215493,
+            "ci_level": 0.95,
+            "bottom_values": [
+              1,
+              2
+            ],
+            "scale_min": 1
+          },
+          "caregiver": {
+            "value": 0.7671161825726142,
+            "n_valid": 1928,
+            "n_total": 1928,
+            "suppressed": false,
+            "suppress_reason": null,
+            "ci_lower": 0.7477296571897986,
+            "ci_upper": 0.7854403890875864,
+            "ci_level": 0.95,
+            "bottom_values": [
+              1,
+              2
+            ],
+            "scale_min": 1
+          },
+          "non_caregiver": {
+            "value": 0.75,
+            "n_valid": 176,
+            "n_total": 183,
+            "suppressed": false,
+            "suppress_reason": null,
+            "ci_lower": 0.6811495957232009,
+            "ci_upper": 0.8081702784429553,
+            "ci_level": 0.95,
+            "bottom_values": [
+              1,
+              2
+            ],
+            "scale_min": 1
+          },
+          "pwd": {
+            "value": 0.7568134171907757,
+            "n_valid": 477,
+            "n_total": 477,
+            "suppressed": false,
+            "suppress_reason": null,
+            "ci_lower": 0.716361645951773,
+            "ci_upper": 0.7931618061251007,
+            "ci_level": 0.95,
+            "bottom_values": [
+              1,
+              2
+            ],
+            "scale_min": 1
+          },
+          "bundled_service_client": {
+            "value": null,
+            "n_valid": 9,
+            "n_total": 9,
+            "suppressed": true,
+            "suppress_reason": "n_valid=9 below threshold=30",
+            "ci_lower": null,
+            "ci_upper": null,
+            "ci_level": 0.95,
+            "bottom_values": [
+              1,
+              2
+            ],
+            "scale_min": 1
+          },
+          "significance": {
+            "a_pct": 0.7549407114624506,
+            "b_pct": 0.7935153583617748,
+            "gap": -0.038574646899324216,
+            "z_stat": -1.8725709902302077,
+            "p_value": 0.061127650388957955,
+            "significant": false,
+            "error": null
+          }
+        },
+        "claim_process_understanding": {
+          "label": "Claim Process Understanding",
+          "female": {
+            "value": 0.6791831357048749,
+            "n_valid": 1518,
+            "n_total": 1518,
+            "suppressed": false,
+            "suppress_reason": null,
+            "ci_lower": 0.6552741781919977,
+            "ci_upper": 0.7021874988092036,
+            "ci_level": 0.95,
+            "bottom_values": [
+              1,
+              2
+            ],
+            "scale_min": 1
+          },
+          "male": {
+            "value": 0.689419795221843,
+            "n_valid": 586,
+            "n_total": 586,
+            "suppressed": false,
+            "suppress_reason": null,
+            "ci_lower": 0.6508227903846561,
+            "ci_upper": 0.7255495325169218,
+            "ci_level": 0.95,
+            "bottom_values": [
+              1,
+              2
+            ],
+            "scale_min": 1
+          },
+          "claimant": {
+            "value": 0.9019607843137255,
+            "n_valid": 153,
+            "n_total": 153,
+            "suppressed": false,
+            "suppress_reason": null,
+            "ci_lower": 0.844547363017974,
+            "ci_upper": 0.9396840571999246,
+            "ci_level": 0.95,
+            "bottom_values": [
+              1,
+              2
+            ],
+            "scale_min": 1
+          },
+          "non_claimant": {
+            "value": 0.49047619047619045,
+            "n_valid": 210,
+            "n_total": 210,
+            "suppressed": false,
+            "suppress_reason": null,
+            "ci_lower": 0.4236441978793475,
+            "ci_upper": 0.5576503554684483,
+            "ci_level": 0.95,
+            "bottom_values": [
+              1,
+              2
+            ],
+            "scale_min": 1
+          },
+          "first_time_access": {
+            "value": 0.6799778147531891,
+            "n_valid": 1803,
+            "n_total": 1803,
+            "suppressed": false,
+            "suppress_reason": null,
+            "ci_lower": 0.6580825066231355,
+            "ci_upper": 0.7011078345280992,
+            "ci_level": 0.95,
+            "bottom_values": [
+              1,
+              2
+            ],
+            "scale_min": 1
+          },
+          "caregiver": {
+            "value": 0.691908713692946,
+            "n_valid": 1928,
+            "n_total": 1928,
+            "suppressed": false,
+            "suppress_reason": null,
+            "ci_lower": 0.6709349847286856,
+            "ci_upper": 0.7121192232764257,
+            "ci_level": 0.95,
+            "bottom_values": [
+              1,
+              2
+            ],
+            "scale_min": 1
+          },
+          "non_caregiver": {
+            "value": 0.5738636363636364,
+            "n_valid": 176,
+            "n_total": 183,
+            "suppressed": false,
+            "suppress_reason": null,
+            "ci_lower": 0.4999947143299311,
+            "ci_upper": 0.6445770666737061,
+            "ci_level": 0.95,
+            "bottom_values": [
+              1,
+              2
+            ],
+            "scale_min": 1
+          },
+          "pwd": {
+            "value": 0.6519916142557652,
+            "n_valid": 477,
+            "n_total": 477,
+            "suppressed": false,
+            "suppress_reason": null,
+            "ci_lower": 0.60818421841069,
+            "ci_upper": 0.6933704777164393,
+            "ci_level": 0.95,
+            "bottom_values": [
+              1,
+              2
+            ],
+            "scale_min": 1
+          },
+          "bundled_service_client": {
+            "value": null,
+            "n_valid": 9,
+            "n_total": 9,
+            "suppressed": true,
+            "suppress_reason": "n_valid=9 below threshold=30",
+            "ci_lower": null,
+            "ci_upper": null,
+            "ci_level": 0.95,
+            "bottom_values": [
+              1,
+              2
+            ],
+            "scale_min": 1
+          },
+          "significance": {
+            "a_pct": 0.6791831357048749,
+            "b_pct": 0.689419795221843,
+            "gap": -0.010236659516968172,
+            "z_stat": -0.45198790195077526,
+            "p_value": 0.6512776979454376,
+            "significant": false,
+            "error": null
+          }
+        },
+        "worth_premium": {
+          "label": "Worth Premium",
+          "female": {
+            "value": 0.889367816091954,
+            "n_valid": 1392,
+            "n_total": 1518,
+            "suppressed": false,
+            "suppress_reason": null,
+            "ci_lower": 0.8718058786854237,
+            "ci_upper": 0.904786615505027,
+            "ci_level": 0.95,
+            "bottom_values": [
+              1,
+              2
+            ],
+            "scale_min": 1
+          },
+          "male": {
+            "value": 0.9079646017699115,
+            "n_valid": 565,
+            "n_total": 586,
+            "suppressed": false,
+            "suppress_reason": null,
+            "ci_lower": 0.8812948302520335,
+            "ci_upper": 0.9291242994572039,
+            "ci_level": 0.95,
+            "bottom_values": [
+              1,
+              2
+            ],
+            "scale_min": 1
+          },
+          "claimant": {
+            "value": 0.8562091503267973,
+            "n_valid": 153,
+            "n_total": 153,
+            "suppressed": false,
+            "suppress_reason": null,
+            "ci_lower": 0.7918831500079815,
+            "ci_upper": 0.9030861573395872,
+            "ci_level": 0.95,
+            "bottom_values": [
+              1,
+              2
+            ],
+            "scale_min": 1
+          },
+          "non_claimant": {
+            "value": 0.8714285714285714,
+            "n_valid": 210,
+            "n_total": 210,
+            "suppressed": false,
+            "suppress_reason": null,
+            "ci_lower": 0.8193995418245132,
+            "ci_upper": 0.9101128776114478,
+            "ci_level": 0.95,
+            "bottom_values": [
+              1,
+              2
+            ],
+            "scale_min": 1
+          },
+          "first_time_access": {
+            "value": 0.8992762364294331,
+            "n_valid": 1658,
+            "n_total": 1803,
+            "suppressed": false,
+            "suppress_reason": null,
+            "ci_lower": 0.8838539673734856,
+            "ci_upper": 0.9128525974871363,
+            "ci_level": 0.95,
+            "bottom_values": [
+              1,
+              2
+            ],
+            "scale_min": 1
+          },
+          "caregiver": {
+            "value": 0.9083842309827873,
+            "n_valid": 1801,
+            "n_total": 1928,
+            "suppressed": false,
+            "suppress_reason": null,
+            "ci_lower": 0.894177571094661,
+            "ci_upper": 0.9208524653724587,
+            "ci_level": 0.95,
+            "bottom_values": [
+              1,
+              2
+            ],
+            "scale_min": 1
+          },
+          "non_caregiver": {
+            "value": 0.7371794871794872,
+            "n_valid": 156,
+            "n_total": 183,
+            "suppressed": false,
+            "suppress_reason": null,
+            "ci_lower": 0.6630047526486745,
+            "ci_upper": 0.7999539850028082,
+            "ci_level": 0.95,
+            "bottom_values": [
+              1,
+              2
+            ],
+            "scale_min": 1
+          },
+          "pwd": {
+            "value": 0.8896247240618101,
+            "n_valid": 453,
+            "n_total": 477,
+            "suppressed": false,
+            "suppress_reason": null,
+            "ci_lower": 0.8574277335064582,
+            "ci_upper": 0.9152692124126931,
+            "ci_level": 0.95,
+            "bottom_values": [
+              1,
+              2
+            ],
+            "scale_min": 1
+          },
+          "bundled_service_client": {
+            "value": null,
+            "n_valid": 9,
+            "n_total": 9,
+            "suppressed": true,
+            "suppress_reason": "n_valid=9 below threshold=30",
+            "ci_lower": null,
+            "ci_upper": null,
+            "ci_level": 0.95,
+            "bottom_values": [
+              1,
+              2
+            ],
+            "scale_min": 1
+          },
+          "significance": {
+            "a_pct": 0.889367816091954,
+            "b_pct": 0.9079646017699115,
+            "gap": -0.018596785677957417,
+            "z_stat": -1.21478789917186,
+            "p_value": 0.2244469972825942,
+            "significant": false,
+            "error": null
+          }
+        },
+        "renewal_intent": {
+          "label": "Renewal Intent",
+          "female": {
+            "value": 0.5793650793650794,
+            "n_valid": 126,
+            "n_total": 1518,
+            "suppressed": false,
+            "suppress_reason": null,
+            "ci_lower": 0.49207231903835913,
+            "ci_upper": 0.6619616865993871,
+            "ci_level": 0.95,
+            "bottom_values": [
+              1,
+              2
+            ],
+            "scale_min": 1
+          },
+          "male": {
+            "value": null,
+            "n_valid": 21,
+            "n_total": 586,
+            "suppressed": true,
+            "suppress_reason": "n_valid=21 below threshold=30",
+            "ci_lower": null,
+            "ci_upper": null,
+            "ci_level": 0.95,
+            "bottom_values": [
+              1,
+              2
+            ],
+            "scale_min": 1
+          },
+          "claimant": {
+            "value": null,
+            "n_valid": 0,
+            "n_total": 153,
+            "suppressed": true,
+            "suppress_reason": "n_valid=0 below threshold=30",
+            "ci_lower": null,
+            "ci_upper": null,
+            "ci_level": 0.95,
+            "bottom_values": [],
+            "scale_min": null
+          },
+          "non_claimant": {
+            "value": null,
+            "n_valid": 0,
+            "n_total": 210,
+            "suppressed": true,
+            "suppress_reason": "n_valid=0 below threshold=30",
+            "ci_lower": null,
+            "ci_upper": null,
+            "ci_level": 0.95,
+            "bottom_values": [],
+            "scale_min": null
+          },
+          "first_time_access": {
+            "value": 0.5862068965517241,
+            "n_valid": 145,
+            "n_total": 1803,
+            "suppressed": false,
+            "suppress_reason": null,
+            "ci_lower": 0.5048276152506097,
+            "ci_upper": 0.6631363391346863,
+            "ci_level": 0.95,
+            "bottom_values": [
+              1,
+              2
+            ],
+            "scale_min": 1
+          },
+          "caregiver": {
+            "value": 0.5984251968503937,
+            "n_valid": 127,
+            "n_total": 1928,
+            "suppressed": false,
+            "suppress_reason": null,
+            "ci_lower": 0.5114888159154837,
+            "ci_upper": 0.679582120050311,
+            "ci_level": 0.95,
+            "bottom_values": [
+              1,
+              2
+            ],
+            "scale_min": 1
+          },
+          "non_caregiver": {
+            "value": null,
+            "n_valid": 20,
+            "n_total": 183,
+            "suppressed": true,
+            "suppress_reason": "n_valid=20 below threshold=30",
+            "ci_lower": null,
+            "ci_upper": null,
+            "ci_level": 0.95,
+            "bottom_values": [
+              1,
+              2
+            ],
+            "scale_min": 1
+          },
+          "pwd": {
+            "value": null,
+            "n_valid": 24,
+            "n_total": 477,
+            "suppressed": true,
+            "suppress_reason": "n_valid=24 below threshold=30",
+            "ci_lower": null,
+            "ci_upper": null,
+            "ci_level": 0.95,
+            "bottom_values": [
+              1,
+              2
+            ],
+            "scale_min": 1
+          },
+          "bundled_service_client": {
+            "value": null,
+            "n_valid": 0,
+            "n_total": 9,
+            "suppressed": true,
+            "suppress_reason": "n_valid=0 below threshold=30",
+            "ci_lower": null,
+            "ci_upper": null,
+            "ci_level": 0.95,
+            "bottom_values": [],
+            "scale_min": null
+          },
+          "significance": null
+        },
+        "negative_coping": {
+          "label": "Negative Coping",
+          "female": {
+            "value": 0.17886178861788618,
+            "n_valid": 246,
+            "n_total": 246,
+            "suppressed": false,
+            "suppress_reason": null,
+            "ci_lower": 0.1360229459098291,
+            "ci_upper": 0.23157600765938935,
+            "ci_level": 0.95,
+            "n_true": 44,
+            "n_false": 202
+          },
+          "male": {
+            "value": 0.24786324786324787,
+            "n_valid": 117,
+            "n_total": 117,
+            "suppressed": false,
+            "suppress_reason": null,
+            "ci_lower": 0.17847939213759073,
+            "ci_upper": 0.3332775778974629,
+            "ci_level": 0.95,
+            "n_true": 29,
+            "n_false": 88
+          },
+          "claimant": {
+            "value": 0.11764705882352941,
+            "n_valid": 153,
+            "n_total": 153,
+            "suppressed": false,
+            "suppress_reason": null,
+            "ci_lower": 0.0757265380767955,
+            "ci_upper": 0.1782972329354474,
+            "ci_level": 0.95,
+            "n_true": 18,
+            "n_false": 135
+          },
+          "non_claimant": {
+            "value": 0.2619047619047619,
+            "n_valid": 210,
+            "n_total": 210,
+            "suppressed": false,
+            "suppress_reason": null,
+            "ci_lower": 0.20709776905994629,
+            "ci_upper": 0.32526606463495056,
+            "ci_level": 0.95,
+            "n_true": 55,
+            "n_false": 155
+          },
+          "first_time_access": {
+            "value": 0.19344262295081968,
+            "n_valid": 305,
+            "n_total": 305,
+            "suppressed": false,
+            "suppress_reason": null,
+            "ci_lower": 0.1530381077559495,
+            "ci_upper": 0.24147323565611595,
+            "ci_level": 0.95,
+            "n_true": 59,
+            "n_false": 246
+          },
+          "caregiver": {
+            "value": 0.19705882352941176,
+            "n_valid": 340,
+            "n_total": 340,
+            "suppressed": false,
+            "suppress_reason": null,
+            "ci_lower": 0.1582628730040167,
+            "ci_upper": 0.24262380102727127,
+            "ci_level": 0.95,
+            "n_true": 67,
+            "n_false": 273
+          },
+          "non_caregiver": {
+            "value": null,
+            "n_valid": 23,
+            "n_total": 23,
+            "suppressed": true,
+            "suppress_reason": "n_valid=23 below threshold=30",
+            "ci_lower": null,
+            "ci_upper": null,
+            "ci_level": 0.95,
+            "n_true": 6,
+            "n_false": 17
+          },
+          "pwd": {
+            "value": 0.19672131147540983,
+            "n_valid": 122,
+            "n_total": 122,
+            "suppressed": false,
+            "suppress_reason": null,
+            "ci_lower": 0.13591129570453556,
+            "ci_upper": 0.2760472059412591,
+            "ci_level": 0.95,
+            "n_true": 24,
+            "n_false": 98
+          },
+          "bundled_service_client": {
+            "value": null,
+            "n_valid": 4,
+            "n_total": 4,
+            "suppressed": true,
+            "suppress_reason": "n_valid=4 below threshold=30",
+            "ci_lower": null,
+            "ci_upper": null,
+            "ci_level": 0.95,
+            "n_true": 3,
+            "n_false": 1
+          },
+          "significance": {
+            "a_pct": 0.17886178861788618,
+            "b_pct": 0.24786324786324787,
+            "gap": -0.06900145924536169,
+            "z_stat": -1.5328923019765706,
+            "p_value": 0.1253023929169288,
+            "significant": false,
+            "error": null
+          }
+        },
+        "child_wellbeing": {
+          "label": "Child Wellbeing",
+          "female": {
+            "value": 0.3467048710601719,
+            "n_valid": 1396,
+            "n_total": 1396,
+            "suppressed": false,
+            "suppress_reason": null,
+            "ci_lower": 0.3221907868044531,
+            "ci_upper": 0.3720603033435902,
+            "ci_level": 0.95,
+            "matched_values": [
+              "Yes"
+            ]
+          },
+          "male": {
+            "value": 0.35902255639097747,
+            "n_valid": 532,
+            "n_total": 532,
+            "suppressed": false,
+            "suppress_reason": null,
+            "ci_lower": 0.3194032493269881,
+            "ci_upper": 0.40066320404127637,
+            "ci_level": 0.95,
+            "matched_values": [
+              "Yes"
+            ]
+          },
+          "claimant": {
+            "value": 0.4726027397260274,
+            "n_valid": 146,
+            "n_total": 146,
+            "suppressed": false,
+            "suppress_reason": null,
+            "ci_lower": 0.39336479313696243,
+            "ci_upper": 0.5532454436895952,
+            "ci_level": 0.95,
+            "matched_values": [
+              "Yes"
+            ]
+          },
+          "non_claimant": {
+            "value": 0.22164948453608246,
+            "n_valid": 194,
+            "n_total": 194,
+            "suppressed": false,
+            "suppress_reason": null,
+            "ci_lower": 0.16892478874704706,
+            "ci_upper": 0.28518356324462735,
+            "ci_level": 0.95,
+            "matched_values": [
+              "Yes"
+            ]
+          },
+          "first_time_access": {
+            "value": 0.35816448152562574,
+            "n_valid": 1678,
+            "n_total": 1678,
+            "suppressed": false,
+            "suppress_reason": null,
+            "ci_lower": 0.33557174425291264,
+            "ci_upper": 0.38140514586741353,
+            "ci_level": 0.95,
+            "matched_values": [
+              "Yes"
+            ]
+          },
+          "caregiver": {
+            "value": 0.350103734439834,
+            "n_valid": 1928,
+            "n_total": 1928,
+            "suppressed": false,
+            "suppress_reason": null,
+            "ci_lower": 0.32912896721536206,
+            "ci_upper": 0.37167463788334826,
+            "ci_level": 0.95,
+            "matched_values": [
+              "Yes"
+            ]
+          },
+          "non_caregiver": {
+            "value": null,
+            "n_valid": 0,
+            "n_total": 0,
+            "suppressed": true,
+            "suppress_reason": "n_valid=0 below threshold=30",
+            "ci_lower": null,
+            "ci_upper": null,
+            "ci_level": 0.95,
+            "matched_values": [
+              "Yes"
+            ]
+          },
+          "pwd": {
+            "value": 0.3464203233256351,
+            "n_valid": 433,
+            "n_total": 433,
+            "suppressed": false,
+            "suppress_reason": null,
+            "ci_lower": 0.30312964956110294,
+            "ci_upper": 0.3924120685737796,
+            "ci_level": 0.95,
+            "matched_values": [
+              "Yes"
+            ]
+          },
+          "bundled_service_client": {
+            "value": null,
+            "n_valid": 9,
+            "n_total": 9,
+            "suppressed": true,
+            "suppress_reason": "n_valid=9 below threshold=30",
+            "ci_lower": null,
+            "ci_upper": null,
+            "ci_level": 0.95,
+            "matched_values": [
+              "Yes"
+            ]
+          },
+          "significance": {
+            "a_pct": 0.3467048710601719,
+            "b_pct": 0.35902255639097747,
+            "gap": -0.012317685330805572,
+            "z_stat": -0.506819975432569,
+            "p_value": 0.612281139168608,
+            "significant": false,
+            "error": null
+          }
+        },
+        "confidence_pay": {
+          "label": "Confidence in Pay-out",
+          "female": {
+            "value": 0.8708827404479579,
+            "n_valid": 1518,
+            "n_total": 1518,
+            "suppressed": false,
+            "suppress_reason": null,
+            "ci_lower": 0.85307306394788,
+            "ci_upper": 0.8868200395509304,
+            "ci_level": 0.95,
+            "bottom_values": [
+              1,
+              2
+            ],
+            "scale_min": 1
+          },
+          "male": {
+            "value": 0.89419795221843,
+            "n_valid": 586,
+            "n_total": 586,
+            "suppressed": false,
+            "suppress_reason": null,
+            "ci_lower": 0.8666758195303829,
+            "ci_upper": 0.9165855011026304,
+            "ci_level": 0.95,
+            "bottom_values": [
+              1,
+              2
+            ],
+            "scale_min": 1
+          },
+          "claimant": {
+            "value": 0.8627450980392157,
+            "n_valid": 153,
+            "n_total": 153,
+            "suppressed": false,
+            "suppress_reason": null,
+            "ci_lower": 0.7992779748182122,
+            "ci_upper": 0.9084430629394038,
+            "ci_level": 0.95,
+            "bottom_values": [
+              1,
+              2
+            ],
+            "scale_min": 1
+          },
+          "non_claimant": {
+            "value": 0.8380952380952381,
+            "n_valid": 210,
+            "n_total": 210,
+            "suppressed": false,
+            "suppress_reason": null,
+            "ci_lower": 0.7822777427624442,
+            "ci_upper": 0.8817656133908024,
+            "ci_level": 0.95,
+            "bottom_values": [
+              1,
+              2
+            ],
+            "scale_min": 1
+          },
+          "first_time_access": {
+            "value": 0.8874098724348308,
+            "n_valid": 1803,
+            "n_total": 1803,
+            "suppressed": false,
+            "suppress_reason": null,
+            "ci_lower": 0.8719882352030126,
+            "ci_upper": 0.90118419405473,
+            "ci_level": 0.95,
+            "bottom_values": [
+              1,
+              2
+            ],
+            "scale_min": 1
+          },
+          "caregiver": {
+            "value": 0.8947095435684648,
+            "n_valid": 1928,
+            "n_total": 1928,
+            "suppressed": false,
+            "suppress_reason": null,
+            "ci_lower": 0.8802155059179726,
+            "ci_upper": 0.9076338246006483,
+            "ci_level": 0.95,
+            "bottom_values": [
+              1,
+              2
+            ],
+            "scale_min": 1
+          },
+          "non_caregiver": {
+            "value": 0.6875,
+            "n_valid": 176,
+            "n_total": 183,
+            "suppressed": false,
+            "suppress_reason": null,
+            "ci_lower": 0.6156336459268277,
+            "ci_upper": 0.7513562596977894,
+            "ci_level": 0.95,
+            "bottom_values": [
+              1,
+              2
+            ],
+            "scale_min": 1
+          },
+          "pwd": {
+            "value": 0.8763102725366876,
+            "n_valid": 477,
+            "n_total": 477,
+            "suppressed": false,
+            "suppress_reason": null,
+            "ci_lower": 0.8437239540124457,
+            "ci_upper": 0.9028838798471366,
+            "ci_level": 0.95,
+            "bottom_values": [
+              1,
+              2
+            ],
+            "scale_min": 1
+          },
+          "bundled_service_client": {
+            "value": null,
+            "n_valid": 9,
+            "n_total": 9,
+            "suppressed": true,
+            "suppress_reason": "n_valid=9 below threshold=30",
+            "ci_lower": null,
+            "ci_upper": null,
+            "ci_level": 0.95,
+            "bottom_values": [
+              1,
+              2
+            ],
+            "scale_min": 1
+          },
+          "significance": {
+            "a_pct": 0.8708827404479579,
+            "b_pct": 0.89419795221843,
+            "gap": -0.023315211770472133,
+            "z_stat": -1.4615753998305663,
+            "p_value": 0.14385759967954104,
+            "significant": false,
+            "error": null
+          }
+        }
+      }
+    },
+    "part_8": {
+      "base": "all_respondents",
+      "n_base": 2111,
+      "dimensions": [
+        "product_understanding",
+        "claims_experience",
+        "trust",
+        "access"
+      ],
+      "method": "Unweighted mean of four 0–1 dimension scores (min 2 of 4 required)",
+      "min_dimensions_required": 2,
+      "claims_experience_note": "Claims Experience is restricted to claimants (q_claim_submitted == True) within each scope. Segments with fewer than 30 claimants will have this dimension suppressed and excluded from the composite.",
+      "headline": {
+        "value": 0.533845623959343,
+        "suppressed": false,
+        "suppress_reason": null,
+        "dimensions_included": [
+          "product_understanding",
+          "claims_experience",
+          "trust",
+          "access"
+        ],
+        "dimensions_excluded": [],
+        "n_dimensions": 4,
+        "dimensions_detail": {
+          "product_understanding": {
+            "value": 0.7238593155893536,
+            "suppressed": false,
+            "n_valid": 2104,
+            "suppress_reason": null,
+            "sub_scores": {
+              "coverage_understanding": {
+                "value": 0.7656844106463878,
+                "n_valid": 2104,
+                "n_total": 2111,
+                "suppressed": false,
+                "suppress_reason": null,
+                "ci_lower": 0.747111390212041,
+                "ci_upper": 0.7832890321354273,
+                "ci_level": 0.95,
+                "bottom_values": [
+                  1,
+                  2
+                ],
+                "scale_min": 1
+              },
+              "claim_process_understanding": {
+                "value": 0.6820342205323194,
+                "n_valid": 2104,
+                "n_total": 2111,
+                "suppressed": false,
+                "suppress_reason": null,
+                "ci_lower": 0.6618194271514548,
+                "ci_upper": 0.7015855133835729,
+                "ci_level": 0.95,
+                "bottom_values": [
+                  1,
+                  2
+                ],
+                "scale_min": 1
+              }
+            }
+          },
+          "claims_experience": {
+            "value": 0.3790849673202614,
+            "suppressed": false,
+            "n_valid": 153,
+            "suppress_reason": null,
+            "n_paid": 58
+          },
+          "trust": {
+            "value": 0.7306321292775666,
+            "suppressed": false,
+            "n_valid": 2104,
+            "suppress_reason": null,
+            "sub_scores": {
+              "confidence_pay": {
+                "value": 0.8773764258555133,
+                "n_valid": 2104,
+                "n_total": 2111,
+                "suppressed": false,
+                "suppress_reason": null,
+                "ci_lower": 0.8626691793347494,
+                "ci_upper": 0.8907081647509214,
+                "ci_level": 0.95,
+                "bottom_values": [
+                  1,
+                  2
+                ],
+                "scale_min": 1
+              },
+              "nps_normalized": {
+                "value": 0.5838878326996197,
+                "nps_raw": 16.777566539923956,
+                "n_valid": 2104,
+                "suppressed": false,
+                "suppress_reason": null
+              }
+            }
+          },
+          "access": {
+            "value": 0.3018060836501901,
+            "suppressed": false,
+            "n_valid": 2104,
+            "suppress_reason": null,
+            "sub_scores": {
+              "difficulty_rate": {
+                "value": 0.6981939163498099,
+                "n_valid": 2104,
+                "n_total": 2111,
+                "suppressed": false,
+                "suppress_reason": null,
+                "ci_lower": 0.6782327683545083,
+                "ci_upper": 0.7174326629851954,
+                "ci_level": 0.95,
+                "matched_values": [
+                  "Very difficult",
+                  "Slightly difficult"
+                ]
+              }
+            }
+          }
+        }
+      },
+      "segments": {
+        "female": {
+          "value": 0.5318264163372859,
+          "suppressed": false,
+          "suppress_reason": null,
+          "dimensions_included": [
+            "product_understanding",
+            "claims_experience",
+            "trust",
+            "access"
+          ],
+          "dimensions_excluded": [],
+          "n_dimensions": 4,
+          "dimensions_detail": {
+            "product_understanding": {
+              "value": 0.7170619235836627,
+              "suppressed": false,
+              "n_valid": 1518,
+              "suppress_reason": null,
+              "sub_scores": {
+                "coverage_understanding": {
+                  "value": 0.7549407114624506,
+                  "n_valid": 1518,
+                  "n_total": 1518,
+                  "suppressed": false,
+                  "suppress_reason": null,
+                  "ci_lower": 0.732677574860863,
+                  "ci_upper": 0.7759167964606991,
+                  "ci_level": 0.95,
+                  "bottom_values": [
+                    1,
+                    2
+                  ],
+                  "scale_min": 1
+                },
+                "claim_process_understanding": {
+                  "value": 0.6791831357048749,
+                  "n_valid": 1518,
+                  "n_total": 1518,
+                  "suppressed": false,
+                  "suppress_reason": null,
+                  "ci_lower": 0.6552741781919977,
+                  "ci_upper": 0.7021874988092036,
+                  "ci_level": 0.95,
+                  "bottom_values": [
+                    1,
+                    2
+                  ],
+                  "scale_min": 1
+                }
+              }
+            },
+            "claims_experience": {
+              "value": 0.375,
+              "suppressed": false,
+              "n_valid": 96,
+              "suppress_reason": null,
+              "n_paid": 36
+            },
+            "trust": {
+              "value": 0.7335309617918313,
+              "suppressed": false,
+              "n_valid": 1518,
+              "suppress_reason": null,
+              "sub_scores": {
+                "confidence_pay": {
+                  "value": 0.8708827404479579,
+                  "n_valid": 1518,
+                  "n_total": 1518,
+                  "suppressed": false,
+                  "suppress_reason": null,
+                  "ci_lower": 0.85307306394788,
+                  "ci_upper": 0.8868200395509304,
+                  "ci_level": 0.95,
+                  "bottom_values": [
+                    1,
+                    2
+                  ],
+                  "scale_min": 1
+                },
+                "nps_normalized": {
+                  "value": 0.5961791831357048,
+                  "nps_raw": 19.235836627140976,
+                  "n_valid": 1518,
+                  "suppressed": false,
+                  "suppress_reason": null
+                }
+              }
+            },
+            "access": {
+              "value": 0.30171277997364954,
+              "suppressed": false,
+              "n_valid": 1518,
+              "suppress_reason": null,
+              "sub_scores": {
+                "difficulty_rate": {
+                  "value": 0.6982872200263505,
+                  "n_valid": 1518,
+                  "n_total": 1518,
+                  "suppressed": false,
+                  "suppress_reason": null,
+                  "ci_lower": 0.6747203140494742,
+                  "ci_upper": 0.7208530858672964,
+                  "ci_level": 0.95,
+                  "matched_values": [
+                    "Very difficult",
+                    "Slightly difficult"
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "male": {
+          "value": 0.5381507843841686,
+          "suppressed": false,
+          "suppress_reason": null,
+          "dimensions_included": [
+            "product_understanding",
+            "claims_experience",
+            "trust",
+            "access"
+          ],
+          "dimensions_excluded": [],
+          "n_dimensions": 4,
+          "dimensions_detail": {
+            "product_understanding": {
+              "value": 0.7414675767918089,
+              "suppressed": false,
+              "n_valid": 586,
+              "suppress_reason": null,
+              "sub_scores": {
+                "coverage_understanding": {
+                  "value": 0.7935153583617748,
+                  "n_valid": 586,
+                  "n_total": 586,
+                  "suppressed": false,
+                  "suppress_reason": null,
+                  "ci_lower": 0.7588814449933772,
+                  "ci_upper": 0.8243261184216804,
+                  "ci_level": 0.95,
+                  "bottom_values": [
+                    1,
+                    2
+                  ],
+                  "scale_min": 1
+                },
+                "claim_process_understanding": {
+                  "value": 0.689419795221843,
+                  "n_valid": 586,
+                  "n_total": 586,
+                  "suppressed": false,
+                  "suppress_reason": null,
+                  "ci_lower": 0.6508227903846561,
+                  "ci_upper": 0.7255495325169218,
+                  "ci_level": 0.95,
+                  "bottom_values": [
+                    1,
+                    2
+                  ],
+                  "scale_min": 1
+                }
+              }
+            },
+            "claims_experience": {
+              "value": 0.38596491228070173,
+              "suppressed": false,
+              "n_valid": 57,
+              "suppress_reason": null,
+              "n_paid": 22
+            },
+            "trust": {
+              "value": 0.723122866894198,
+              "suppressed": false,
+              "n_valid": 586,
+              "suppress_reason": null,
+              "sub_scores": {
+                "confidence_pay": {
+                  "value": 0.89419795221843,
+                  "n_valid": 586,
+                  "n_total": 586,
+                  "suppressed": false,
+                  "suppress_reason": null,
+                  "ci_lower": 0.8666758195303829,
+                  "ci_upper": 0.9165855011026304,
+                  "ci_level": 0.95,
+                  "bottom_values": [
+                    1,
+                    2
+                  ],
+                  "scale_min": 1
+                },
+                "nps_normalized": {
+                  "value": 0.5520477815699659,
+                  "nps_raw": 10.409556313993173,
+                  "n_valid": 586,
+                  "suppressed": false,
+                  "suppress_reason": null
+                }
+              }
+            },
+            "access": {
+              "value": 0.3020477815699659,
+              "suppressed": false,
+              "n_valid": 586,
+              "suppress_reason": null,
+              "sub_scores": {
+                "difficulty_rate": {
+                  "value": 0.6979522184300341,
+                  "n_valid": 586,
+                  "n_total": 586,
+                  "suppressed": false,
+                  "suppress_reason": null,
+                  "ci_lower": 0.6595869346103843,
+                  "ci_upper": 0.7337390965300034,
+                  "ci_level": 0.95,
+                  "matched_values": [
+                    "Very difficult",
+                    "Slightly difficult"
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "claimant": {
+          "value": 0.5457516339869282,
+          "suppressed": false,
+          "suppress_reason": null,
+          "dimensions_included": [
+            "product_understanding",
+            "claims_experience",
+            "trust",
+            "access"
+          ],
+          "dimensions_excluded": [],
+          "n_dimensions": 4,
+          "dimensions_detail": {
+            "product_understanding": {
+              "value": 0.9248366013071896,
+              "suppressed": false,
+              "n_valid": 153,
+              "suppress_reason": null,
+              "sub_scores": {
+                "coverage_understanding": {
+                  "value": 0.9477124183006536,
+                  "n_valid": 153,
+                  "n_total": 153,
+                  "suppressed": false,
+                  "suppress_reason": null,
+                  "ci_lower": 0.9002235826723421,
+                  "ci_upper": 0.9732699504158864,
+                  "ci_level": 0.95,
+                  "bottom_values": [
+                    1,
+                    2
+                  ],
+                  "scale_min": 1
+                },
+                "claim_process_understanding": {
+                  "value": 0.9019607843137255,
+                  "n_valid": 153,
+                  "n_total": 153,
+                  "suppressed": false,
+                  "suppress_reason": null,
+                  "ci_lower": 0.844547363017974,
+                  "ci_upper": 0.9396840571999246,
+                  "ci_level": 0.95,
+                  "bottom_values": [
+                    1,
+                    2
+                  ],
+                  "scale_min": 1
+                }
+              }
+            },
+            "claims_experience": {
+              "value": 0.3790849673202614,
+              "suppressed": false,
+              "n_valid": 153,
+              "suppress_reason": null,
+              "n_paid": 58
+            },
+            "trust": {
+              "value": 0.6764705882352942,
+              "suppressed": false,
+              "n_valid": 153,
+              "suppress_reason": null,
+              "sub_scores": {
+                "confidence_pay": {
+                  "value": 0.8627450980392157,
+                  "n_valid": 153,
+                  "n_total": 153,
+                  "suppressed": false,
+                  "suppress_reason": null,
+                  "ci_lower": 0.7992779748182122,
+                  "ci_upper": 0.9084430629394038,
+                  "ci_level": 0.95,
+                  "bottom_values": [
+                    1,
+                    2
+                  ],
+                  "scale_min": 1
+                },
+                "nps_normalized": {
+                  "value": 0.4901960784313726,
+                  "nps_raw": -1.9607843137254901,
+                  "n_valid": 153,
+                  "suppressed": false,
+                  "suppress_reason": null
+                }
+              }
+            },
+            "access": {
+              "value": 0.20261437908496727,
+              "suppressed": false,
+              "n_valid": 153,
+              "suppress_reason": null,
+              "sub_scores": {
+                "difficulty_rate": {
+                  "value": 0.7973856209150327,
+                  "n_valid": 153,
+                  "n_total": 153,
+                  "suppressed": false,
+                  "suppress_reason": null,
+                  "ci_lower": 0.7267763170887855,
+                  "ci_upper": 0.8534274165683591,
+                  "ci_level": 0.95,
+                  "matched_values": [
+                    "Very difficult",
+                    "Slightly difficult"
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "non_claimant": {
+          "value": 0.4992063492063492,
+          "suppressed": false,
+          "suppress_reason": null,
+          "dimensions_included": [
+            "product_understanding",
+            "trust",
+            "access"
+          ],
+          "dimensions_excluded": [
+            "claims_experience"
+          ],
+          "n_dimensions": 4,
+          "dimensions_detail": {
+            "product_understanding": {
+              "value": 0.5547619047619048,
+              "suppressed": false,
+              "n_valid": 210,
+              "suppress_reason": null,
+              "sub_scores": {
+                "coverage_understanding": {
+                  "value": 0.6190476190476191,
+                  "n_valid": 210,
+                  "n_total": 210,
+                  "suppressed": false,
+                  "suppress_reason": null,
+                  "ci_lower": 0.5517861297302177,
+                  "ci_upper": 0.6820319534223339,
+                  "ci_level": 0.95,
+                  "bottom_values": [
+                    1,
+                    2
+                  ],
+                  "scale_min": 1
+                },
+                "claim_process_understanding": {
+                  "value": 0.49047619047619045,
+                  "n_valid": 210,
+                  "n_total": 210,
+                  "suppressed": false,
+                  "suppress_reason": null,
+                  "ci_lower": 0.4236441978793475,
+                  "ci_upper": 0.5576503554684483,
+                  "ci_level": 0.95,
+                  "bottom_values": [
+                    1,
+                    2
+                  ],
+                  "scale_min": 1
+                }
+              }
+            },
+            "claims_experience": {
+              "value": null,
+              "suppressed": true,
+              "n_valid": 0,
+              "suppress_reason": "n_valid=0 below threshold=30",
+              "n_paid": 0
+            },
+            "trust": {
+              "value": 0.6666666666666667,
+              "suppressed": false,
+              "n_valid": 210,
+              "suppress_reason": null,
+              "sub_scores": {
+                "confidence_pay": {
+                  "value": 0.8380952380952381,
+                  "n_valid": 210,
+                  "n_total": 210,
+                  "suppressed": false,
+                  "suppress_reason": null,
+                  "ci_lower": 0.7822777427624442,
+                  "ci_upper": 0.8817656133908024,
+                  "ci_level": 0.95,
+                  "bottom_values": [
+                    1,
+                    2
+                  ],
+                  "scale_min": 1
+                },
+                "nps_normalized": {
+                  "value": 0.49523809523809526,
+                  "nps_raw": -0.9523809523809524,
+                  "n_valid": 210,
+                  "suppressed": false,
+                  "suppress_reason": null
+                }
+              }
+            },
+            "access": {
+              "value": 0.2761904761904762,
+              "suppressed": false,
+              "n_valid": 210,
+              "suppress_reason": null,
+              "sub_scores": {
+                "difficulty_rate": {
+                  "value": 0.7238095238095238,
+                  "n_valid": 210,
+                  "n_total": 210,
+                  "suppressed": false,
+                  "suppress_reason": null,
+                  "ci_lower": 0.6597278178056276,
+                  "ci_upper": 0.7798501785211693,
+                  "ci_level": 0.95,
+                  "matched_values": [
+                    "Very difficult",
+                    "Slightly difficult"
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "first_time_access": {
+          "value": 0.5250163531518716,
+          "suppressed": false,
+          "suppress_reason": null,
+          "dimensions_included": [
+            "product_understanding",
+            "claims_experience",
+            "trust",
+            "access"
+          ],
+          "dimensions_excluded": [],
+          "n_dimensions": 4,
+          "dimensions_detail": {
+            "product_understanding": {
+              "value": 0.7190793122573489,
+              "suppressed": false,
+              "n_valid": 1803,
+              "suppress_reason": null,
+              "sub_scores": {
+                "coverage_understanding": {
+                  "value": 0.7581808097615086,
+                  "n_valid": 1803,
+                  "n_total": 1803,
+                  "suppressed": false,
+                  "suppress_reason": null,
+                  "ci_lower": 0.7378809676537968,
+                  "ci_upper": 0.7773828345215493,
+                  "ci_level": 0.95,
+                  "bottom_values": [
+                    1,
+                    2
+                  ],
+                  "scale_min": 1
+                },
+                "claim_process_understanding": {
+                  "value": 0.6799778147531891,
+                  "n_valid": 1803,
+                  "n_total": 1803,
+                  "suppressed": false,
+                  "suppress_reason": null,
+                  "ci_lower": 0.6580825066231355,
+                  "ci_upper": 0.7011078345280992,
+                  "ci_level": 0.95,
+                  "bottom_values": [
+                    1,
+                    2
+                  ],
+                  "scale_min": 1
+                }
+              }
+            },
+            "claims_experience": {
+              "value": 0.3816793893129771,
+              "suppressed": false,
+              "n_valid": 131,
+              "suppress_reason": null,
+              "n_paid": 50
+            },
+            "trust": {
+              "value": 0.738075429839157,
+              "suppressed": false,
+              "n_valid": 1803,
+              "suppress_reason": null,
+              "sub_scores": {
+                "confidence_pay": {
+                  "value": 0.8874098724348308,
+                  "n_valid": 1803,
+                  "n_total": 1803,
+                  "suppressed": false,
+                  "suppress_reason": null,
+                  "ci_lower": 0.8719882352030126,
+                  "ci_upper": 0.90118419405473,
+                  "ci_level": 0.95,
+                  "bottom_values": [
+                    1,
+                    2
+                  ],
+                  "scale_min": 1
+                },
+                "nps_normalized": {
+                  "value": 0.5887409872434831,
+                  "nps_raw": 17.74819744869662,
+                  "n_valid": 1803,
+                  "suppressed": false,
+                  "suppress_reason": null
+                }
+              }
+            },
+            "access": {
+              "value": 0.2612312811980033,
+              "suppressed": false,
+              "n_valid": 1803,
+              "suppress_reason": null,
+              "sub_scores": {
+                "difficulty_rate": {
+                  "value": 0.7387687188019967,
+                  "n_valid": 1803,
+                  "n_total": 1803,
+                  "suppressed": false,
+                  "suppress_reason": null,
+                  "ci_lower": 0.7179986646744334,
+                  "ci_upper": 0.7585234982396085,
+                  "ci_level": 0.95,
+                  "matched_values": [
+                    "Very difficult",
+                    "Slightly difficult"
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "caregiver": {
+          "value": 0.5299333364122094,
+          "suppressed": false,
+          "suppress_reason": null,
+          "dimensions_included": [
+            "product_understanding",
+            "claims_experience",
+            "trust",
+            "access"
+          ],
+          "dimensions_excluded": [],
+          "n_dimensions": 4,
+          "dimensions_detail": {
+            "product_understanding": {
+              "value": 0.7295124481327802,
+              "suppressed": false,
+              "n_valid": 1928,
+              "suppress_reason": null,
+              "sub_scores": {
+                "coverage_understanding": {
+                  "value": 0.7671161825726142,
+                  "n_valid": 1928,
+                  "n_total": 1928,
+                  "suppressed": false,
+                  "suppress_reason": null,
+                  "ci_lower": 0.7477296571897986,
+                  "ci_upper": 0.7854403890875864,
+                  "ci_level": 0.95,
+                  "bottom_values": [
+                    1,
+                    2
+                  ],
+                  "scale_min": 1
+                },
+                "claim_process_understanding": {
+                  "value": 0.691908713692946,
+                  "n_valid": 1928,
+                  "n_total": 1928,
+                  "suppressed": false,
+                  "suppress_reason": null,
+                  "ci_lower": 0.6709349847286856,
+                  "ci_upper": 0.7121192232764257,
+                  "ci_level": 0.95,
+                  "bottom_values": [
+                    1,
+                    2
+                  ],
+                  "scale_min": 1
+                }
+              }
+            },
+            "claims_experience": {
+              "value": 0.3698630136986301,
+              "suppressed": false,
+              "n_valid": 146,
+              "suppress_reason": null,
+              "n_paid": 54
+            },
+            "trust": {
+              "value": 0.7470176348547718,
+              "suppressed": false,
+              "n_valid": 1928,
+              "suppress_reason": null,
+              "sub_scores": {
+                "confidence_pay": {
+                  "value": 0.8947095435684648,
+                  "n_valid": 1928,
+                  "n_total": 1928,
+                  "suppressed": false,
+                  "suppress_reason": null,
+                  "ci_lower": 0.8802155059179726,
+                  "ci_upper": 0.9076338246006483,
+                  "ci_level": 0.95,
+                  "bottom_values": [
+                    1,
+                    2
+                  ],
+                  "scale_min": 1
+                },
+                "nps_normalized": {
+                  "value": 0.5993257261410788,
+                  "nps_raw": 19.865145228215766,
+                  "n_valid": 1928,
+                  "suppressed": false,
+                  "suppress_reason": null
+                }
+              }
+            },
+            "access": {
+              "value": 0.27334024896265563,
+              "suppressed": false,
+              "n_valid": 1928,
+              "suppress_reason": null,
+              "sub_scores": {
+                "difficulty_rate": {
+                  "value": 0.7266597510373444,
+                  "n_valid": 1928,
+                  "n_total": 1928,
+                  "suppressed": false,
+                  "suppress_reason": null,
+                  "ci_lower": 0.7063301847114406,
+                  "ci_upper": 0.7460878933918936,
+                  "ci_level": 0.95,
+                  "matched_values": [
+                    "Very difficult",
+                    "Slightly difficult"
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "non_caregiver": {
+          "value": 0.6089015151515151,
+          "suppressed": false,
+          "suppress_reason": null,
+          "dimensions_included": [
+            "product_understanding",
+            "trust",
+            "access"
+          ],
+          "dimensions_excluded": [
+            "claims_experience"
+          ],
+          "n_dimensions": 4,
+          "dimensions_detail": {
+            "product_understanding": {
+              "value": 0.6619318181818181,
+              "suppressed": false,
+              "n_valid": 176,
+              "suppress_reason": null,
+              "sub_scores": {
+                "coverage_understanding": {
+                  "value": 0.75,
+                  "n_valid": 176,
+                  "n_total": 183,
+                  "suppressed": false,
+                  "suppress_reason": null,
+                  "ci_lower": 0.6811495957232009,
+                  "ci_upper": 0.8081702784429553,
+                  "ci_level": 0.95,
+                  "bottom_values": [
+                    1,
+                    2
+                  ],
+                  "scale_min": 1
+                },
+                "claim_process_understanding": {
+                  "value": 0.5738636363636364,
+                  "n_valid": 176,
+                  "n_total": 183,
+                  "suppressed": false,
+                  "suppress_reason": null,
+                  "ci_lower": 0.4999947143299311,
+                  "ci_upper": 0.6445770666737061,
+                  "ci_level": 0.95,
+                  "bottom_values": [
+                    1,
+                    2
+                  ],
+                  "scale_min": 1
+                }
+              }
+            },
+            "claims_experience": {
+              "value": null,
+              "suppressed": true,
+              "n_valid": 7,
+              "suppress_reason": "n_valid=7 below threshold=30",
+              "n_paid": 4
+            },
+            "trust": {
+              "value": 0.5511363636363636,
+              "suppressed": false,
+              "n_valid": 176,
+              "suppress_reason": null,
+              "sub_scores": {
+                "confidence_pay": {
+                  "value": 0.6875,
+                  "n_valid": 176,
+                  "n_total": 183,
+                  "suppressed": false,
+                  "suppress_reason": null,
+                  "ci_lower": 0.6156336459268277,
+                  "ci_upper": 0.7513562596977894,
+                  "ci_level": 0.95,
+                  "bottom_values": [
+                    1,
+                    2
+                  ],
+                  "scale_min": 1
+                },
+                "nps_normalized": {
+                  "value": 0.4147727272727273,
+                  "nps_raw": -17.045454545454543,
+                  "n_valid": 176,
+                  "suppressed": false,
+                  "suppress_reason": null
+                }
+              }
+            },
+            "access": {
+              "value": 0.6136363636363636,
+              "suppressed": false,
+              "n_valid": 176,
+              "suppress_reason": null,
+              "sub_scores": {
+                "difficulty_rate": {
+                  "value": 0.38636363636363635,
+                  "n_valid": 176,
+                  "n_total": 183,
+                  "suppressed": false,
+                  "suppress_reason": null,
+                  "ci_lower": 0.31758612737077857,
+                  "ci_upper": 0.45999574800824145,
+                  "ci_level": 0.95,
+                  "matched_values": [
+                    "Very difficult",
+                    "Slightly difficult"
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "pwd": {
+          "value": 0.5135553649704593,
+          "suppressed": false,
+          "suppress_reason": null,
+          "dimensions_included": [
+            "product_understanding",
+            "claims_experience",
+            "trust",
+            "access"
+          ],
+          "dimensions_excluded": [],
+          "n_dimensions": 4,
+          "dimensions_detail": {
+            "product_understanding": {
+              "value": 0.7044025157232705,
+              "suppressed": false,
+              "n_valid": 477,
+              "suppress_reason": null,
+              "sub_scores": {
+                "coverage_understanding": {
+                  "value": 0.7568134171907757,
+                  "n_valid": 477,
+                  "n_total": 477,
+                  "suppressed": false,
+                  "suppress_reason": null,
+                  "ci_lower": 0.716361645951773,
+                  "ci_upper": 0.7931618061251007,
+                  "ci_level": 0.95,
+                  "bottom_values": [
+                    1,
+                    2
+                  ],
+                  "scale_min": 1
+                },
+                "claim_process_understanding": {
+                  "value": 0.6519916142557652,
+                  "n_valid": 477,
+                  "n_total": 477,
+                  "suppressed": false,
+                  "suppress_reason": null,
+                  "ci_lower": 0.60818421841069,
+                  "ci_upper": 0.6933704777164393,
+                  "ci_level": 0.95,
+                  "bottom_values": [
+                    1,
+                    2
+                  ],
+                  "scale_min": 1
+                }
+              }
+            },
+            "claims_experience": {
+              "value": 0.3409090909090909,
+              "suppressed": false,
+              "n_valid": 44,
+              "suppress_reason": null,
+              "n_paid": 15
+            },
+            "trust": {
+              "value": 0.7112159329140462,
+              "suppressed": false,
+              "n_valid": 477,
+              "suppress_reason": null,
+              "sub_scores": {
+                "confidence_pay": {
+                  "value": 0.8763102725366876,
+                  "n_valid": 477,
+                  "n_total": 477,
+                  "suppressed": false,
+                  "suppress_reason": null,
+                  "ci_lower": 0.8437239540124457,
+                  "ci_upper": 0.9028838798471366,
+                  "ci_level": 0.95,
+                  "bottom_values": [
+                    1,
+                    2
+                  ],
+                  "scale_min": 1
+                },
+                "nps_normalized": {
+                  "value": 0.5461215932914046,
+                  "nps_raw": 9.224318658280922,
+                  "n_valid": 477,
+                  "suppressed": false,
+                  "suppress_reason": null
+                }
+              }
+            },
+            "access": {
+              "value": 0.29769392033542974,
+              "suppressed": false,
+              "n_valid": 477,
+              "suppress_reason": null,
+              "sub_scores": {
+                "difficulty_rate": {
+                  "value": 0.7023060796645703,
+                  "n_valid": 477,
+                  "n_total": 477,
+                  "suppressed": false,
+                  "suppress_reason": null,
+                  "ci_lower": 0.6597887793373692,
+                  "ci_upper": 0.7415909196456375,
+                  "ci_level": 0.95,
+                  "matched_values": [
+                    "Very difficult",
+                    "Slightly difficult"
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "bundled_service_client": {
+          "value": null,
+          "suppressed": true,
+          "suppress_reason": "only 0 of 4 dimensions available (minimum 2 required)",
+          "dimensions_included": [],
+          "dimensions_excluded": [
+            "product_understanding",
+            "claims_experience",
+            "trust",
+            "access"
+          ],
+          "n_dimensions": 4,
+          "dimensions_detail": {
+            "product_understanding": {
+              "value": null,
+              "suppressed": true,
+              "n_valid": 0,
+              "suppress_reason": "no sub-scores available",
+              "sub_scores": {
+                "coverage_understanding": {
+                  "value": null,
+                  "n_valid": 9,
+                  "n_total": 9,
+                  "suppressed": true,
+                  "suppress_reason": "n_valid=9 below threshold=30",
+                  "ci_lower": null,
+                  "ci_upper": null,
+                  "ci_level": 0.95,
+                  "bottom_values": [
+                    1,
+                    2
+                  ],
+                  "scale_min": 1
+                },
+                "claim_process_understanding": {
+                  "value": null,
+                  "n_valid": 9,
+                  "n_total": 9,
+                  "suppressed": true,
+                  "suppress_reason": "n_valid=9 below threshold=30",
+                  "ci_lower": null,
+                  "ci_upper": null,
+                  "ci_level": 0.95,
+                  "bottom_values": [
+                    1,
+                    2
+                  ],
+                  "scale_min": 1
+                }
+              }
+            },
+            "claims_experience": {
+              "value": null,
+              "suppressed": true,
+              "n_valid": 4,
+              "suppress_reason": "n_valid=4 below threshold=30",
+              "n_paid": 3
+            },
+            "trust": {
+              "value": null,
+              "suppressed": true,
+              "n_valid": 0,
+              "suppress_reason": "no trust sub-scores available",
+              "sub_scores": {
+                "confidence_pay": {
+                  "value": null,
+                  "n_valid": 9,
+                  "n_total": 9,
+                  "suppressed": true,
+                  "suppress_reason": "n_valid=9 below threshold=30",
+                  "ci_lower": null,
+                  "ci_upper": null,
+                  "ci_level": 0.95,
+                  "bottom_values": [
+                    1,
+                    2
+                  ],
+                  "scale_min": 1
+                },
+                "nps_normalized": {
+                  "value": null,
+                  "suppressed": true,
+                  "n_valid": 9
+                }
+              }
+            },
+            "access": {
+              "value": null,
+              "suppressed": true,
+              "n_valid": 9,
+              "suppress_reason": "n_valid=9 below threshold=30",
+              "sub_scores": {
+                "difficulty_rate": {
+                  "value": null,
+                  "n_valid": 9,
+                  "n_total": 9,
+                  "suppressed": true,
+                  "suppress_reason": "n_valid=9 below threshold=30",
+                  "ci_lower": null,
+                  "ci_upper": null,
+                  "ci_level": 0.95,
+                  "matched_values": [
+                    "Very difficult",
+                    "Slightly difficult"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

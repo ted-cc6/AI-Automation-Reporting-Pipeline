@@ -99,6 +99,10 @@ def extract_metrics(analysis: dict, section_spec: dict) -> dict:
             n_val = get_nested(analysis, n_path)
             result[m_key + "_n"] = format_value(n_val, "count") if n_val is not None else "?"
 
+        population = m_cfg.get("population")
+        if population:
+            result[m_key + "_population"] = population
+
     # Driver rho/p/n for Part 5 sections
     for d_key, d_cfg in section_spec.get("drivers", {}).items():
         sup   = bool(get_nested(analysis, d_cfg.get("suppressed_path", ""), default=False))
@@ -161,6 +165,7 @@ def _build_drivers_data(analysis: dict, drivers_spec: dict) -> list:
             "p_value":    p_val,
             "n_valid":    n_val,
             "suppressed": sup,
+            "population": d_cfg.get("population"),
         })
     # Sort by abs(rho) descending; suppressed rows go to bottom
     rows.sort(key=lambda r: (r["suppressed"], -abs(r["rho"]) if r["rho"] is not None else 0))
@@ -188,6 +193,7 @@ def _build_scorecard_6(analysis: dict, scorecard_spec: list) -> list:
             "group_b_value": val_b,
             "sig_p":         p_val,
             "significant":   sig,
+            "population":    m.get("population"),
         })
     return rows
 
@@ -209,6 +215,30 @@ def _build_scorecard_7(analysis: dict, scorecard_spec: list) -> list:
             "group_b_value": val_b,
             "sig_p":         p_val,
             "significant":   sig,
+            "population":    m.get("population"),
+        })
+    return rows
+
+
+def _build_scorecard_5(analysis: dict, scorecard_spec: list) -> list:
+    """Part 5's caregiver vs non-caregiver comparison (financial stress & healthcare access)."""
+    rows = []
+    for m in scorecard_spec:
+        sup_a = bool(get_nested(analysis, m["caregiver_sup"], default=False))
+        sup_b = bool(get_nested(analysis, m["non_caregiver_sup"], default=False))
+        val_a = format_value(get_nested(analysis, m["caregiver_path"]), m["fmt"], suppressed=sup_a)
+        val_b = format_value(get_nested(analysis, m["non_caregiver_path"]), m["fmt"], suppressed=sup_b)
+        p_val = get_nested(analysis, m["sig_path"])
+        sig   = (p_val is not None and p_val < 0.05)
+        rows.append({
+            "label":         m["label"],
+            "group_a_label": "Caregiver",
+            "group_a_value": val_a,
+            "group_b_label": "Non-Caregiver",
+            "group_b_value": val_b,
+            "sig_p":         p_val,
+            "significant":   sig,
+            "population":    m.get("population"),
         })
     return rows
 
@@ -264,9 +294,11 @@ def build_part_package(part_key: str, analysis: dict, qual: dict,
 
         sections_out[s_key] = sec
 
-    # Scorecard rows for Parts 6 & 7
+    # Scorecard rows for Parts 5, 6 & 7
     scorecard = []
-    if part_key == "part_6" and "scorecard_metrics" in spec_part:
+    if part_key == "part_5" and "scorecard_metrics" in spec_part:
+        scorecard = _build_scorecard_5(analysis, spec_part["scorecard_metrics"])
+    elif part_key == "part_6" and "scorecard_metrics" in spec_part:
         scorecard = _build_scorecard_6(analysis, spec_part["scorecard_metrics"])
     elif part_key == "part_7" and "scorecard_metrics" in spec_part:
         scorecard = _build_scorecard_7(analysis, spec_part["scorecard_metrics"])

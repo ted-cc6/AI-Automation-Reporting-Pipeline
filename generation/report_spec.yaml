@@ -70,6 +70,21 @@ parts:
             fmt: "pct"
             suppressed_path: "parts.part_1.metrics.claim_process_understanding.segments.non_claimant.suppressed"
 
+      s1_2b:
+        label: "Preferred Claims Channel"
+        word_limit: 70
+        metrics:
+          channel_preferred_base:
+            path: "parts.part_1.claim_channel_preferred.n_base"
+            fmt: "count"
+        distribution_path: "parts.part_1.claim_channel_preferred.distribution"
+        note: >
+          This question asks which channel clients PREFER for submitting a claim -- it is
+          asked of every respondent regardless of whether they have ever filed a claim.
+          It is NOT a record of how any specific claim was actually filed, and must not be
+          described as such. Use language like "clients prefer" or "would like to use" --
+          never "filed through", "submitted via", or "used".
+
       s1_3:
         label: "Product Value and Renewal Intent"
         word_limit: 80
@@ -79,12 +94,18 @@ parts:
             fmt: "pct"
             n_path: "parts.part_1.metrics.worth_premium.headline.n_valid"
             suppressed_path: "parts.part_1.metrics.worth_premium.headline.suppressed"
+            population: "Health & credit-life clients across the African country programmes only (n=1,957) — Vietnam's crop-insurance clients pay no premium (grant-subsidized) and were not asked this question"
           renewal_intent:
             path: "parts.part_1.metrics.renewal_intent.headline.value"
             fmt: "pct"
             n_path: "parts.part_1.metrics.renewal_intent.headline.n_valid"
             suppressed_path: "parts.part_1.metrics.renewal_intent.headline.suppressed"
-        note: "renewal_intent n=147 is small (only renewal-eligible clients). Mention this caveat."
+            population: "Vietnam's crop-insurance clients only (n=147 of 154) — this question is not asked of health or credit-life clients in any country"
+        note: >
+          worth_premium and renewal_intent describe two entirely separate, non-overlapping
+          groups of respondents (see each metric's population above) — never contrast them
+          as if describing the same clients, and do not use transition words like "however"
+          between them. State each finding on its own with its stated population.
 
       insight:
         word_limit: 120
@@ -169,21 +190,17 @@ parts:
         note: "If any protection_flags were found, surface them briefly in this section."
 
       s2_4:
-        label: "Claim Channel and Payout Outcomes"
+        label: "Payout Outcomes"
         word_limit: 100
         metrics:
-          channel_base:
-            path: "parts.part_2.claim_channel_preferred.n_base"
-            fmt: "count"
           claim_result_base:
             path: "parts.part_2.claim_result.n_base"
             fmt: "count"
           payout_cost_base:
             path: "parts.part_2.payout_cost_coverage.n_base"
             fmt: "count"
-        distribution_path: "parts.part_2.claim_channel_preferred.distribution"
+        distribution_path: "parts.part_2.claim_result.distribution"
         extra_distributions:
-          claim_result: "parts.part_2.claim_result.distribution"
           payout_cost_coverage: "parts.part_2.payout_cost_coverage.distribution"
 
       insight:
@@ -191,14 +208,39 @@ parts:
         verbatim_section: "part2"
 
   # ───────────────────────────────────────────────────────────────────
-  # PART 3 — Financial Protection
+  # PART 3 — Financial Inclusion
   # ───────────────────────────────────────────────────────────────────
   part_3:
-    title: "Financial Protection"
+    title: "Financial Inclusion"
     visuals:
       - file: "part3_financial_protection.png"
         caption: "Financial Protection Indicators"
     sections:
+      s3_0:
+        label: "Reaching Clients with No Prior Insurance Access"
+        word_limit: 70
+        metrics:
+          no_prior_access:
+            path: "parts.part_3.metrics.no_prior_access.headline.value"
+            fmt: "pct"
+            n_path: "parts.part_3.metrics.no_prior_access.headline.n_valid"
+            suppressed_path: "parts.part_3.metrics.no_prior_access.headline.suppressed"
+          no_prior_access_female:
+            path: "parts.part_3.metrics.no_prior_access.segments.female.value"
+            fmt: "pct"
+            suppressed_path: "parts.part_3.metrics.no_prior_access.segments.female.suppressed"
+          no_prior_access_male:
+            path: "parts.part_3.metrics.no_prior_access.segments.male.value"
+            fmt: "pct"
+            suppressed_path: "parts.part_3.metrics.no_prior_access.segments.male.suppressed"
+        note: >
+          This is a market-reach / financial-inclusion metric: the share of surveyed
+          clients who had no insurance of any kind before joining VisionFund (i.e.
+          VisionFund was their first insurer). Frame it as extending financial
+          protection to previously-uninsured households -- this is distinct from,
+          and should not be confused with, the financial-stress/coping metrics
+          elsewhere in this part.
+
       s3_1:
         label: "Financial Stress and Coping"
         word_limit: 80
@@ -238,6 +280,7 @@ parts:
             fmt: "pct"
             n_path: "parts.part_1.metrics.worth_premium.headline.n_valid"
             suppressed_path: "parts.part_1.metrics.worth_premium.headline.suppressed"
+            population: "Health & credit-life clients across the African country programmes only (n=1,957) — Vietnam's crop-insurance clients pay no premium (grant-subsidized) and were not asked this question"
 
       insight:
         word_limit: 120
@@ -306,6 +349,7 @@ parts:
             path: "parts.part_1.metrics.worth_premium.headline.value"
             fmt: "pct"
             n_path: "parts.part_1.metrics.worth_premium.headline.n_valid"
+            population: "Health & credit-life clients across the African country programmes only (n=1,957) — Vietnam's crop-insurance clients pay no premium (grant-subsidized) and were not asked this question"
           child_wellbeing:
             path: "parts.part_4.child_wellbeing.headline.value"
             fmt: "pct"
@@ -331,6 +375,25 @@ parts:
         caption: "Child Wellbeing Drivers (Spearman Correlation)"
       - file: "part5_healthcare.png"
         caption: "Healthcare Access and Medical Cost Impact"
+    scorecard_metrics:
+      - key: financial_stress_high
+        label: "High Financial Stress"
+        fmt: "pct"
+        caregiver_path: "parts.part_5.caregiver_comparison.metrics.financial_stress_high.caregiver.value"
+        non_caregiver_path: "parts.part_5.caregiver_comparison.metrics.financial_stress_high.non_caregiver.value"
+        sig_path: "parts.part_5.caregiver_comparison.metrics.financial_stress_high.significance.p_value"
+        caregiver_sup: "parts.part_5.caregiver_comparison.metrics.financial_stress_high.caregiver.suppressed"
+        non_caregiver_sup: "parts.part_5.caregiver_comparison.metrics.financial_stress_high.non_caregiver.suppressed"
+        population: "Clients who experienced an insured event in the last 12 months (same base as Part 3's financial stress metric)"
+      - key: healthcare_access
+        label: "Healthcare Access Improved"
+        fmt: "pct"
+        caregiver_path: "parts.part_5.caregiver_comparison.metrics.healthcare_access.caregiver.value"
+        non_caregiver_path: "parts.part_5.caregiver_comparison.metrics.healthcare_access.non_caregiver.value"
+        sig_path: "parts.part_5.caregiver_comparison.metrics.healthcare_access.significance.p_value"
+        caregiver_sup: "parts.part_5.caregiver_comparison.metrics.healthcare_access.caregiver.suppressed"
+        non_caregiver_sup: "parts.part_5.caregiver_comparison.metrics.healthcare_access.non_caregiver.suppressed"
+        population: "Health-insurance clients who needed care (same base as Part 4's healthcare access metric)"
     sections:
       s5_1:
         label: "Child Wellbeing Drivers"
@@ -361,11 +424,13 @@ parts:
             p_path: "parts.part_5.drivers.worth_premium.p_value"
             n_path: "parts.part_5.drivers.worth_premium.n_valid"
             suppressed_path: "parts.part_5.drivers.worth_premium.suppressed"
+            population: "Health & credit-life clients only — Vietnam's crop-insurance clients were not asked this question, so they are excluded from this correlation"
           renewal_intent:
             rho_path: "parts.part_5.drivers.renewal_intent.value"
             p_path: "parts.part_5.drivers.renewal_intent.p_value"
             n_path: "parts.part_5.drivers.renewal_intent.n_valid"
             suppressed_path: "parts.part_5.drivers.renewal_intent.suppressed"
+            population: "Vietnam's crop-insurance clients only (the low n=127 vs n≈1,928 for other drivers reflects this smaller population, not suppressed/missing data) — not asked of health or credit-life clients in any country"
           confidence_pay:
             rho_path: "parts.part_5.drivers.confidence_pay.value"
             p_path: "parts.part_5.drivers.confidence_pay.p_value"
@@ -383,6 +448,9 @@ parts:
           all other drivers use bottom_two_box (positive response).
           A negative rho for financial_stress means higher stress → lower CWB score (correct direction).
           A driver with a null value in the JSON is suppressed — show "SUPPRESSED" in the table.
+          The worth_premium driver's lower N (n≈1,801 vs n≈1,928 for other drivers) reflects its
+          smaller population (see worth_premium's population note) — do not describe this as
+          missing or suppressed data.
 
       s5_2:
         label: "Healthcare Access and Medical Cost"
@@ -402,6 +470,15 @@ parts:
           healthcare_access: % who said access to care improved (among those who needed care, n≈1,672).
           medical_cost_change: % who said medical costs decreased after claim (claimants with
           medical costs, n≈926). n_total for medical_cost_change includes only claimants who sought care.
+
+      s5_3:
+        label: "Caregivers vs Non-Caregivers"
+        word_limit: 80
+        note: >
+          Compares caregivers (support at least one child) against non-caregivers on financial
+          stress and healthcare access -- two metrics unrelated to child wellbeing itself, since
+          child wellbeing cannot be measured for non-caregivers. See the scorecard table's
+          population note for each row's base. Significance threshold: p < 0.05, mark with *.
 
       insight:
         word_limit: 120
@@ -440,6 +517,7 @@ parts:
         sig_path: "parts.part_6.metrics.worth_premium.significance.p_value"
         claimant_sup: "parts.part_6.metrics.worth_premium.claimant.suppressed"
         non_claimant_sup: "parts.part_6.metrics.worth_premium.non_claimant.suppressed"
+        population: "Health & credit-life clients only, within each claimant/non-claimant group — Vietnam's crop-insurance clients were not asked this question"
       - key: renewal_intent
         label: "Renewal Intent"
         fmt: "pct"
@@ -448,6 +526,7 @@ parts:
         sig_path: "parts.part_6.metrics.renewal_intent.significance.p_value"
         claimant_sup: "parts.part_6.metrics.renewal_intent.claimant.suppressed"
         non_claimant_sup: "parts.part_6.metrics.renewal_intent.non_claimant.suppressed"
+        population: "Vietnam's crop-insurance clients only, within each claimant/non-claimant group — not asked of health or credit-life clients in any country"
       - key: negative_coping
         label: "Negative Coping (↓ better)"
         fmt: "pct"
@@ -479,6 +558,9 @@ parts:
           Significance threshold: p < 0.05 = statistically significant, mark with *.
           The note about negative_coping and financial_stress_high being on the claimant
           base (not both groups equally) should be mentioned if relevant.
+          worth_premium and renewal_intent each have their own population (see each
+          row's population note in the scorecard table) — do not imply the same clients
+          answered both.
       insight:
         word_limit: 120
         verbatim_section: "part6"
@@ -516,6 +598,7 @@ parts:
         sig_path: "parts.part_7.metrics.worth_premium.significance.p_value"
         female_sup: "parts.part_7.metrics.worth_premium.female.suppressed"
         male_sup: "parts.part_7.metrics.worth_premium.male.suppressed"
+        population: "Health & credit-life clients only, within each gender group — Vietnam's crop-insurance clients were not asked this question"
       - key: renewal_intent
         label: "Renewal Intent"
         fmt: "pct"
@@ -524,6 +607,7 @@ parts:
         sig_path: "parts.part_7.metrics.renewal_intent.significance.p_value"
         female_sup: "parts.part_7.metrics.renewal_intent.female.suppressed"
         male_sup: "parts.part_7.metrics.renewal_intent.male.suppressed"
+        population: "Vietnam's crop-insurance clients only, within each gender group — not asked of health or credit-life clients in any country"
       - key: negative_coping
         label: "Negative Coping (↓ better)"
         fmt: "pct"
@@ -554,6 +638,9 @@ parts:
         note: >
           Significance threshold: p < 0.05 = statistically significant, mark with *.
           The female sample is dominant (n≈1,518 vs male n≈586); note this if relevant.
+          worth_premium and renewal_intent each have their own population (see each
+          row's population note in the scorecard table) — do not imply the same clients
+          answered both.
       insight:
         word_limit: 120
         verbatim_section: "part7"
