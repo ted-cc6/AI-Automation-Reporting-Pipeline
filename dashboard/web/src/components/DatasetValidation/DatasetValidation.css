@@ -1,0 +1,113 @@
+@import "../../styles/forms.css";
+
+.dataset-validation {
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--color-border);
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.dataset-validation__actions {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.rec-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.rec-list__summary {
+  margin: 0;
+  font-size: var(--text-caption);
+  color: var(--color-ink-soft);
+}
+
+.rec-list__apply-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.rec-list__errors {
+  background: var(--color-error-soft);
+  border-radius: var(--radius);
+  padding: 0.75rem 1rem;
+}
+.rec-list__errors ul {
+  margin: 0.35rem 0 0;
+  padding-left: 1.25rem;
+  font-size: var(--text-caption);
+}
+
+.rec-card {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  padding: 0.85rem 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  background: var(--color-surface-alt);
+}
+
+.rec-card__header {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.rec-card__diff {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  font-size: var(--text-body);
+  flex-wrap: wrap;
+}
+.rec-card__diff-old {
+  color: var(--color-ink-soft);
+  text-decoration: line-through;
+  text-decoration-color: var(--color-border);
+}
+.rec-card__diff-arrow {
+  color: var(--color-ink-soft);
+}
+.rec-card__diff-new {
+  color: var(--color-ink);
+  font-weight: 500;
+}
+
+.rec-card__meta {
+  margin: 0;
+  font-size: var(--text-caption);
+  color: var(--color-ink-soft);
+}
+
+.rec-card__rationale {
+  margin: 0;
+  font-size: var(--text-caption);
+  color: var(--color-ink-soft);
+  font-style: italic;
+}
+
+.rec-card__value-map {
+  border-collapse: collapse;
+  font-size: var(--text-caption);
+}
+.rec-card__value-map th,
+.rec-card__value-map td {
+  border: 1px solid var(--color-border);
+  padding: 0.25rem 0.5rem;
+  text-align: left;
+}
+.rec-card__value-map th {
+  background: var(--color-surface);
+  font-weight: 500;
+}
+
+.rec-card__decision {
+  display: flex;
+  gap: 0.5rem;
+}

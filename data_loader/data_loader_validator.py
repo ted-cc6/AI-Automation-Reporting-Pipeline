@@ -14,14 +14,10 @@ from pathlib import Path
 
 import pandas as pd
 
+from report_spec import load_spec
+
 SCRIPT_DIR = Path(__file__).parent
 PROJECT_ROOT = SCRIPT_DIR.parent
-
-# Add project root to path so report_spec can be imported when running from data_loader/
-if str(PROJECT_ROOT) not in sys.path:
-    sys.path.insert(0, str(PROJECT_ROOT))
-
-from report_spec import load_spec
 
 logging.basicConfig(
     level=logging.INFO,
@@ -358,7 +354,7 @@ def check_5_derived(df: pd.DataFrame) -> tuple[list, list[str]]:
     unexpected = actual_slugs - valid_slugs
     ok_ins = not unexpected
     rows.append(("insurance_type — valid slug values only",
-                 f"⊆ {{'health','crop','credit_life'}}", str(sorted(actual_slugs)),
+                 "⊆ {'health','crop','credit_life'}", str(sorted(actual_slugs)),
                  "PASS ✓" if ok_ins else "FAIL ✗"))
     if not ok_ins:
         errors.append(f"Check 5: insurance_type has unexpected value(s): {unexpected}")

@@ -1,0 +1,74 @@
+.status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-family: var(--font-mono);
+  font-size: var(--text-caption);
+  letter-spacing: 0.02em;
+  padding: 0.2rem 0.6rem;
+  border-radius: 999px;
+  font-weight: 500;
+}
+
+.status-pill__dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+}
+
+.status-pill--pending {
+  background: var(--color-surface-alt);
+  color: var(--color-ink-soft);
+}
+.status-pill--pending .status-pill__dot {
+  background: var(--color-pending);
+}
+
+.status-pill--running {
+  background: #fdf0e7;
+  color: var(--color-orange-strong);
+}
+.status-pill--running .status-pill__dot {
+  background: var(--color-orange);
+  animation: pulse 1.4s ease-in-out infinite;
+}
+
+.status-pill--success {
+  background: var(--color-success-soft);
+  color: var(--color-success);
+}
+.status-pill--success .status-pill__dot {
+  background: var(--color-success);
+}
+
+.status-pill--warning {
+  background: var(--color-warning-soft);
+  color: var(--color-warning);
+}
+.status-pill--warning .status-pill__dot {
+  background: var(--color-warning);
+}
+
+.status-pill--error {
+  background: var(--color-error-soft);
+  color: var(--color-error);
+}
+.status-pill--error .status-pill__dot {
+  background: var(--color-error);
+}
+
+@keyframes pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.35;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .status-pill--running .status-pill__dot {
+    animation: none;
+  }
+}

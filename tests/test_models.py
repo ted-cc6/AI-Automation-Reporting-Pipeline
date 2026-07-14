@@ -4,31 +4,21 @@ Run: pytest tests/ -v
 """
 from __future__ import annotations
 
-import textwrap
 from pathlib import Path
 
 import pytest
-import yaml
 
 from report_spec import (
     Category,
-    Finding,
-    LoadResult,
     ReportSpec,
     Severity,
-    SpecValidationError,
     load_spec,
 )
-from report_spec.errors import SpecValidationError
-from report_spec.models import FillMode, MetricMethod, OutputType
 from report_spec.rules import (
     check_r2,
     check_r5,
     check_r6,
-    check_r7,
-    check_r10,
     check_r11,
-    run_all_rules,
 )
 
 # ---------------------------------------------------------------------------

@@ -17,11 +17,10 @@ from pathlib import Path
 
 import yaml
 
+from analysis_engine.country_config import DEFAULT_COUNTRY
+
 PROJECT_ROOT = Path(__file__).parent
 DATA_LOADER  = PROJECT_ROOT / "data_loader"
-sys.path.insert(0, str(PROJECT_ROOT))
-
-from analysis_engine.country_config import DEFAULT_COUNTRY
 
 STEPS = [
     {

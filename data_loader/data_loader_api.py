@@ -17,15 +17,11 @@ from pathlib import Path
 
 import pandas as pd
 
-_SCRIPT_DIR = Path(__file__).parent
-_PROJECT_ROOT = _SCRIPT_DIR.parent
-
-# Add project root to path so report_spec can be imported regardless of working directory
-if str(_PROJECT_ROOT) not in sys.path:
-    sys.path.insert(0, str(_PROJECT_ROOT))
-
 from report_spec import load_spec
 from report_spec.models import ReportSpec
+
+_SCRIPT_DIR = Path(__file__).parent
+_PROJECT_ROOT = _SCRIPT_DIR.parent
 
 logging.basicConfig(
     level=logging.INFO,
@@ -211,7 +207,7 @@ def _pct(n: int, d: int) -> str:
     return f"{n / d * 100:5.1f}%" if d > 0 else "   N/A"
 
 
-if __name__ == "__main__":
+def main() -> None:
     ds = load_survey_data()
     df = ds.df
 
@@ -257,3 +253,7 @@ Analysis bases:
 
 All properties accessible.  Use load_survey_data() to get a CleanDataset.
 """.lstrip())
+
+
+if __name__ == "__main__":
+    main()

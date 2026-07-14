@@ -3,7 +3,7 @@ import logging
 
 import pandas as pd
 
-from analysis_engine.stats import spearman_correlation, logistic_regression
+from analysis_engine.stats import spearman_correlation, logistic_regression, top_two_box, share_selecting, scorecard_row
 
 log = logging.getLogger("analysis_engine.sections.part_5")
 
@@ -17,6 +17,19 @@ COL_RENEWAL_INTENT              = "q_renewal_intent"
 COL_CONFIDENCE_PAY              = "q_confidence_pay"
 COL_NPS_SCORE                   = "q_nps_score"
 COL_ECONOMIC_STRAIN_PROXY       = "q_child_improvements__d"
+COL_HEALTHCARE_ACCESS           = "q_healthcare_access"
+
+# Matches analysis_engine/sections/part_4.py's HEALTHCARE_ACCESS_POSITIVE_VALUES exactly.
+HEALTHCARE_ACCESS_POSITIVE_VALUES = ["Yes", "Yes, a lot", "Yes, somewhat"]
+
+# Planned in the original report spec as subsection 5.2 ("Caregivers vs non
+# caregivers — financial stress & healthcare access") but never built until now.
+_CAREGIVER_COMPARISON_NOTE = (
+    "Financial stress is measured among clients who experienced an insured event "
+    "in the last 12 months (same base as Part 3's financial stress metric); "
+    "healthcare access is measured among health-insurance clients who needed "
+    "care (same base as Part 4's healthcare access metric)."
+)
 
 # (key, column, encoding): encoding=None → pass as-is; "boolean_to_int" → map True/False → 1/0
 _DRIVERS = [
@@ -77,10 +90,48 @@ def _build_regression_predictors(cwb_base: "pd.DataFrame", segment_masks: dict) 
     return predictors
 
 
+def _build_caregiver_comparison(ds, segment_masks: dict) -> dict:
+    """Caregiver vs non-caregiver comparison on financial stress & healthcare
+    access -- planned since the original report spec, never previously built."""
+    n_caregiver = int(segment_masks["caregiver"].sum()) if "caregiver" in segment_masks else 0
+    n_non_caregiver = int(segment_masks["non_caregiver"].sum()) if "non_caregiver" in segment_masks else 0
+    log.info(f"Part 5: caregiver comparison (n_caregiver={n_caregiver}, n_non_caregiver={n_non_caregiver})")
+
+    metrics: dict = {}
+
+    if COL_FINANCIAL_STRESS in ds.insured_event_base.columns:
+        metrics["financial_stress_high"] = scorecard_row(
+            ds.insured_event_base, COL_FINANCIAL_STRESS, top_two_box, segment_masks,
+            "High Financial Stress", "caregiver", "non_caregiver",
+        )
+    else:
+        log.warning(f"Part 5: column '{COL_FINANCIAL_STRESS}' missing — skipping caregiver comparison row 'financial_stress_high'")
+
+    if COL_HEALTHCARE_ACCESS in ds.health.columns:
+        metrics["healthcare_access"] = scorecard_row(
+            ds.health, COL_HEALTHCARE_ACCESS, share_selecting, segment_masks,
+            "Healthcare Access Improved", "caregiver", "non_caregiver",
+            values=HEALTHCARE_ACCESS_POSITIVE_VALUES,
+        )
+    else:
+        log.warning(f"Part 5: column '{COL_HEALTHCARE_ACCESS}' missing — skipping caregiver comparison row 'healthcare_access'")
+
+    return {
+        "groups": {
+            "caregiver":     {"label": "Caregiver",     "n": n_caregiver},
+            "non_caregiver": {"label": "Non-Caregiver",  "n": n_non_caregiver},
+        },
+        "note": _CAREGIVER_COMPARISON_NOTE,
+        "metrics": metrics,
+    }
+
+
 def calculate(ds, segment_masks: dict) -> dict:
     """Part 5: CWB Drivers — Spearman correlations + logistic regression within child_wellbeing_base."""
     cwb_base = ds.child_wellbeing_base
     log.info(f"Part 5: calculating child_wellbeing_base (n={len(cwb_base)})")
+
+    caregiver_comparison = _build_caregiver_comparison(ds, segment_masks)
 
     if COL_CHILD_WELLBEING not in cwb_base.columns:
         log.warning(f"Part 5: outcome column '{COL_CHILD_WELLBEING}' missing — cannot compute drivers")
@@ -91,6 +142,7 @@ def calculate(ds, segment_masks: dict) -> dict:
             "method": "Spearman rank correlation",
             "drivers": {},
             "regression": {"error": "outcome column missing", "coefficients": {}},
+            "caregiver_comparison": caregiver_comparison,
         }
 
     # Encode outcome: Yes=1, No=0; unmapped categories (e.g. "Do not support any children") → NA
@@ -135,4 +187,5 @@ def calculate(ds, segment_masks: dict) -> dict:
         "method": "Spearman rank correlation",
         "drivers": correlations,
         "regression": regression_result,
+        "caregiver_comparison": caregiver_comparison,
     }

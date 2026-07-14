@@ -3,14 +3,12 @@
 Phase 1: Read survey parquet, build enriched JSON payload for Gemini.
 """
 import json
-import sys
 from pathlib import Path
 
 import pandas as pd
 import yaml
 
 ROOT = Path(__file__).parent.parent
-sys.path.insert(0, str(ROOT))
 
 CONFIG_PATH = ROOT / "qualitative" / "config.yaml"
 PARQUET_PATH = ROOT / "data" / "survey_clean.parquet"
@@ -32,7 +30,11 @@ def _build_response_record(row_id: str, text: str, row: pd.Series,
         "branch": str(row.get("branch", "")) or None,
         "is_claimant": (False if pd.isna(row.get("flag_paid_claimant"))
                         else bool(row["flag_paid_claimant"])),
-        "is_caregiver": (str(row.get("q_child_wellbeing", "")) == "Yes"),
+        # Canonical caregiver definition (matches analysis_engine/segments.py's
+        # "caregiver" segment): answered Yes OR No to child wellbeing (i.e. has
+        # children to report on) -- NOT "Yes" only, which would wrongly exclude
+        # caregivers whose child's wellbeing did not improve.
+        "is_caregiver": bool(row.get("flag_child_wellbeing_denominator", False)),
         "is_female": (str(row.get("q_sex", "")) == "Female"),
     }
     # NPS-specific enrichment
@@ -120,8 +122,12 @@ def print_payload_stats(payload: dict) -> None:
     print("─────────────────────────────────────────────────────")
 
 
-if __name__ == "__main__":
+def main() -> None:
     config = load_config()
     df = pd.read_parquet(PARQUET_PATH)
     payload = build_payload(df, config)
     print_payload_stats(payload)
+
+
+if __name__ == "__main__":
+    main()

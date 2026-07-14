@@ -1,0 +1,25 @@
+.app-header {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+  padding: 1.75rem 0 1.5rem;
+  border-bottom: 1px solid var(--color-border);
+  margin-bottom: 2rem;
+}
+
+.app-header__logo {
+  height: 34px;
+  width: auto;
+  flex-shrink: 0;
+}
+
+.app-header__title h1 {
+  font-size: var(--text-h3);
+  margin: 0 0 0.2rem;
+}
+
+.app-header__title p {
+  margin: 0;
+  color: var(--color-ink-soft);
+  font-size: var(--text-body);
+}

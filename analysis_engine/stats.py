@@ -498,6 +498,43 @@ def disaggregate(
     return results
 
 
+# --- Two-group scorecard row (shared by Parts 5, 6, 7) ---
+
+def scorecard_row(
+    scoped_df: pd.DataFrame,
+    col_or_series: "pd.Series | str",
+    stat_fn,
+    segment_masks: "dict[str, pd.Series]",
+    label: str,
+    group_a: str,
+    group_b: str,
+    **stat_kwargs,
+) -> dict:
+    """Disaggregate stat_fn across segment_masks, then add a two-proportion
+    significance test between group_a and group_b specifically.
+
+    Used by any part comparing two segments head-to-head (Part 6 claimant vs
+    non-claimant, Part 7 female vs male, Part 5 caregiver vs non-caregiver).
+    """
+    disag = disaggregate(scoped_df, col_or_series, stat_fn, segment_masks, **stat_kwargs)
+    _absent = {"value": None, "n_valid": 0, "suppressed": True, "suppress_reason": "segment absent"}
+    a = disag.get(group_a, _absent)
+    b = disag.get(group_b, _absent)
+
+    if a.get("value") is not None and b.get("value") is not None:
+        sig = significance_test(
+            round(a["value"] * a["n_valid"]), a["n_valid"],
+            round(b["value"] * b["n_valid"]), b["n_valid"],
+        )
+    else:
+        sig = None
+
+    row = {"label": label}
+    row.update(disag)   # all segment keys present (including any country-config segments)
+    row["significance"] = sig
+    return row
+
+
 # --- Composite index ---
 
 def composite_index(

@@ -1,0 +1,53 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "visionfund-report-pipeline"
+version = "0.1.0"
+description = "VisionFund Insurance Client Survey — data loading, analysis, qualitative tagging, and report generation pipeline"
+requires-python = ">=3.11"
+dependencies = [
+    "pydantic>=2.7,<3",
+    "jsonschema>=4.21",
+    "pyyaml>=6.0",
+    "pandas>=2.2",
+    "pyarrow>=16.0",       # engine="pyarrow" explicit in data_loader_derived.py, data_loader_transformer.py
+    "numpy>=1.26",
+    "scipy>=1.13",         # analysis_engine/stats.py imports scipy.stats directly
+    "statsmodels>=0.14",
+    "matplotlib>=3.8",     # generate_visuals.py
+    "python-docx>=1.1",    # installs as "docx" — generation/assembler.py
+    "google-genai>=0.3",   # `from google import genai` — NOT the older google-generativeai package
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8.0", "rich>=13.0", "ruff>=0.6"]
+dashboard = [
+    "fastapi>=0.110",
+    "uvicorn[standard]>=0.29",
+    "python-multipart>=0.0.9",   # required by FastAPI for UploadFile/Form
+    "anthropic>=0.40",
+    "openai>=1.50",
+]
+
+[project.scripts]
+vf-load-data = "run_pipeline:main"
+vf-analyze   = "run_analysis:main"
+vf-generate  = "generation.run_generation:main"
+
+[tool.setuptools]
+py-modules = ["run_pipeline", "run_analysis", "utils", "coverage_report", "inspect_spec", "generate_visuals", "llm_providers"]
+packages = ["analysis_engine", "analysis_engine.sections", "data_loader", "generation", "qualitative", "report_spec", "dashboard_alignment", "dashboard", "dashboard.api", "dashboard.api.routes"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.ruff]
+target-version = "py311"
+line-length = 110
+
+[tool.ruff.lint]
+# Defaults (pyflakes F + a slice of pycodestyle E) catch real bugs — unused
+# imports/variables, undefined names, bare except — without forcing a
+# style-driven reformat across the whole codebase.

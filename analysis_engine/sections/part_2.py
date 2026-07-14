@@ -12,9 +12,13 @@ COL_CLAIM_SUBMITTED              = "q_claim_submitted"
 COL_CLAIM_CHALLENGES_EXPERIENCED = "q_claim_challenges_experienced"
 COL_NO_CLAIM_REASON              = "q_no_claim_reason"
 COL_CLAIM_CHALLENGES             = "q_claim_challenges"
-COL_CLAIM_CHANNEL_PREFERRED      = "q_claim_channel_preferred"
 COL_CLAIM_RESULT                 = "q_claim_result"
 COL_PAYOUT_COST_COVERAGE         = "q_payout_cost_coverage"
+
+# NOTE: q_claim_channel_preferred ("which channel do you prefer for submitting
+# claims?") is asked of ALL respondents, not just claimants -- it lives in
+# Part 1 (analysis_engine/sections/part_1.py) alongside the other client
+# understanding/preference questions, not here.
 
 
 def _dist(series: pd.Series) -> list:
@@ -66,12 +70,6 @@ def calculate(ds, segment_masks: dict) -> dict:
             "suppress_reason": f"column missing: {COL_CLAIM_CHALLENGES}", "ranked": [],
         }
 
-    # 2.4 Claim channel preferred — base: all claimants
-    channel_dist = (
-        _dist(ds.claimants[COL_CLAIM_CHANNEL_PREFERRED])
-        if COL_CLAIM_CHANNEL_PREFERRED in ds.claimants.columns else []
-    )
-
     # 2.5 Claim result — base: all claimants
     result_dist = (
         _dist(ds.claimants[COL_CLAIM_RESULT])
@@ -97,11 +95,6 @@ def calculate(ds, segment_masks: dict) -> dict:
             "base": "claimants_with_challenges",
             "n_base": len(challenges_base),
             "ranked": challenges_ranked,
-        },
-        "claim_channel_preferred": {
-            "base": "claimants",
-            "n_base": len(ds.claimants),
-            "distribution": channel_dist,
         },
         "claim_result": {
             "base": "claimants",

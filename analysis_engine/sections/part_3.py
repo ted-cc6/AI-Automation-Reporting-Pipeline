@@ -10,6 +10,7 @@ COL_NEGATIVE_COPING    = "flag_negative_coping"
 COL_FINANCIAL_STRESS   = "q_financial_stress"
 COL_ALTERNATIVE_ACCESS = "q_alternative_access"
 COL_CONFIDENCE_PAY     = "q_confidence_pay"
+COL_PRIOR_ACCESS       = "q_prior_access"
 
 _ALTERNATIVE_ACCESS_DIFFICULT = ["Very difficult", "Slightly difficult"]
 
@@ -27,7 +28,11 @@ def calculate(ds, segment_masks: dict) -> dict:
     )
     metrics = {}
 
-    # negative_coping — base: insured_event_base
+    # negative_coping — base: insured_event_base (q_coping_mechanisms has genuine
+    # skip logic: "[If yes to experiencing an insured event]..." -- confirmed zero
+    # non-insured-event respondents have an answer, so this scope is correct.
+    # Base includes both claimants and those who had an event but didn't claim --
+    # it is NOT "claimants" specifically (claimants alone are n=153, not n=363).
     col = COL_NEGATIVE_COPING
     if col not in ds.insured_event_base.columns:
         log.warning(f"Part 3: column '{col}' missing — skipping 'negative_coping'")
@@ -43,20 +48,25 @@ def calculate(ds, segment_masks: dict) -> dict:
             "segments": disaggregate(ds.insured_event_base, col, share_true, segment_masks),
         }
 
-    # financial_stress_high — base: insured_event_base
+    # financial_stress_high — base: all_respondents. q_financial_stress ("How much
+    # does the insurance help reduce your financial stress?") has NO skip logic --
+    # confirmed 2,104 of 2,111 respondents answered it, including the large
+    # majority who never experienced an insured event. It is independent of claim
+    # and insured-event activity, unlike negative_coping above, so it must not be
+    # restricted to the insured-event base or framed as following from a claim.
     col = COL_FINANCIAL_STRESS
-    if col not in ds.insured_event_base.columns:
+    if col not in ds.df.columns:
         log.warning(f"Part 3: column '{col}' missing — skipping 'financial_stress_high'")
         metrics["financial_stress_high"] = {
-            "base": "insured_event_base", "n_base": len(ds.insured_event_base),
+            "base": "all_respondents", "n_base": len(ds.df),
             "headline": _missing_col(col), "segments": {},
         }
     else:
         metrics["financial_stress_high"] = {
-            "base": "insured_event_base",
-            "n_base": len(ds.insured_event_base),
-            "headline": top_two_box(ds.insured_event_base[col]),
-            "segments": disaggregate(ds.insured_event_base, col, top_two_box, segment_masks),
+            "base": "all_respondents",
+            "n_base": len(ds.df),
+            "headline": top_two_box(ds.df[col]),
+            "segments": disaggregate(ds.df, col, top_two_box, segment_masks),
         }
 
     # alternative_access_difficult — base: all_respondents
@@ -94,6 +104,27 @@ def calculate(ds, segment_masks: dict) -> dict:
             "n_base": len(ds.df),
             "headline": bottom_two_box(ds.df[col]),
             "segments": disaggregate(ds.df, col, bottom_two_box, segment_masks),
+        }
+
+    # no_prior_access ("first-time access to insurance") — base: all_respondents.
+    # q_prior_access == True means the client already had some insurance before
+    # VisionFund; this metric is the inverse (share with NO prior access, i.e.
+    # VisionFund was their first insurer) -- a market-reach/inclusion metric,
+    # distinct from the protection/coping metrics elsewhere in this part.
+    col = COL_PRIOR_ACCESS
+    if col not in ds.df.columns:
+        log.warning(f"Part 3: column '{col}' missing — skipping 'no_prior_access'")
+        metrics["no_prior_access"] = {
+            "base": "all_respondents", "n_base": len(ds.df),
+            "headline": _missing_col(col), "segments": {},
+        }
+    else:
+        no_prior_access = ~ds.df[col]
+        metrics["no_prior_access"] = {
+            "base": "all_respondents",
+            "n_base": len(ds.df),
+            "headline": share_true(no_prior_access),
+            "segments": disaggregate(ds.df, no_prior_access, share_true, segment_masks),
         }
 
     return {"metrics": metrics}

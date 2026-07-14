@@ -1,0 +1,21 @@
+.log-panel {
+  background: var(--color-ink);
+  color: #f2ede8;
+  border-radius: var(--radius);
+  padding: 1rem 1.1rem;
+  max-height: 320px;
+  overflow-y: auto;
+  font-family: var(--font-mono);
+  font-size: 0.82rem;
+  line-height: 1.6;
+}
+
+.log-panel__empty {
+  color: #a39a95;
+  margin: 0;
+}
+
+.log-panel__line {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
