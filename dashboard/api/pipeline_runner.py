@@ -19,6 +19,7 @@ orchestration only runs inside `if __name__ == "__main__"`.
 """
 import json
 import logging
+import shutil
 import time
 from datetime import datetime, timezone
 from pathlib import Path
@@ -43,7 +44,7 @@ from generation.assembler import assemble
 from generation.orchestrator import orchestrate, preflight_check
 from generation.writer import write_all_parts
 
-from dashboard.api.config import PROJECT_ROOT, RUNS_DIR
+from dashboard.api.config import PROJECT_ROOT, RUNS_DIR, UPLOADS_DIR
 from dashboard.api.jobs import RUNS
 from dashboard.api.models import LlmConfig, PowerBiConfigRequest
 
@@ -68,10 +69,29 @@ def _run_stage1(state, csv_path: Path, run_dir: Path, country: str) -> None:
             f, default_flow_style=False, allow_unicode=True,
         )
 
+    # Uploads are always saved as UPLOADS_DIR/{upload_id}.csv (see csv_routes.py),
+    # so the upload_id is recoverable from the path alone -- no signature change
+    # needed to thread it through from the /api/runs route. If the dataset
+    # reconciliation flow (dashboard/api/reconciliation.py) produced and
+    # validator-passed a per-upload mapping, use it instead of canonical; either
+    # way, copy whichever pair was actually used into run_dir as this run's own
+    # audit artifact.
+    upload_id = csv_path.stem
+    reconciled_mapping = UPLOADS_DIR / f"{upload_id}_column_mapping.csv"
+    reconciled_value_map = UPLOADS_DIR / f"{upload_id}_value_coding_map.yaml"
+
+    mapping_path = reconciled_mapping if reconciled_mapping.exists() else COLUMN_MAPPING_PATH
+    value_map_path = reconciled_value_map if reconciled_value_map.exists() else VALUE_CODING_MAP_PATH
+    if mapping_path == reconciled_mapping:
+        state.log(f"  [stage 1] using reconciled column mapping for upload {upload_id}")
+
+    shutil.copy2(mapping_path, run_dir / "column_mapping_used.csv")
+    shutil.copy2(value_map_path, run_dir / "value_coding_map_used.yaml")
+
     steps = [
-        ("profiler", lambda: data_loader_profiler.main(csv_path, COLUMN_MAPPING_PATH, run_dir)),
+        ("profiler", lambda: data_loader_profiler.main(csv_path, mapping_path, run_dir)),
         ("transformer", lambda: data_loader_transformer.main(
-            csv_path, COLUMN_MAPPING_PATH, VALUE_CODING_MAP_PATH, run_dir)),
+            csv_path, mapping_path, value_map_path, run_dir)),
         ("derived", lambda: data_loader_derived.main(run_dir)),
         ("validator", lambda: data_loader_validator.main(run_dir)),
     ]

@@ -20,6 +20,49 @@ export interface LlmValidateResponse {
   message: string;
 }
 
+export type RecommendationType = "rename" | "new_question" | "dropped";
+export type NewQuestionResponseType = "open_text" | "single_select" | "likert5" | "nps_score" | "age";
+
+export interface LikertValueEntry {
+  int: number;
+  label: string;
+}
+
+export interface Recommendation {
+  id: string;
+  type: RecommendationType;
+  confidence: number;
+  rationale: string;
+  old_raw_index?: number | null;
+  old_header?: string | null;
+  old_question_ref?: string | null;
+  old_category?: string | null;
+  new_csv_index?: number | null;
+  new_header?: string | null;
+  suggested_question_ref?: string | null;
+  suggested_response_type?: NewQuestionResponseType | null;
+  suggested_value_map?: Record<string, LikertValueEntry> | null;
+  approved?: boolean | null;
+}
+
+export interface ValidateDatasetResponse {
+  upload_id: string;
+  clean: boolean;
+  recommendations: Recommendation[];
+  residual_old_count: number;
+  residual_new_count: number;
+}
+
+export interface ApplyDecisionsResponse {
+  upload_id: string;
+  validator_passed: boolean;
+  errors: string[];
+  warnings: string[];
+  renamed_count: number;
+  new_question_count: number;
+  dropped_count: number;
+}
+
 export interface StartRunResponse {
   run_id: string;
   status: string;
@@ -90,6 +133,25 @@ export function validateLlmKey(provider: Provider, api_key: string): Promise<Llm
     method: "POST",
     headers: jsonHeaders,
     body: JSON.stringify({ provider, api_key }),
+  });
+}
+
+export function validateDataset(uploadId: string, provider: Provider, api_key: string): Promise<ValidateDatasetResponse> {
+  return req(`/reconcile/${uploadId}/validate`, {
+    method: "POST",
+    headers: jsonHeaders,
+    body: JSON.stringify({ llm: { provider, api_key } }),
+  });
+}
+
+export function applyDecisions(
+  uploadId: string,
+  decisions: { id: string; approved: boolean }[],
+): Promise<ApplyDecisionsResponse> {
+  return req(`/reconcile/${uploadId}/apply`, {
+    method: "POST",
+    headers: jsonHeaders,
+    body: JSON.stringify({ decisions }),
   });
 }
 

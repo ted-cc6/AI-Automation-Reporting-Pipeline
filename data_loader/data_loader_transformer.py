@@ -57,6 +57,81 @@ def load_yaml(yaml_path: Path) -> dict:
 
 
 # ---------------------------------------------------------------------------
+# Column resolution — header-text-first, raw_index as fallback
+# ---------------------------------------------------------------------------
+# column_mapping.csv's raw_index reflects the column layout at the time the
+# mapping was written. If a later export drops, adds, or reorders columns,
+# every raw_index after the change point silently points at the wrong data.
+# build_index_resolver() self-heals that: for any mapping row whose header
+# text is unique (both in the mapping file and in the live CSV), it looks up
+# the column's *current* position by matching text instead of trusting the
+# stored position. raw_index is used only as a fallback — for headers that
+# no longer appear at all, or that are inherently duplicated (e.g. the
+# generic "If other, please specify:" free-text prompts, which recur across
+# many unrelated questions and can't be disambiguated by text alone).
+
+def build_index_resolver(mapping: pd.DataFrame, col_names: list[str]):
+    header_counts: dict[str, int] = {}
+    for h in mapping["raw_column_header"]:
+        header_counts[h] = header_counts.get(h, 0) + 1
+
+    live_positions: dict[str, list[int]] = {}
+    for i, h in enumerate(col_names):
+        live_positions.setdefault(h, []).append(i)
+
+    # Tracks which mapping row (by raw_index) has already claimed each live
+    # index, so a resolution collision — two different mapping rows landing
+    # on the same live column — raises immediately with a clear cause
+    # instead of silently mixing two questions' data, or surfacing later as
+    # a confusing crash somewhere unrelated (e.g. a duplicate-column error
+    # deep inside multi-select list derivation).
+    claimed_by: dict[int, tuple[int, str]] = {}
+
+    def resolve(row: pd.Series) -> int | None:
+        """Return the live column index for a column_mapping.csv row, or
+        None if it can't be found at all (missing header, and stored
+        raw_index is also out of range)."""
+        raw_idx = int(row["raw_index"])
+        header = row["raw_column_header"].strip()
+
+        found = None
+        if header_counts.get(header, 0) == 1:
+            candidates = live_positions.get(header)
+            if candidates and len(candidates) == 1:
+                found = candidates[0]
+                if found != raw_idx:
+                    log.info(
+                        f"Column '{header[:60]}' moved: mapped raw_index={raw_idx}, "
+                        f"resolved live index={found} — using live position."
+                    )
+
+        if found is None:
+            if raw_idx >= len(col_names):
+                log.warning(
+                    f"Column '{header[:60]}' (mapped raw_index={raw_idx}) not found by "
+                    f"header text and out of range in live CSV ({len(col_names)} cols) "
+                    "— skipped"
+                )
+                return None
+            found = raw_idx
+
+        prior = claimed_by.get(found)
+        if prior is not None and prior[0] != raw_idx:
+            raise ValueError(
+                f"Column resolution collision at live index {found}: both mapped "
+                f"raw_index={prior[0]} (header: {prior[1]!r}) and raw_index={raw_idx} "
+                f"(header: {header!r}) resolved here. This means header-text drift is "
+                "too extensive for automatic resolution to safely repair — "
+                "column_mapping.csv needs manual reconciliation against the new CSV "
+                "before this run can proceed."
+            )
+        claimed_by[found] = (raw_idx, header)
+        return found
+
+    return resolve
+
+
+# ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
 
@@ -104,36 +179,50 @@ class WarnTracker:
 # Step a — Insurance-type routing + scope sentinels
 # ---------------------------------------------------------------------------
 
-def apply_insurance_routing(df: pd.DataFrame, cmap: dict, col_names: list[str], wt: WarnTracker):
+def apply_insurance_routing(df: pd.DataFrame, cmap: dict, mapping: pd.DataFrame,
+                            col_names: list[str], resolve_index, wt: WarnTracker):
     routing = cmap["insurance_type_routing"]
-    scope = cmap["scope_rules"]
-    sentinel = scope["sentinel"]
+    sentinel = cmap["scope_rules"]["sentinel"]
 
-    ins_col = col_names[8]
-    ins_raw = df[ins_col].str.strip()
+    routing_rows = mapping[mapping["response_type"] == "insurance_type_routing"]
+    if routing_rows.empty:
+        raise ValueError(
+            "No column_mapping.csv row has response_type='insurance_type_routing' — "
+            "insurance-type routing cannot proceed."
+        )
+    routing_row = routing_rows.iloc[0]
+    idx = resolve_index(routing_row)
+    if idx is None:
+        raise ValueError(
+            "Insurance-type routing column could not be located in the CSV "
+            f"(expected header: {routing_row['raw_column_header']!r})."
+        )
+
+    ins_raw = df.iloc[:, idx].str.strip()
     insurance_type = ins_raw.map(routing)
     unknown = ins_raw[~ins_raw.isin(routing) & (ins_raw != "")]
     for v in unknown.unique():
-        wt.warn(8, v, "insurance_type_routing")
+        wt.warn(idx, v, "insurance_type_routing")
 
-    def _apply_sentinel(indices: list[int], wrong_type_mask: pd.Series) -> None:
-        for idx in indices:
-            if idx >= len(col_names):
-                log.warning(f"Scope sentinel: raw_index {idx} out of range, skipped.")
+    def _apply_sentinel(scope_name: str, wrong_type_mask: pd.Series) -> None:
+        for _, row in mapping[mapping["scope"] == scope_name].iterrows():
+            c_idx = resolve_index(row)
+            if c_idx is None:
+                log.warning(f"Scope sentinel: column for {scope_name} not found, skipped.")
                 continue
-            c = col_names[idx]
+            c = col_names[c_idx]
             empty_mask = df[c].str.strip() == ""
             bad_mask = wrong_type_mask & ~empty_mask
             if bad_mask.any():
                 log.warning(
-                    f"Col {idx}: {bad_mask.sum()} non-empty values outside expected "
+                    f"Col {c_idx}: {bad_mask.sum()} non-empty values outside expected "
                     "insurance type scope — NOT overwritten (investigate routing error)"
                 )
             df.loc[wrong_type_mask & empty_mask, c] = sentinel
 
-    _apply_sentinel(scope["health_only_cols"],      insurance_type != "health")
-    _apply_sentinel(scope["crop_only_cols"],         insurance_type != "crop")
-    _apply_sentinel(scope["credit_life_only_cols"],  insurance_type != "credit_life")
+    _apply_sentinel("health_only",      insurance_type != "health")
+    _apply_sentinel("crop_only",        insurance_type != "crop")
+    _apply_sentinel("credit_life_only", insurance_type != "credit_life")
 
     return insurance_type
 
@@ -264,11 +353,12 @@ def main(csv_path: Path, mapping_path: Path, yaml_path: Path, output_dir: Path) 
     sentinel = cmap["scope_rules"]["sentinel"]
 
     wt = WarnTracker()
+    resolve_index = build_index_resolver(mapping, col_names)
 
     def raw(idx: int) -> pd.Series:
         return df.iloc[:, idx]
 
-    def mrows(category=None, question_ref=None, parent_ref=None):
+    def mrows(category=None, question_ref=None, parent_ref=None, response_type=None):
         mask = pd.Series([True] * len(mapping), index=mapping.index)
         if category:
             mask &= mapping["category"] == category
@@ -279,35 +369,39 @@ def main(csv_path: Path, mapping_path: Path, yaml_path: Path, output_dir: Path) 
                 mask &= mapping["question_ref"] == question_ref
         if parent_ref:
             mask &= mapping["parent_ref"] == parent_ref
+        if response_type:
+            mask &= mapping["response_type"] == response_type
         return mapping[mask]
+
+    def resolved_rows(**kwargs):
+        """Yield (idx, row) for each mrows() match whose column could be
+        located in the live CSV; unresolvable rows are skipped with a
+        warning (already logged by resolve_index)."""
+        for _, row in mrows(**kwargs).iterrows():
+            idx = resolve_index(row)
+            if idx is not None:
+                yield idx, row
 
     # ---- STEP a: Insurance-type routing ----
     log.info("Step a: Insurance-type routing + scope sentinels")
-    insurance_type = apply_insurance_routing(df, cmap, col_names, wt)
+    insurance_type = apply_insurance_routing(df, cmap, mapping, col_names, resolve_index, wt)
 
     out = pd.DataFrame(index=df.index)
 
     # ---- STEP b: Metadata/identity renames ----
     log.info("Step b: Column renames (metadata/identity)")
-    col_renames_yaml = cmap["column_renames"]
-    for _, row in mrows(category="keep_metadata").iterrows():
-        idx = int(row["raw_index"])
-        hdr = row["raw_column_header"].strip()
-        target = col_renames_yaml.get(hdr)
-        if target is None:
-            log.warning(f"Col {idx}: no rename target for metadata header '{hdr}' — skipped")
-            continue
-        if idx < len(col_names):
-            out[target] = df.iloc[:, idx]
-
-    for _, row in mrows(category="keep_identity").iterrows():
-        idx = int(row["raw_index"])
-        hdr = row["raw_column_header"].strip()
-        target = col_renames_yaml.get(hdr)
-        if target is None:
-            log.warning(f"Col {idx}: no rename target for identity header '{hdr}' — skipped")
-            continue
-        if idx < len(col_names):
+    for category in ("keep_metadata", "keep_identity"):
+        for _, row in mrows(category=category).iterrows():
+            target = row.get("output_name", "").strip()
+            if not target:
+                log.warning(
+                    f"Col {row['raw_index']}: no output_name set for {category} "
+                    f"header '{row['raw_column_header']}' — skipped"
+                )
+                continue
+            idx = resolve_index(row)
+            if idx is None:
+                continue
             out[target] = df.iloc[:, idx]
 
     out["insurance_type"] = insurance_type
@@ -318,9 +412,7 @@ def main(csv_path: Path, mapping_path: Path, yaml_path: Path, output_dir: Path) 
     # ---- STEP c: Likert coding ----
     log.info("Step c: Likert coding")
     likert4_map = cmap["likert_4"]
-    likert4_qrefs = ["q_coverage_understanding", "q_claim_process_understanding"]
-    for _, row in mrows(category="question_ref", question_ref=likert4_qrefs).iterrows():
-        idx = int(row["raw_index"])
+    for idx, row in resolved_rows(response_type="likert4"):
         qref = row["question_ref"]
         int_col, lbl_col = code_likert(raw(idx), likert4_map, idx, qref, sentinel, wt)
         out[qref] = int_col
@@ -328,11 +420,13 @@ def main(csv_path: Path, mapping_path: Path, yaml_path: Path, output_dir: Path) 
 
     likert5_maps = cmap["likert_5"]
     for qref, lmap in likert5_maps.items():
-        rows = mrows(category="question_ref", question_ref=qref)
+        rows = mrows(response_type="likert5", question_ref=qref)
         if rows.empty:
             log.warning(f"Likert-5: no mapping row found for {qref}")
             continue
-        idx = int(rows.iloc[0]["raw_index"])
+        idx = resolve_index(rows.iloc[0])
+        if idx is None:
+            continue
         int_col, lbl_col = code_likert(raw(idx), lmap, idx, qref, sentinel, wt)
         out[qref] = int_col
         out[f"{qref}__label"] = lbl_col
@@ -340,12 +434,7 @@ def main(csv_path: Path, mapping_path: Path, yaml_path: Path, output_dir: Path) 
     # ---- STEP d: Binary standalone coding ----
     log.info("Step d: Binary standalone coding")
     binary_map = cmap["binary_standalone"]
-    binary_qrefs = [
-        "q_insured_event_12m", "q_claim_submitted",
-        "q_claim_challenges_experienced", "q_prior_access",
-    ]
-    for _, row in mrows(category="question_ref", question_ref=binary_qrefs).iterrows():
-        idx = int(row["raw_index"])
+    for idx, row in resolved_rows(response_type="binary"):
         qref = row["question_ref"]
         out[qref] = code_binary(raw(idx), binary_map, idx, qref, sentinel, wt)
 
@@ -355,10 +444,10 @@ def main(csv_path: Path, mapping_path: Path, yaml_path: Path, output_dir: Path) 
     children_by_parent: dict[str, list[tuple[str, str]]] = {}
 
     for _, row in mrows(category="multi_select_child").iterrows():
-        idx = int(row["raw_index"])
         parent_ref = row["parent_ref"].strip()
-        if idx >= len(col_names):
-            log.warning(f"Col {idx}: out of range, skipped multi_select_child")
+        idx = resolve_index(row)
+        if idx is None:
+            log.warning(f"Col {row['raw_index']}: multi_select_child not found, skipped")
             continue
         actual_header = col_names[idx]
         letter = extract_option_letter(actual_header)
@@ -375,9 +464,9 @@ def main(csv_path: Path, mapping_path: Path, yaml_path: Path, output_dir: Path) 
 
     # ---- STEP h: NPS → int ----
     log.info("Step h: NPS score → int")
-    nps_rows = mrows(category="question_ref", question_ref="q_nps_score")
-    if not nps_rows.empty:
-        idx = int(nps_rows.iloc[0]["raw_index"])
+    nps_rows = mrows(response_type="nps_score")
+    idx = resolve_index(nps_rows.iloc[0]) if not nps_rows.empty else None
+    if idx is not None:
         nps_vals = []
         for v in raw(idx):
             sv = _strip_val(v)
@@ -398,9 +487,9 @@ def main(csv_path: Path, mapping_path: Path, yaml_path: Path, output_dir: Path) 
 
     # ---- STEP i: q_client_age → int ----
     log.info("Step i: q_client_age → int")
-    age_rows = mrows(category="question_ref", question_ref="q_client_age")
-    if not age_rows.empty:
-        idx = int(age_rows.iloc[0]["raw_index"])
+    age_rows = mrows(response_type="age")
+    idx = resolve_index(age_rows.iloc[0]) if not age_rows.empty else None
+    if idx is not None:
         age_vals = []
         for v in raw(idx):
             sv = _strip_val(v)
@@ -416,41 +505,25 @@ def main(csv_path: Path, mapping_path: Path, yaml_path: Path, output_dir: Path) 
 
     # ---- STEP j: Single-select → Categorical ----
     log.info("Step j: Single-select coding")
-    ss_qrefs = [
-        "q_claim_result", "q_payout_cost_coverage", "q_no_claim_reason",
-        "q_claim_channel_preferred", "q_child_wellbeing", "q_healthcare_access",
-        "q_medical_cost_change", "q_alternative_access", "q_crop_recovery_speed",
-        "q_crop_farming_change", "q_credit_additional_value", "q_services_helped",
-        "q_client_education", "q_household_size", "q_sex", "q_disability",
-    ]
-    for _, row in mrows(category="question_ref", question_ref=ss_qrefs).iterrows():
-        idx = int(row["raw_index"])
+    for idx, row in resolved_rows(response_type="single_select"):
         qref = row["question_ref"]
         out[qref] = code_single_select(raw(idx), idx, qref, sentinel, wt)
 
     # ---- STEP k: Free-text ----
     log.info("Step k: Free-text columns")
-    free_text_renames = cmap.get("free_text_renames", {})
     for _, row in mrows(category="free_text_child").iterrows():
-        idx = int(row["raw_index"])
-        target_name = free_text_renames.get(str(idx))
-        if target_name is None:
+        idx = resolve_index(row)
+        if idx is None:
+            continue
+        target_name = row.get("output_name", "").strip()
+        if not target_name:
             parent_ref = row.get("parent_ref", "").strip()
             target_name = f"{parent_ref}__other_text" if parent_ref else f"free_text_col_{idx}"
-        if idx < len(col_names):
-            series = df.iloc[:, idx].str.strip()
-            out[target_name] = series.where(series != "", other=pd.NA).astype(pd.StringDtype())
+        series = df.iloc[:, idx].str.strip()
+        out[target_name] = series.where(series != "", other=pd.NA).astype(pd.StringDtype())
 
-    open_text_qrefs = [
-        "q_nps_detractor_followup",
-        "q_nps_passive_followup",
-        "q_nps_promoter_followup",
-    ]
-    for qref in open_text_qrefs:
-        rows = mrows(category="question_ref", question_ref=qref)
-        if rows.empty:
-            continue
-        idx = int(rows.iloc[0]["raw_index"])
+    for idx, row in resolved_rows(response_type="open_text"):
+        qref = row["question_ref"]
         series = raw(idx).str.strip()
         out[qref] = series.where(series != "", other=pd.NA).astype(pd.StringDtype())
 

@@ -2,14 +2,9 @@ import { useRef, useState } from "react";
 import type { ChangeEvent, DragEvent } from "react";
 import { Card } from "../common/Card";
 import { Button } from "../common/Button";
-import type { CountryOption, CsvUploadResponse, LlmValidateResponse, Provider, VisualSlotInfo } from "../../api/client";
+import { DatasetValidation } from "../DatasetValidation/DatasetValidation";
+import type { CountryOption, CsvUploadResponse, Provider, VisualSlotInfo } from "../../api/client";
 import "./SetupPanel.css";
-
-const PROVIDER_LABELS: Record<Provider, string> = {
-  gemini: "Gemini",
-  anthropic: "Anthropic Claude",
-  openai: "OpenAI",
-};
 
 function slotLabel(filename: string): string {
   return filename
@@ -36,12 +31,8 @@ export function SetupPanel(props: {
   csvError: string | null;
 
   provider: Provider;
-  onProviderChange: (p: Provider) => void;
   apiKey: string;
-  onApiKeyChange: (v: string) => void;
-  llmValidation: LlmValidateResponse | null;
-  onValidateKey: () => void;
-  validating: boolean;
+  onDatasetResolved: (ready: boolean) => void;
 
   powerbiMode: "manual" | "api";
   onPowerbiModeChange: (m: "manual" | "api") => void;
@@ -101,6 +92,17 @@ export function SetupPanel(props: {
           )}
         </div>
         {props.csvError && <p className="field-error">{props.csvError}</p>}
+
+        {props.csvUpload && (
+          <DatasetValidation
+            key={props.csvUpload.upload_id}
+            uploadId={props.csvUpload.upload_id}
+            provider={props.provider}
+            apiKey={props.apiKey}
+            disabled={props.disabled}
+            onResolved={props.onDatasetResolved}
+          />
+        )}
       </Card>
 
       <Card title="2. Report period" subtitle="Determines the run identifier and country-specific analysis config.">
@@ -158,49 +160,7 @@ export function SetupPanel(props: {
         </p>
       </Card>
 
-      <Card title="3. Language model" subtitle="Used for qualitative tagging and report writing. Your key stays in this browser session only.">
-        <div className="provider-row">
-          {(Object.keys(PROVIDER_LABELS) as Provider[]).map((p) => (
-            <label key={p} className={`provider-choice ${props.provider === p ? "provider-choice--selected" : ""}`}>
-              <input
-                type="radio"
-                name="provider"
-                checked={props.provider === p}
-                disabled={props.disabled}
-                onChange={() => props.onProviderChange(p)}
-              />
-              {PROVIDER_LABELS[p]}
-            </label>
-          ))}
-        </div>
-        <div className="field-row">
-          <label className="field field--grow">
-            <span>API key</span>
-            <input
-              type="password"
-              autoComplete="off"
-              placeholder={`Paste your ${PROVIDER_LABELS[props.provider]} API key`}
-              value={props.apiKey}
-              disabled={props.disabled}
-              onChange={(e) => props.onApiKeyChange(e.target.value)}
-            />
-          </label>
-          <Button
-            variant="secondary"
-            disabled={props.disabled || !props.apiKey || props.validating}
-            onClick={props.onValidateKey}
-          >
-            {props.validating ? "Checking…" : "Validate key"}
-          </Button>
-        </div>
-        {props.llmValidation && (
-          <p className={props.llmValidation.ok ? "field-success" : "field-error"}>
-            {props.llmValidation.message}
-          </p>
-        )}
-      </Card>
-
-      <Card title="4. Report visuals" subtitle="Power BI API access is pending approval — upload screenshots manually for now.">
+      <Card title="3. Report visuals" subtitle="Power BI API access is pending approval — upload screenshots manually for now.">
         <div className="powerbi-mode-row">
           <label className={`provider-choice ${props.powerbiMode === "manual" ? "provider-choice--selected" : ""}`}>
             <input

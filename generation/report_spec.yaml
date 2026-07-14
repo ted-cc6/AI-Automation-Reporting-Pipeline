@@ -4,7 +4,7 @@
 schema_version: "1.0"
 run_id_default: "2026_Q2"
 output_filename: "VFI_Insurance_Impact_Report_2026_Q2.docx"
-model: "gemini-2.5-flash"
+model: "Claude Opus 4.8"
 
 parts:
   # ───────────────────────────────────────────────────────────────────
@@ -250,24 +250,31 @@ parts:
             fmt: "pct"
             n_path: "parts.part_3.metrics.negative_coping.headline.n_valid"
             suppressed_path: "parts.part_3.metrics.negative_coping.headline.suppressed"
+            population: "Clients who experienced an insured event in the last 12 months (n=363) -- this includes both those who filed a claim and those who did not; it is not the same as 'claimants' alone"
           financial_stress_high:
             path: "parts.part_3.metrics.financial_stress_high.headline.value"
             fmt: "pct"
             n_path: "parts.part_3.metrics.financial_stress_high.headline.n_valid"
             suppressed_path: "parts.part_3.metrics.financial_stress_high.headline.suppressed"
+            population: "All surveyed clients (n~2,104) -- this question is asked of everyone regardless of claim or insured-event status; it is not conditional on having filed a claim or even having experienced an insured event"
           alternative_access_difficult:
             path: "parts.part_3.metrics.alternative_access_difficult.headline.value"
             fmt: "pct"
             n_path: "parts.part_3.metrics.alternative_access_difficult.headline.n_valid"
             suppressed_path: "parts.part_3.metrics.alternative_access_difficult.headline.suppressed"
         note: >
-          negative_coping and financial_stress_high are measured on the claimant base (n=363).
-          alternative_access_difficult is measured on the full sample.
-          These metrics use inverted Likert scale (lower = better coping/stress,
+          negative_coping and financial_stress_high describe two different populations (see
+          each metric's population above) -- never say "claimants" for either one, and never
+          present them as if measured on the same group. financial_stress_high in particular
+          must not be framed as occurring "after a claim" or as a consequence of claiming --
+          it is an independent question, unrelated to claim activity, and should be reported
+          as a standalone finding about the client base as a whole, not paired with or implied
+          to follow from negative_coping. alternative_access_difficult is measured on the full
+          sample. These metrics use an inverted Likert scale (lower = better coping/stress,
           higher alternative_access = more difficulty without this insurance).
 
       s3_2:
-        label: "Confidence and Value"
+        label: "Confidence in Payout"
         word_limit: 70
         metrics:
           confidence_pay:
@@ -275,12 +282,10 @@ parts:
             fmt: "pct"
             n_path: "parts.part_3.metrics.confidence_pay.headline.n_valid"
             suppressed_path: "parts.part_3.metrics.confidence_pay.headline.suppressed"
-          worth_premium:
-            path: "parts.part_1.metrics.worth_premium.headline.value"
-            fmt: "pct"
-            n_path: "parts.part_1.metrics.worth_premium.headline.n_valid"
-            suppressed_path: "parts.part_1.metrics.worth_premium.headline.suppressed"
-            population: "Health & credit-life clients across the African country programmes only (n=1,957) — Vietnam's crop-insurance clients pay no premium (grant-subsidized) and were not asked this question"
+        note: >
+          worth_premium (product value / worth-the-premium) is already reported in Part 1
+          and must not be repeated or referenced here -- this section is about confidence
+          that VisionFund will pay a valid claim, not about premium value.
 
       insight:
         word_limit: 120
@@ -342,14 +347,9 @@ parts:
           Report top 3 promoter themes and top 3 detractor themes by count.
 
       s4_3:
-        label: "Value and Wellbeing Outcomes"
+        label: "Wellbeing Outcomes"
         word_limit: 80
         metrics:
-          worth_premium:
-            path: "parts.part_1.metrics.worth_premium.headline.value"
-            fmt: "pct"
-            n_path: "parts.part_1.metrics.worth_premium.headline.n_valid"
-            population: "Health & credit-life clients across the African country programmes only (n=1,957) — Vietnam's crop-insurance clients pay no premium (grant-subsidized) and were not asked this question"
           child_wellbeing:
             path: "parts.part_4.child_wellbeing.headline.value"
             fmt: "pct"
@@ -360,6 +360,10 @@ parts:
             fmt: "pct"
             n_path: "parts.part_4.healthcare_access.headline.n_valid"
             suppressed_path: "parts.part_4.healthcare_access.headline.suppressed"
+        note: >
+          worth_premium (product value / worth-the-premium) is already reported in Part 1
+          and must not be repeated or referenced here -- this section covers wellbeing
+          outcomes only (child wellbeing and healthcare access).
 
       insight:
         word_limit: 120
@@ -466,10 +470,14 @@ parts:
             fmt: "pct"
             n_path: "parts.part_4.medical_cost_change.headline.n_valid"
             suppressed_path: "parts.part_4.medical_cost_change.headline.suppressed"
+            population: "Health-insurance clients who needed medical care (n≈926) -- this is asked of everyone in this group regardless of whether they filed an insurance claim; only about 14% of these respondents are actual claimants (claimants total n=153 across the whole survey), so this group must never be called 'claimants' or described as 'after claim'"
         note: >
           healthcare_access: % who said access to care improved (among those who needed care, n≈1,672).
-          medical_cost_change: % who said medical costs decreased after claim (claimants with
-          medical costs, n≈926). n_total for medical_cost_change includes only claimants who sought care.
+          medical_cost_change: % who said medical costs decreased (among health clients who needed
+          medical care, n≈926) -- this is NOT limited to claimants and must not be framed as
+          happening "after a claim" or "after receiving their insurance claim"; it is a general
+          medical-cost question asked of anyone in this group who needed care, independent of
+          claim status. Do not say "claimants" anywhere in this section.
 
       s5_3:
         label: "Caregivers vs Non-Caregivers"

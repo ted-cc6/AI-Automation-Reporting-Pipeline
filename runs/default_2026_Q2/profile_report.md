@@ -1,6 +1,6 @@
 # Profile Report — VisionFund Insurance Survey
 
-**Source CSV:** `ca7d80cc93e9438c810fce0ec6e0c827.csv`  
+**Source CSV:** `ee5b6aa4686848ac8d354a23d522693e.csv`  
 **Rows:** 2111  |  **Columns mapped:** 133  |  **Columns profiled:** 116
 
 ---
@@ -72,59 +72,6 @@
 | 98 | q_credit_additional_value | question_ref | 13.5% | **WARN_VERY_LOW_FILL** |
 | 112 | — | free_text_child | 0.4% | **WARN_VERY_LOW_FILL** |
 | 122 | — | free_text_child | 3.0% | **WARN_VERY_LOW_FILL** |
-
-### Header Mismatches
-
-| raw_index | mapped_header (truncated) | actual_csv_header (truncated) |
-|-----------|--------------------------|-------------------------------|
-| 14 | Which communication channel.../a. In-person explanation from | Which communication channel is the most effective in increas |
-| 15 | Which communication channel.../b. Group meeting | Which communication channel is the most effective in increas |
-| 16 | Which communication channel.../c. SMS/WhatsApp messages from | Which communication channel is the most effective in increas |
-| 17 | Which communication channel.../d. Printed materials (leaflet | Which communication channel is the most effective in increas |
-| 18 | Which communication channel.../e. Phone call from the MFI | Which communication channel is the most effective in increas |
-| 19 | Which communication channel.../f. Email from the MFI | Which communication channel is the most effective in increas |
-| 20 | Which communication channel.../g. Other (please specify) | Which communication channel is the most effective in increas |
-| 25 | In the last 12 months did you experience an event that might | In the last 12 months, did you experience an event that migh |
-| 33 | [If yes] What challenges.../a. Claim documents were difficul | [If yes] What challenges did you experience with the claim p |
-| 34 | [If yes] What challenges.../b. Claim documents were difficul | [If yes] What challenges did you experience with the claim p |
-| 35 | [If yes] What challenges.../c. It was difficult to know the  | [If yes] What challenges did you experience with the claim p |
-| 36 | [If yes] What challenges.../d. It took a long time to receiv | [If yes] What challenges did you experience with the claim p |
-| 37 | [If yes] What challenges.../e. I did not receive enough supp | [If yes] What challenges did you experience with the claim p |
-| 38 | [If yes] What challenges.../f. Other (specify) | [If yes] What challenges did you experience with the claim p |
-| 42 | [If yes to insured event] Because of the event.../a. Use sav | [If yes to experiencing an insured event] Because of the eve |
-| 43 | [If yes to insured event] Because of the event.../b. Borrow  | [If yes to experiencing an insured event] Because of the eve |
-| 44 | [If yes to insured event] Because of the event.../c. Sell as | [If yes to experiencing an insured event] Because of the eve |
-| 45 | [If yes to insured event] Because of the event.../d. Reduce  | [If yes to experiencing an insured event] Because of the eve |
-| 46 | [If yes to insured event] Because of the event.../e. Take yo | [If yes to experiencing an insured event] Because of the eve |
-| 47 | [If yes to insured event] Because of the event.../f. Closed  | [If yes to experiencing an insured event] Because of the eve |
-| 48 | [If yes to insured event] Because of the event.../g. None of | [If yes to experiencing an insured event] Because of the eve |
-| 49 | [If yes to insured event] Because of the event.../h. Other ( | [If yes to experiencing an insured event] Because of the eve |
-| 53 | In the past 12 months.../a. Teleconsultation - doctor by pho | In the past 12 months, which of the following services did y |
-| 54 | In the past 12 months.../b. Face to face consultations (gene | In the past 12 months, which of the following services did y |
-| 55 | In the past 12 months.../c. Access to medicines (discounts o | In the past 12 months, which of the following services did y |
-| 56 | In the past 12 months.../d. Lab examination/lab test | In the past 12 months, which of the following services did y |
-| 57 | In the past 12 months.../e. Health events (mobile clinic, or | In the past 12 months, which of the following services did y |
-| 58 | In the past 12 months.../f. None | In the past 12 months, which of the following services did y |
-| 59 | In the past 12 months.../g. Other: please specify | In the past 12 months, which of the following services did y |
-| 66 | [If a] What improved for your children.../a. Improved access | [If a] What improved for your children since having the insu |
-| 67 | [If a] What improved for your children.../b. Reduced out-of- | [If a] What improved for your children since having the insu |
-| 68 | [If a] What improved for your children.../c. Fewer school da | [If a] What improved for your children since having the insu |
-| 69 | [If a] What improved for your children.../d. Reduced need to | [If a] What improved for your children since having the insu |
-| 70 | [If a] What improved for your children.../e. Ability to cont | [If a] What improved for your children since having the insu |
-| 71 | [If a] What improved for your children.../f. Increased savin | [If a] What improved for your children since having the insu |
-| 72 | [If a] What improved for your children.../g. Other (please s | [If a] What improved for your children since having the insu |
-| 83 | Before VisionFund did you have access to an insurance like V | Before VisionFund, did you have access to an insurance like  |
-| 93 | Besides the protection.../a. Help with medical or hospital c | Besides the protection in case of death or disability, which |
-| 94 | Besides the protection.../b. Help when crops or income are a | Besides the protection in case of death or disability, which |
-| 95 | Besides the protection.../c. Help when property or business  | Besides the protection in case of death or disability, which |
-| 96 | Besides the protection.../d. No other benefits are included | Besides the protection in case of death or disability, which |
-| 97 | Besides the protection.../e. I am not sure | Besides the protection in case of death or disability, which |
-| 106 | In the last 6 months.../a. Loans | In the last 6 months, which services have you received from  |
-| 107 | In the last 6 months.../b. Savings Accounts | In the last 6 months, which services have you received from  |
-| 108 | In the last 6 months.../c. Financial Education | In the last 6 months, which services have you received from  |
-| 109 | In the last 6 months.../d. Health Services (telemedicine, ed | In the last 6 months, which services have you received from  |
-| 110 | In the last 6 months.../e. None | In the last 6 months, which services have you received from  |
-| 111 | In the last 6 months.../f. Other (please specify) | In the last 6 months, which services have you received from  |
 
 ---
 

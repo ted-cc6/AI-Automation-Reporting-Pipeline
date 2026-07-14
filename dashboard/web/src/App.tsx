@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Header } from "./components/common/Header";
+import { LlmKeyPanel } from "./components/LlmKeyPanel/LlmKeyPanel";
 import { SetupPanel } from "./components/SetupPanel/SetupPanel";
 import { RunPanel } from "./components/RunPanel/RunPanel";
 import { LogPanel } from "./components/LogPanel/LogPanel";
@@ -28,6 +29,7 @@ export default function App() {
   const [csvUpload, setCsvUpload] = useState<CsvUploadResponse | null>(null);
   const [csvUploading, setCsvUploading] = useState(false);
   const [csvError, setCsvError] = useState<string | null>(null);
+  const [datasetReady, setDatasetReady] = useState(false);
 
   const [provider, setProvider] = useState<Provider>("gemini");
   const [apiKey, setApiKey] = useState("");
@@ -67,6 +69,7 @@ export default function App() {
   async function handleCsvSelected(file: File) {
     setCsvUploading(true);
     setCsvError(null);
+    setDatasetReady(false);
     try {
       const result = await uploadCsv(file);
       setCsvUpload(result);
@@ -116,13 +119,26 @@ export default function App() {
   }
 
   const runFinished = snapshot != null && ["succeeded", "failed", "partial_failure"].includes(snapshot.status);
-  const canStart = csvUpload != null && llmValidation?.ok === true && (runId == null || runFinished);
-  const setupDisabled = runId != null && !runFinished;
+  const canStart =
+    csvUpload != null && llmValidation?.ok === true && datasetReady && (runId == null || runFinished);
+  const runActive = runId != null && !runFinished;
+  const setupDisabled = runActive || llmValidation?.ok !== true;
 
   return (
     <div className="app-shell">
       <Header />
       <main className="app-main">
+        <LlmKeyPanel
+          provider={provider}
+          onProviderChange={setProvider}
+          apiKey={apiKey}
+          onApiKeyChange={setApiKey}
+          llmValidation={llmValidation}
+          onValidateKey={handleValidateKey}
+          validating={validating}
+          disabled={runActive}
+        />
+
         <SetupPanel
           countries={countries}
           country={country}
@@ -139,12 +155,8 @@ export default function App() {
           csvUploading={csvUploading}
           csvError={csvError}
           provider={provider}
-          onProviderChange={setProvider}
           apiKey={apiKey}
-          onApiKeyChange={setApiKey}
-          llmValidation={llmValidation}
-          onValidateKey={handleValidateKey}
-          validating={validating}
+          onDatasetResolved={setDatasetReady}
           powerbiMode={powerbiMode}
           onPowerbiModeChange={setPowerbiMode}
           visualSlots={visualSlots}

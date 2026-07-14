@@ -6,7 +6,7 @@ Run with:
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from dashboard.api.routes import country_routes, csv_routes, llm_routes, run_routes, visuals_routes
+from dashboard.api.routes import country_routes, csv_routes, llm_routes, reconcile_routes, run_routes, visuals_routes
 
 app = FastAPI(title="VFI Insurance Report Dashboard API")
 
@@ -21,6 +21,7 @@ app.add_middleware(
 app.include_router(csv_routes.router)
 app.include_router(country_routes.router)
 app.include_router(llm_routes.router)
+app.include_router(reconcile_routes.router)
 app.include_router(run_routes.router)
 app.include_router(visuals_routes.router)
 

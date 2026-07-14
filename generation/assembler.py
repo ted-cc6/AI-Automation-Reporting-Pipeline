@@ -323,7 +323,7 @@ def build_part_3(doc, package: dict, texts: dict):
         _add_image_or_placeholder(doc, visuals[0])
 
     s3_2 = sections.get("s3_2", {})
-    _add_heading(doc, s3_2.get("label", "Confidence and Value"), level=2)
+    _add_heading(doc, s3_2.get("label", "Confidence in Payout"), level=2)
     _add_paragraph(doc, texts.get("s3_2", ""))
 
     _add_insight_box(doc, texts.get("insight", ""), sections.get("insight", {}).get("verbatims", []))
@@ -351,7 +351,7 @@ def build_part_4(doc, package: dict, texts: dict):
         _add_image_or_placeholder(doc, visuals[1])
 
     s4_3 = sections.get("s4_3", {})
-    _add_heading(doc, s4_3.get("label", "Value and Wellbeing Outcomes"), level=2)
+    _add_heading(doc, s4_3.get("label", "Wellbeing Outcomes"), level=2)
     _add_paragraph(doc, texts.get("s4_3", ""))
 
     _add_insight_box(doc, texts.get("insight", ""), sections.get("insight", {}).get("verbatims", []))
