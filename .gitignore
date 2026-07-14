@@ -40,3 +40,6 @@ runs/
 dashboard/web/node_modules/
 dashboard/web/dist/
 dashboard/web/tsconfig.tsbuildinfo
+
+# --- Raw/reference survey data & Power BI file (real client data; dev-only, not used at runtime) ---
+data/
