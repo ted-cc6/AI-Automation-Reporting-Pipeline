@@ -31,3 +31,12 @@ Thumbs.db
 
 # --- Jupyter ---
 .ipynb_checkpoints/
+
+# --- Dashboard runtime data (sensitive client survey data / large / regenerable) ---
+dashboard/api/uploads/
+runs/
+
+# --- Frontend deps & build output ---
+dashboard/web/node_modules/
+dashboard/web/dist/
+dashboard/web/tsconfig.tsbuildinfo
