@@ -40,7 +40,9 @@ def _call_gemini(api_key: str, system_prompt: str, user_content: str,
     from google import genai
     from google.genai import types
 
-    client = genai.Client(api_key=api_key)
+    # Same rationale as the Anthropic/OpenAI clients: a generous ceiling (ms)
+    # for the large single-batch qualitative-tagging call, not a floor.
+    client = genai.Client(api_key=api_key, http_options=types.HttpOptions(timeout=1_800_000))
     response = client.models.generate_content(
         model=model,
         contents=user_content,
@@ -58,7 +60,10 @@ def _call_anthropic(api_key: str, system_prompt: str, user_content: str,
                      max_output_tokens: int, temperature: float | None, model: str) -> str:
     from anthropic import Anthropic
 
-    client = Anthropic(api_key=api_key)
+    # Generous ceiling, not a floor: the qualitative-tagging call alone can
+    # request max_output_tokens=65536 over a large payload, well past the
+    # SDK's default (10 min) client timeout on a slow day.
+    client = Anthropic(api_key=api_key, timeout=1800.0)
     tool = {
         "name": "emit_json",
         "description": "Return the result as JSON matching the shape described in the prompt.",
@@ -107,7 +112,9 @@ def _call_openai(api_key: str, system_prompt: str, user_content: str,
                   max_output_tokens: int, temperature: float | None, model: str) -> str:
     from openai import OpenAI
 
-    client = OpenAI(api_key=api_key)
+    # Same rationale as the Anthropic client above: a generous ceiling for the
+    # large single-batch qualitative-tagging call, not a floor.
+    client = OpenAI(api_key=api_key, timeout=1800.0)
     response = client.chat.completions.create(
         model=model,
         messages=[
