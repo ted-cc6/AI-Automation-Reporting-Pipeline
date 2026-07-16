@@ -2,7 +2,7 @@
 
 Single call-through for the three LLM providers the dashboard lets a user pick:
 Gemini, Anthropic, and OpenAI. All three are used in "JSON-mode + prose-described
-shape" style, matching how qualitative/gemini_call.py and generation/writer.py
+shape" style, matching how qualitative/llm_call.py and generation/writer.py
 already prompt Gemini -- there is no formal structured-output schema object
 anywhere in this project, so the abstraction doesn't need one either.
 

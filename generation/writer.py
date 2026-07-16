@@ -48,6 +48,11 @@ VOICE RULES:
 - Every statistic you cite MUST come from the data package. Never invent or round figures beyond what is provided.
 - Suppressed values (marked "SUPPRESSED") must be noted as "data suppressed due to small sample size" — never estimate or interpolate
 - When a note field is present, incorporate its guidance into the narrative
+- For insight blocks: SECTION SUMMARY (theme summary, top drivers, sentiment split) describes the
+  pattern across all responses judged relevant to that section — use it for the section's overall
+  characterization. Use the quoted VERBATIM(s) to illustrate that pattern with a specific client
+  voice, not as evidence of the pattern itself — never imply that 1-3 quotes represent the full
+  client base's sentiment when a SENTIMENT SPLIT is available and shows a different balance.
 
 WORD LIMITS (strictly enforced):
 - If a section specifies word_limit: 90, write AT MOST 90 words. Aim for 85-90.
@@ -160,6 +165,24 @@ def _fmt_qual_value(key: str, value) -> str:
     return f"  {key}: {value}"
 
 
+def _fmt_insight_summary(summary: dict | None) -> str:
+    """Format the section-scoped theme/driver/sentiment summary (qualitative
+    Task 5B) that grounds an insight block in the aggregate response pool,
+    not just the 1-3 quoted verbatims below it."""
+    if not summary:
+        return "  SECTION SUMMARY: (not available)"
+    lines = []
+    if summary.get("theme_summary"):
+        lines.append(f"  THEME SUMMARY: {summary['theme_summary']}")
+    if summary.get("top_drivers"):
+        lines.append(f"  TOP DRIVERS: {', '.join(summary['top_drivers'])}")
+    split = summary.get("sentiment_split")
+    if split:
+        split_str = ", ".join(f"{k}={v}" for k, v in split.items())
+        lines.append(f"  SENTIMENT SPLIT (approx., across all responses judged relevant to this section): {split_str}")
+    return "\n".join(lines) if lines else "  SECTION SUMMARY: (not available)"
+
+
 def _build_sections_text(package: dict) -> str:
     """Format section data as readable text for the Gemini prompt."""
     lines = []
@@ -167,6 +190,7 @@ def _build_sections_text(package: dict) -> str:
         if s_key == "insight":
             wl = s_data.get("word_limit", 120)
             lines.append(f"\nSECTION insight (word_limit: {wl} words)")
+            lines.append(_fmt_insight_summary(s_data.get("insight_summary")))
             verbatims = s_data.get("verbatims", [])
             if verbatims:
                 for i, v in enumerate(verbatims, 1):
@@ -273,6 +297,7 @@ def _build_part_prompt(package: dict, part_key: str, report_title: str) -> str:
         # Insight verbatims
         insight = package.get("sections", {}).get("insight", {})
         lines.append(f"\nSECTION insight (word_limit: {insight.get('word_limit', 120)} words)")
+        lines.append(_fmt_insight_summary(insight.get("insight_summary")))
         verbatims = insight.get("verbatims", [])
         if verbatims:
             for i, v in enumerate(verbatims, 1):

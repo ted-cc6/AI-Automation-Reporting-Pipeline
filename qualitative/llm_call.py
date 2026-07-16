@@ -1,4 +1,4 @@
-"""qualitative/gemini_call.py
+"""qualitative/llm_call.py
 
 Phase 2: Send payload to an LLM provider, save raw response, return parsed dict.
 Provider/api_key are passed in explicitly by the caller (the dashboard backend
@@ -17,7 +17,7 @@ log = logging.getLogger(__name__)
 SYSTEM_PROMPT = """
 You are an expert microinsurance survey analyst for VisionFund International.
 You are analyzing open-ended survey responses from the VisionFund Insurance
-Impact Survey, 2026 Q2. This survey spans multiple country programmes (mostly
+Impact Survey. This survey spans multiple country programmes (mostly
 in Africa, plus a Vietnam crop-insurance programme and a small Latin America
 sample) analyzed together as one combined client portfolio — it is not a
 single-country survey. All responses are already in English.
@@ -69,8 +69,11 @@ Flag claim_challenges sub-themes that suggest client protection or staff conduct
 concerns with is_protection_concern: true.
 Return: label, count, is_protection_concern, representative_ids (1-2 row IDs).
 
-### TASK 5 — Verbatim Nominations by Report Section
-Nominate exactly 3 row IDs per report section (7 sections).
+### TASK 5 — Verbatim Nominations + Section Insights
+
+For EACH of the 7 report sections below, do two things:
+
+**A. Nominate exactly 3 row IDs (verbatim quotes).**
 Selection criteria:
   - Text must be substantive (> 20 words, not generic praise)
   - Clearly relevant to the section topic
@@ -86,6 +89,21 @@ Selection criteria:
   - If fewer than 3 ideal responses exist for a section, nominate best available
   - Country diversity is secondary to topical relevance and substance -- never
     swap in a weaker or less relevant response purely to hit a different country
+
+**B. Produce a section insight**, built from ALL responses across the whole
+payload that you judge relevant to that section's topic — not just the 3
+nominated verbatims. This is the same kind of cross-payload topical
+re-grouping you already do for part A, just aggregated instead of quoted:
+  - theme_summary: 1-2 sentences naming the dominant theme(s) among relevant
+    responses for this section
+  - top_drivers: 1-2 short labels for the biggest driver(s) behind that theme.
+    Use a THEME TAXONOMY code if one genuinely fits; otherwise a short
+    freeform label (e.g. "slow payout", "lack of premium clarity")
+  - sentiment_split: your best-judgment approximate counts of
+    {"positive": n, "negative": n, "neutral": n} among the responses you
+    considered relevant to this section. This does not need to match Task 1/2
+    tagging exactly -- it's a section-scoped read, and low counts are fine for
+    low-volume sections (report what you actually see, do not pad numbers)
 
 Sections:
   part1 — Product Understanding: coverage/claims knowledge gaps, education
@@ -175,6 +193,22 @@ Return ONLY valid JSON. No markdown, no explanation, no extra keys.
     "part5": ["row_...", "row_...", "row_..."],
     "part6": ["row_...", "row_...", "row_..."],
     "part7": ["row_...", "row_...", "row_..."]
+  },
+  "section_insights": {
+    "part1": {"theme_summary": "...", "top_drivers": ["...", "..."],
+              "sentiment_split": {"positive": 0, "negative": 0, "neutral": 0}},
+    "part2": {"theme_summary": "...", "top_drivers": ["...", "..."],
+              "sentiment_split": {"positive": 0, "negative": 0, "neutral": 0}},
+    "part3": {"theme_summary": "...", "top_drivers": ["...", "..."],
+              "sentiment_split": {"positive": 0, "negative": 0, "neutral": 0}},
+    "part4": {"theme_summary": "...", "top_drivers": ["...", "..."],
+              "sentiment_split": {"positive": 0, "negative": 0, "neutral": 0}},
+    "part5": {"theme_summary": "...", "top_drivers": ["...", "..."],
+              "sentiment_split": {"positive": 0, "negative": 0, "neutral": 0}},
+    "part6": {"theme_summary": "...", "top_drivers": ["...", "..."],
+              "sentiment_split": {"positive": 0, "negative": 0, "neutral": 0}},
+    "part7": {"theme_summary": "...", "top_drivers": ["...", "..."],
+              "sentiment_split": {"positive": 0, "negative": 0, "neutral": 0}}
   },
   "protection_flags": [
     {

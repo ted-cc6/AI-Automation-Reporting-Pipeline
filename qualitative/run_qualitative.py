@@ -22,7 +22,7 @@ from pathlib import Path
 import pandas as pd
 
 from qualitative.prepare_payload import load_config, build_payload, print_payload_stats
-from qualitative.gemini_call import call_gemini
+from qualitative.llm_call import call_gemini
 from qualitative.parse_results import parse_and_save
 
 logging.basicConfig(
@@ -100,6 +100,18 @@ def main():
 
     sv = result.get("section_verbatims", {})
     print(f"  Section verbatim sets: {len(sv)}/7")
+
+    si = result.get("section_insights", {})
+    print(f"  Section insight sets: {len(si)}/7")
+    for section in sorted(si.keys()):
+        entry = si[section]
+        summary = entry.get("theme_summary", "")
+        drivers = ", ".join(entry.get("top_drivers", []))
+        split = entry.get("sentiment_split", {})
+        split_str = ", ".join(f"{k}={v}" for k, v in split.items())
+        print(f"    {section}: {summary}")
+        if drivers:
+            print(f"      drivers: {drivers}  |  sentiment: {split_str}")
 
     flags = result.get("protection_flags", [])
     print(f"  Protection flags found: {len(flags)}")

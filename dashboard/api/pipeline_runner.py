@@ -37,7 +37,7 @@ from data_loader import (
 from data_loader.data_loader_api import load_survey_data
 from analysis_engine.country_config import load_country_config
 from analysis_engine.segments import describe_segments, get_all_segment_masks
-from qualitative.gemini_call import call_gemini
+from qualitative.llm_call import call_gemini
 from qualitative.parse_results import parse_and_save
 from qualitative.prepare_payload import build_payload, load_config as load_qual_config, print_payload_stats
 from generation.assembler import assemble

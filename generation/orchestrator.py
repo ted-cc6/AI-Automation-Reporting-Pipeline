@@ -253,14 +253,18 @@ def build_part_package(part_key: str, analysis: dict, qual: dict,
 
     for s_key, s_spec in spec_part.get("sections", {}).items():
         if s_key == "insight":
-            # Extract verbatims from qual
+            # Extract verbatims + the section-scoped theme/driver/sentiment
+            # summary from qual (see qualitative/llm_call.py Task 5B)
             verb_section = s_spec.get("verbatim_section", "")
             verbatims = []
+            insight_summary = {}
             if qual and verb_section:
                 verbatims = qual.get("section_verbatims", {}).get(verb_section, [])
+                insight_summary = qual.get("section_insights", {}).get(verb_section, {})
             sections_out[s_key] = {
                 "word_limit": s_spec.get("word_limit", 120),
                 "verbatims":  verbatims,
+                "insight_summary": insight_summary,
             }
             continue
 
