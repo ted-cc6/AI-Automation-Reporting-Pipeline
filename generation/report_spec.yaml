@@ -270,8 +270,13 @@ parts:
           it is an independent question, unrelated to claim activity, and should be reported
           as a standalone finding about the client base as a whole, not paired with or implied
           to follow from negative_coping. alternative_access_difficult is measured on the full
-          sample. These metrics use an inverted Likert scale (lower = better coping/stress,
-          higher alternative_access = more difficulty without this insurance).
+          sample. negative_coping is a plain percentage (share of respondents who reported at
+          least one severe coping behavior, a yes/no flag) -- it is NOT measured on any kind of
+          scale, so never describe it as "a scale," "on a scale where lower/higher means...," or
+          similar. financial_stress_high is derived from a 1-5 source scale internally (used only
+          to decide direction; higher source values are worse), but this must never be exposed
+          or referenced in the narrative text -- state each percentage and what it means in plain
+          language, with no mention of scales, coding, or methodology.
 
       s3_2:
         label: "Confidence in Payout"

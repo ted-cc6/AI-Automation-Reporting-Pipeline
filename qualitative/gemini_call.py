@@ -33,7 +33,7 @@ You will receive a JSON payload with these groups:
 - sparse_other: other open-ended questions (misc; low volume)
 
 Each response has:
-  id, text, sex, client_age, branch, is_claimant, is_caregiver, is_female
+  id, text, sex, client_age, branch, country, is_claimant, is_caregiver, is_female
 NPS responses additionally have:
   nps_score, worth_premium_value, not_worth_it (bool)
 
@@ -74,12 +74,18 @@ Nominate exactly 3 row IDs per report section (7 sections).
 Selection criteria:
   - Text must be substantive (> 20 words, not generic praise)
   - Clearly relevant to the section topic
-  - Diverse: where possible, vary sex, is_claimant, and is_caregiver
+  - Diverse: where possible, vary sex, is_claimant, is_caregiver, AND country
+  - Do NOT nominate all 3 verbatims for a section from the same country if
+    substantive, relevant responses from other countries are available -- this
+    survey spans multiple country programmes and the report must reflect that,
+    not read as if it were about a single country
   - For part5 (child wellbeing): prefer is_caregiver=true responses
   - For part6 (claimant outcomes): prefer is_claimant=true responses
   - For part7 (gender): include at least 1 Female and 1 Male
   - Do NOT repeat the same row_id across sections
   - If fewer than 3 ideal responses exist for a section, nominate best available
+  - Country diversity is secondary to topical relevance and substance -- never
+    swap in a weaker or less relevant response purely to hit a different country
 
 Sections:
   part1 — Product Understanding: coverage/claims knowledge gaps, education
