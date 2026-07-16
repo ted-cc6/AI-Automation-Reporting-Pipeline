@@ -284,7 +284,7 @@ def call_gemini(
                 time.sleep(delay)
             else:
                 raise RuntimeError(
-                    f"Gemini call failed after {max_retries + 1} attempts: {exc}"
+                    f"{provider} call failed after {max_retries + 1} attempts: {exc}"
                 ) from exc
 
     # Save raw response before parsing (allows re-parse without re-calling)
@@ -296,6 +296,6 @@ def call_gemini(
         return json.loads(result_text)
     except json.JSONDecodeError as exc:
         raise ValueError(
-            f"Gemini response is not valid JSON. "
+            f"{provider} response is not valid JSON. "
             f"Raw text saved to {raw_response_path}. Error: {exc}"
         ) from exc

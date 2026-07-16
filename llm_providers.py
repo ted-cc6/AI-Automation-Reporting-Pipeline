@@ -75,8 +75,17 @@ def _call_anthropic(api_key: str, system_prompt: str, user_content: str,
     if temperature is not None and model not in _ANTHROPIC_NO_SAMPLING_PARAMS:
         kwargs["temperature"] = temperature
 
+    def _stream_to_message(kwargs):
+        # Anthropic's SDK refuses a blocking messages.create() once max_tokens
+        # is large enough that the request could plausibly run past 10 minutes
+        # (the qualitative-tagging call requests max_output_tokens=65536 over a
+        # large payload) -- streaming has no such limit and returns an
+        # equivalent final Message via get_final_message().
+        with client.messages.stream(**kwargs) as stream:
+            return stream.get_final_message()
+
     try:
-        response = client.messages.create(**kwargs)
+        response = _stream_to_message(kwargs)
     except Exception as exc:
         # Catch-all for any other/future tier that also rejects temperature --
         # the proactive skip above covers the known ones (incl. the default
@@ -84,7 +93,7 @@ def _call_anthropic(api_key: str, system_prompt: str, user_content: str,
         if "temperature" in kwargs and "temperature" in str(exc).lower():
             log.warning(f"Model {model} rejected temperature param; retrying without it.")
             kwargs.pop("temperature")
-            response = client.messages.create(**kwargs)
+            response = _stream_to_message(kwargs)
         else:
             raise
 
