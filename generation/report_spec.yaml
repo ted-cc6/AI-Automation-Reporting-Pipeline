@@ -441,7 +441,18 @@ parts:
         drivers_table:
           headers: ["Driver", "ρ (Spearman)", "p-value", "N"]
           scale_note: >
-            Note: Financial Stress, Coverage Understanding, Claim Process Understanding, Worth
+            Note: ρ (rho) is the Spearman rank correlation coefficient, a value from -1 to +1
+            showing how strongly two things move together -- values near +1 or -1 indicate a
+            strong relationship, values near 0 indicate little to none. Spearman correlation is
+            calculated on the rank order of responses rather than their raw values, which makes
+            it well suited to Likert-scale survey questions like these. p (the p-value) shows how
+            likely a correlation this strong could appear by chance alone if no real relationship
+            existed; p<0.05 is the conventional threshold for statistical significance, and the
+            very small p-values shown below mean these relationships are highly unlikely to be
+            due to chance. N is the number of respondents included in each specific calculation --
+            it varies by driver because not every question was asked of every client (for
+            example, Renewal Intent was asked only of Vietnam's crop-insurance clients).
+            Financial Stress, Coverage Understanding, Claim Process Understanding, Worth
             Premium, Renewal Intent, and Confidence in Payout are all scored so that a LOWER
             number is the more positive response (e.g. 1 = "Definitely would renew"). A negative
             correlation with child wellbeing for any of these therefore reflects a POSITIVE
