@@ -6,11 +6,21 @@ from fastapi import APIRouter, Header, HTTPException
 from fastapi.responses import FileResponse, StreamingResponse
 
 from dashboard.api import pipeline_runner
-from dashboard.api.config import UPLOADS_DIR
+from dashboard.api.config import RUNS_DIR, UPLOADS_DIR
 from dashboard.api.jobs import RunConflictError, get_run, list_runs, start_new_run
 from dashboard.api.models import RunSummary, StartRunRequest, StartRunResponse
 
 router = APIRouter(prefix="/api/runs", tags=["runs"])
+
+# Diagnostic report files a run produces alongside the final .docx. Fixed
+# allow-list (not an arbitrary filename param) so this endpoint can never be
+# used to read anything else on disk, regardless of what run_id resolves to.
+_ALLOWED_REPORT_FILES = frozenset({
+    "screening_report.md",
+    "data_quality_report.md",
+    "profile_report.md",
+    "run_summary.txt",
+})
 
 # Keep references to fire-and-forget run tasks so they aren't garbage-collected
 # mid-flight; there's no cancellation support in this first version, so tasks
@@ -100,3 +110,27 @@ async def download_report(run_id: str):
         media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
         filename=state.docx_path.name,
     )
+
+
+@router.get("/{run_id}/report/{filename}")
+async def download_report_file(run_id: str, filename: str):
+    """Serve one of the intermediate diagnostic reports a run produces
+    (screening_report.md, data_quality_report.md, profile_report.md,
+    run_summary.txt) -- for auditing what a run actually did, since only the
+    final .docx has a download route otherwise.
+    """
+    if filename not in _ALLOWED_REPORT_FILES:
+        raise HTTPException(
+            400, f"Unknown report file {filename!r}. Allowed: {sorted(_ALLOWED_REPORT_FILES)}"
+        )
+    # get_run() only recognises run_ids created through the normal POST /api/runs
+    # flow (see jobs.py's RUNS dict) -- this rejects any run_id that isn't a real,
+    # tracked run before it ever reaches a filesystem path, regardless of content.
+    state = get_run(run_id)
+    if state is None:
+        raise HTTPException(404, f"Run '{run_id}' not found.")
+
+    file_path = RUNS_DIR / run_id / filename
+    if not file_path.exists():
+        raise HTTPException(404, f"{filename} not found for run '{run_id}'.")
+    return FileResponse(file_path, media_type="text/plain; charset=utf-8", filename=filename)
