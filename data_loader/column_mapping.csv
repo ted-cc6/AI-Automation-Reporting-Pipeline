@@ -20,7 +20,7 @@ We may share anonymized survey data with trusted research or analysis partners t
 
 You may skip any question, stop the survey at any time, or ask for your data to be deleted later.
 
-Do you agree to participate in this survey?",drop_scaffold,,,,,,Consent field; all respondents agreed — effectively constant
+Do you agree to participate in this survey?",question_ref,q_survey_consent,,binary,,,Consent field -- non-consenting (No) respondents are excluded in data_loader_screening.py (find_non_consenting_rows); previously wrongly assumed constant
 10,This section includes questions on the extent to which you understand the terms of insurance and claims.,drop_scaffold,,,,,,Section header for understanding module
 11,How would you rate your understanding of what your insurance covers?,question_ref,q_coverage_understanding,,likert4,,,
 12,How you would you rate your understanding of how to make a claim?,question_ref,q_claim_process_understanding,,likert4,,,

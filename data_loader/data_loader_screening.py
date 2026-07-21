@@ -1,22 +1,28 @@
 """
 data_loader_screening.py — VisionFund Insurance Survey Data Loader
-Step 3 of 5: Screen survey_clean.parquet for duplicate submissions and
-test/QA entries before derived flags are computed, so every downstream
-consumer (analysis engine, qualitative pipeline, generated report, and any
-Power BI export built from the same parquet) counts the same clean N.
+Step 3 of 5: Screen survey_clean.parquet for duplicate submissions, test/QA
+entries, non-consenting respondents, and out-of-scope-country respondents
+before derived flags are computed, so every downstream consumer (analysis
+engine, qualitative pipeline, generated report, and any Power BI export built
+from the same parquet) counts the same clean N.
 
 Runs after the transformer (typed columns needed for a reliable content
-comparison) and before data_loader_derived.py (derived flags should never be
-computed on rows we are about to discard).
+comparison, and for q_survey_consent to exist as a real column) and before
+data_loader_derived.py (derived flags should never be computed on rows we are
+about to discard).
 
-Two independent screens, with different actions:
+Four independent screens, with different actions:
   1. Test/QA rows  -- client_id, enumerator, or branch matches a known test
      keyword. Removed entirely; never a real client.
   2. Duplicate submissions -- two rows identical on every substantive answer
      column (module-level KoBoToolbox identity/logistics columns excluded).
      One canonical copy is kept (earliest submission_time), the rest dropped.
+  3. Non-consenting respondents -- q_survey_consent == False (answered "b. No"
+     to the opening consent question). Removed entirely.
+  4. Out-of-scope-country respondents -- country not in SCOPE_COUNTRIES (the
+     study's 7 African country programmes + Vietnam). Removed entirely.
 
-A third check does NOT remove anything: rows that share a client_id but are
+A fifth check does NOT remove anything: rows that share a client_id but are
 NOT exact-content duplicates (i.e. the same client_id was evidently reused
 for what look like two different real interviews) are logged as a WARNING
 for field-team reconciliation -- silently dropping one would delete a real
@@ -63,6 +69,15 @@ CONTENT_EXCLUDE_COLS = frozenset({
 TEST_ID_COLS = ("client_id", "enumerator", "branch")
 TEST_KEYWORDS = ("test", "demo", "training", "pilot", "qa")
 _TEST_KEYWORD_PATTERN = r"\b(?:" + "|".join(TEST_KEYWORDS) + r")\b"
+
+# The study's in-scope country programmes -- an allow-list (not a deny-list
+# of specific out-of-scope countries) so any unexpected/future stray value is
+# also caught, not just the ones seen in past quarters. Update this set if
+# VisionFund's insurance survey expands to a new country programme.
+SCOPE_COUNTRIES = frozenset({
+    "Rwanda", "Ghana", "Zambia", "Malawi", "Uganda", "Tanzania", "Kenya",
+    "Vietnam",
+})
 
 
 # ---------------------------------------------------------------------------
@@ -111,6 +126,29 @@ def find_test_rows(df: pd.DataFrame) -> pd.Series:
             continue
         mask |= df[col].astype(str).str.contains(_TEST_KEYWORD_PATTERN, case=False, regex=True, na=False)
     return mask
+
+
+# ---------------------------------------------------------------------------
+# Screen — Non-consenting respondents
+# ---------------------------------------------------------------------------
+
+def find_non_consenting_rows(df: pd.DataFrame) -> pd.Series:
+    """Boolean mask: True where the respondent answered "b. No" to the
+    opening consent question (q_survey_consent == False)."""
+    if "q_survey_consent" not in df.columns:
+        return pd.Series(False, index=df.index)
+    return df["q_survey_consent"] == False  # noqa: E712 (BooleanDtype requires `== False`, not `is False`)
+
+
+# ---------------------------------------------------------------------------
+# Screen — Out-of-scope-country respondents
+# ---------------------------------------------------------------------------
+
+def find_out_of_scope_country_rows(df: pd.DataFrame) -> pd.Series:
+    """Boolean mask: True where country is not one of SCOPE_COUNTRIES."""
+    if "country" not in df.columns:
+        return pd.Series(False, index=df.index)
+    return ~df["country"].isin(SCOPE_COUNTRIES)
 
 
 # ---------------------------------------------------------------------------
@@ -175,11 +213,14 @@ def find_client_id_collisions(df: pd.DataFrame) -> dict:
 
 class ScreeningResult:
     def __init__(self, df: pd.DataFrame, removed_test: list[dict],
-                 removed_duplicates: list[dict], id_collisions: dict):
+                 removed_duplicates: list[dict], id_collisions: dict,
+                 removed_non_consenting: list[dict], removed_out_of_scope: list[dict]):
         self.df = df
         self.removed_test = removed_test
         self.removed_duplicates = removed_duplicates
         self.id_collisions = id_collisions
+        self.removed_non_consenting = removed_non_consenting
+        self.removed_out_of_scope = removed_out_of_scope
 
 
 def _row_label(row: pd.Series) -> str:
@@ -224,16 +265,40 @@ def screen(df: pd.DataFrame) -> ScreeningResult:
             })
     working = working.drop(index=drop_indices)
 
-    # 3. Client-ID reuse with differing content -- report only, never dropped.
+    # 3. Non-consenting respondents -- removed entirely.
+    consent_mask = find_non_consenting_rows(working)
+    removed_non_consenting = [
+        {"client_id": r.get("client_id"), "kobotoolbox_id": r.get("kobotoolbox_id"),
+         "uuid": r.get("uuid"), "reason": "declined consent (q_survey_consent = No)"}
+        for _, r in working[consent_mask].iterrows()
+    ]
+    working = working[~consent_mask]
+
+    # 4. Out-of-scope-country respondents -- removed entirely.
+    scope_mask = find_out_of_scope_country_rows(working)
+    removed_out_of_scope = [
+        {"client_id": r.get("client_id"), "kobotoolbox_id": r.get("kobotoolbox_id"),
+         "uuid": r.get("uuid"), "country": r.get("country"),
+         "reason": "country outside study scope"}
+        for _, r in working[scope_mask].iterrows()
+    ]
+    working = working[~scope_mask]
+
+    # 5. Client-ID reuse with differing content -- report only, never dropped.
     id_collisions = find_client_id_collisions(working)
 
-    return ScreeningResult(working, removed_test, removed_duplicates, id_collisions)
+    return ScreeningResult(
+        working, removed_test, removed_duplicates, id_collisions,
+        removed_non_consenting, removed_out_of_scope,
+    )
 
 
 def build_screening_report(result: ScreeningResult, n_start: int) -> str:
     ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     n_test = len(result.removed_test)
     n_dup = len(result.removed_duplicates)
+    n_non_consenting = len(result.removed_non_consenting)
+    n_out_of_scope = len(result.removed_out_of_scope)
     n_end = len(result.df)
 
     lines: list[str] = [
@@ -244,6 +309,8 @@ def build_screening_report(result: ScreeningResult, n_start: int) -> str:
         f"- Rows in (post-transform): {n_start:,}",
         f"- Test/QA rows removed: {n_test}",
         f"- Duplicate-submission rows removed: {n_dup}",
+        f"- Non-consenting rows removed: {n_non_consenting}",
+        f"- Out-of-scope-country rows removed: {n_out_of_scope}",
         f"- Rows out (fed to derived flags + analysis): {n_end:,}",
         f"- Client-ID reuse warnings (NOT removed — needs field-team review): {len(result.id_collisions)}",
         "",
@@ -271,6 +338,35 @@ def build_screening_report(result: ScreeningResult, n_start: int) -> str:
             lines.append(
                 f"| {r['client_id']} | {r['kept_kobotoolbox_id']} | {r['dropped_kobotoolbox_id']} "
                 f"| {r['kept_uuid']} | {r['dropped_uuid']} |"
+            )
+    else:
+        lines.append("None found.")
+    lines.append("")
+
+    lines.append("## Non-Consenting Rows Removed")
+    lines.append(
+        "_Respondent answered \"b. No, I do not agree\" to the opening consent "
+        "question (q_survey_consent)._"
+    )
+    if result.removed_non_consenting:
+        lines.append("| client_id | kobotoolbox_id | uuid | reason |")
+        lines.append("|---|---|---|---|")
+        for r in result.removed_non_consenting:
+            lines.append(f"| {r['client_id']} | {r['kobotoolbox_id']} | {r['uuid']} | {r['reason']} |")
+    else:
+        lines.append("None found.")
+    lines.append("")
+
+    lines.append("## Out-of-Scope-Country Rows Removed")
+    lines.append(
+        f"_Country is not one of the study's scope: {', '.join(sorted(SCOPE_COUNTRIES))}._"
+    )
+    if result.removed_out_of_scope:
+        lines.append("| client_id | kobotoolbox_id | uuid | country | reason |")
+        lines.append("|---|---|---|---|---|")
+        for r in result.removed_out_of_scope:
+            lines.append(
+                f"| {r['client_id']} | {r['kobotoolbox_id']} | {r['uuid']} | {r['country']} | {r['reason']} |"
             )
     else:
         lines.append("None found.")
@@ -324,12 +420,14 @@ def main(output_dir: Path) -> None:
 
     print(
         f"\nScreening complete.\n"
-        f"  Input rows              : {n_start:,}\n"
-        f"  Test/QA rows removed    : {len(result.removed_test)}\n"
-        f"  Duplicate rows removed  : {len(result.removed_duplicates)}\n"
-        f"  Output rows             : {len(out_df):,}\n"
-        f"  Client-ID reuse warnings: {len(result.id_collisions)} (not removed — see {report_path.name})\n"
-        f"  Report                  : {report_path}"
+        f"  Input rows                  : {n_start:,}\n"
+        f"  Test/QA rows removed        : {len(result.removed_test)}\n"
+        f"  Duplicate rows removed      : {len(result.removed_duplicates)}\n"
+        f"  Non-consenting rows removed : {len(result.removed_non_consenting)}\n"
+        f"  Out-of-scope-country removed: {len(result.removed_out_of_scope)}\n"
+        f"  Output rows                 : {len(out_df):,}\n"
+        f"  Client-ID reuse warnings    : {len(result.id_collisions)} (not removed — see {report_path.name})\n"
+        f"  Report                      : {report_path}"
     )
 
 

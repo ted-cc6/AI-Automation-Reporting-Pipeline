@@ -9,10 +9,13 @@ import pandas as pd
 
 from data_loader.data_loader_screening import (
     CONTENT_EXCLUDE_COLS,
+    SCOPE_COUNTRIES,
     choose_canonical_index,
     content_columns,
     find_client_id_collisions,
     find_duplicate_groups,
+    find_non_consenting_rows,
+    find_out_of_scope_country_rows,
     find_test_rows,
     screen,
 )
@@ -32,6 +35,8 @@ def _base_df(**overrides) -> pd.DataFrame:
         "interview_end":   ["2026-04-01T10:05:00", "2026-04-01T11:05:00", "2026-04-02T09:05:00"],
         "q_coverage_understanding": [1, 2, 3],
         "q_nps_score":     [9, 5, 2],
+        "q_survey_consent": [True, True, True],
+        "country":         ["Kenya", "Kenya", "Kenya"],
     }
     base.update(overrides)
     return pd.DataFrame(base)
@@ -62,6 +67,48 @@ class TestFindTestRows:
     def test_clean_rows_are_never_flagged(self):
         df = _base_df()
         mask = find_test_rows(df)
+        assert not mask.any()
+
+
+# ---------------------------------------------------------------------------
+# find_non_consenting_rows
+# ---------------------------------------------------------------------------
+
+class TestFindNonConsentingRows:
+    def test_flags_rows_that_declined_consent(self):
+        df = _base_df(q_survey_consent=[True, False, True])
+        mask = find_non_consenting_rows(df)
+        assert list(mask) == [False, True, False]
+
+    def test_all_consenting_rows_are_never_flagged(self):
+        df = _base_df()
+        mask = find_non_consenting_rows(df)
+        assert not mask.any()
+
+    def test_missing_column_flags_nothing(self):
+        df = _base_df().drop(columns=["q_survey_consent"])
+        mask = find_non_consenting_rows(df)
+        assert not mask.any()
+
+
+# ---------------------------------------------------------------------------
+# find_out_of_scope_country_rows
+# ---------------------------------------------------------------------------
+
+class TestFindOutOfScopeCountryRows:
+    def test_flags_countries_outside_the_study_scope(self):
+        df = _base_df(country=["Kenya", "Mexico", "Vietnam"])
+        mask = find_out_of_scope_country_rows(df)
+        assert list(mask) == [False, True, False]
+
+    def test_all_in_scope_countries_are_never_flagged(self):
+        df = _base_df(country=list(SCOPE_COUNTRIES)[:1] * 3)
+        mask = find_out_of_scope_country_rows(df)
+        assert not mask.any()
+
+    def test_missing_column_flags_nothing(self):
+        df = _base_df().drop(columns=["country"])
+        mask = find_out_of_scope_country_rows(df)
         assert not mask.any()
 
 
@@ -220,3 +267,22 @@ class TestScreen:
         assert len(result.removed_duplicates) == 0
         assert len(result.df) == 3  # nothing dropped
         assert "A1" in result.id_collisions
+
+    def test_all_four_removal_checks_compose_correctly(self):
+        df = _base_df(
+            client_id=["test rosa", "A2", "A3"],
+            q_survey_consent=[True, False, True],
+            country=["Kenya", "Kenya", "Mexico"],
+        )
+        result = screen(df)
+
+        assert len(result.removed_test) == 1
+        assert result.removed_test[0]["client_id"] == "test rosa"
+        assert len(result.removed_non_consenting) == 1
+        assert result.removed_non_consenting[0]["client_id"] == "A2"
+        assert len(result.removed_out_of_scope) == 1
+        assert result.removed_out_of_scope[0]["client_id"] == "A3"
+        assert result.removed_out_of_scope[0]["country"] == "Mexico"
+
+        # All three rows were removed for one reason or another -- nothing survives.
+        assert len(result.df) == 0
