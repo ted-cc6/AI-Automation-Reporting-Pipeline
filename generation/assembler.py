@@ -350,10 +350,6 @@ def build_part_4(doc, package: dict, texts: dict):
     if len(visuals) > 1:
         _add_image_or_placeholder(doc, visuals[1])
 
-    s4_3 = sections.get("s4_3", {})
-    _add_heading(doc, s4_3.get("label", "Wellbeing Outcomes"), level=2)
-    _add_paragraph(doc, texts.get("s4_3", ""))
-
     _add_insight_box(doc, texts.get("insight", ""), sections.get("insight", {}).get("verbatims", []))
 
 
@@ -384,6 +380,9 @@ def build_part_5(doc, package: dict, texts: dict):
                 n_str   = str(d["n_valid"]) if d["n_valid"] is not None else "?"
                 rows.append([d["label"], rho_str, p_str, n_str])
         _add_table(doc, headers, rows)
+        scale_note = drivers_table.get("scale_note")
+        if scale_note:
+            _add_paragraph(doc, scale_note.strip())
 
     if visuals:
         _add_image_or_placeholder(doc, visuals[0])

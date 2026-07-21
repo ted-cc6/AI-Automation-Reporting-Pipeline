@@ -8,7 +8,6 @@ manual-upload path (see visuals_source.py) is the working default in the
 meantime, and both populate the exact same visual slots once this is live.
 """
 import logging
-import time
 
 import requests
 from pydantic import BaseModel

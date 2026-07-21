@@ -1,6 +1,6 @@
 """
 data_loader_validator.py — VisionFund Insurance Survey Data Loader
-Step 4 of 4: Validate survey_clean.parquet and write data_quality_report.md.
+Step 5 of 5: Validate survey_clean.parquet and write data_quality_report.md.
 
 Usage:
     python data_loader/data_loader_validator.py --output-dir runs/2026_Q3

@@ -94,13 +94,13 @@ parts:
             fmt: "pct"
             n_path: "parts.part_1.metrics.worth_premium.headline.n_valid"
             suppressed_path: "parts.part_1.metrics.worth_premium.headline.suppressed"
-            population: "Health & credit-life clients across the African country programmes only (n=1,957) — Vietnam's crop-insurance clients pay no premium (grant-subsidized) and were not asked this question"
+            population: "Health & credit-life clients across the African country programmes only — Vietnam's crop-insurance clients pay no premium (grant-subsidized) and were not asked this question"
           renewal_intent:
             path: "parts.part_1.metrics.renewal_intent.headline.value"
             fmt: "pct"
             n_path: "parts.part_1.metrics.renewal_intent.headline.n_valid"
             suppressed_path: "parts.part_1.metrics.renewal_intent.headline.suppressed"
-            population: "Vietnam's crop-insurance clients only (n=147 of 154) — this question is not asked of health or credit-life clients in any country"
+            population: "Vietnam's crop-insurance clients only — this question is not asked of health or credit-life clients in any country"
         note: >
           worth_premium and renewal_intent describe two entirely separate, non-overlapping
           groups of respondents (see each metric's population above) — never contrast them
@@ -250,13 +250,13 @@ parts:
             fmt: "pct"
             n_path: "parts.part_3.metrics.negative_coping.headline.n_valid"
             suppressed_path: "parts.part_3.metrics.negative_coping.headline.suppressed"
-            population: "Clients who experienced an insured event in the last 12 months (n=363) -- this includes both those who filed a claim and those who did not; it is not the same as 'claimants' alone"
+            population: "Clients who experienced an insured event in the last 12 months -- this includes both those who filed a claim and those who did not; it is not the same as 'claimants' alone"
           financial_stress_high:
             path: "parts.part_3.metrics.financial_stress_high.headline.value"
             fmt: "pct"
             n_path: "parts.part_3.metrics.financial_stress_high.headline.n_valid"
             suppressed_path: "parts.part_3.metrics.financial_stress_high.headline.suppressed"
-            population: "All surveyed clients (n~2,104) -- this question is asked of everyone regardless of claim or insured-event status; it is not conditional on having filed a claim or even having experienced an insured event"
+            population: "All surveyed clients -- this question is asked of everyone regardless of claim or insured-event status; it is not conditional on having filed a claim or even having experienced an insured event"
           alternative_access_difficult:
             path: "parts.part_3.metrics.alternative_access_difficult.headline.value"
             fmt: "pct"
@@ -351,25 +351,6 @@ parts:
           theme_counts are Python-counted from Gemini's compact NPS tag arrays.
           Report top 3 promoter themes and top 3 detractor themes by count.
 
-      s4_3:
-        label: "Wellbeing Outcomes"
-        word_limit: 80
-        metrics:
-          child_wellbeing:
-            path: "parts.part_4.child_wellbeing.headline.value"
-            fmt: "pct"
-            n_path: "parts.part_4.child_wellbeing.headline.n_valid"
-            suppressed_path: "parts.part_4.child_wellbeing.headline.suppressed"
-          healthcare_access:
-            path: "parts.part_4.healthcare_access.headline.value"
-            fmt: "pct"
-            n_path: "parts.part_4.healthcare_access.headline.n_valid"
-            suppressed_path: "parts.part_4.healthcare_access.headline.suppressed"
-        note: >
-          worth_premium (product value / worth-the-premium) is already reported in Part 1
-          and must not be repeated or referenced here -- this section covers wellbeing
-          outcomes only (child wellbeing and healthcare access).
-
       insight:
         word_limit: 120
         verbatim_section: "part4"
@@ -393,7 +374,7 @@ parts:
         sig_path: "parts.part_5.caregiver_comparison.metrics.financial_stress_high.significance.p_value"
         caregiver_sup: "parts.part_5.caregiver_comparison.metrics.financial_stress_high.caregiver.suppressed"
         non_caregiver_sup: "parts.part_5.caregiver_comparison.metrics.financial_stress_high.non_caregiver.suppressed"
-        population: "Clients who experienced an insured event in the last 12 months (same base as Part 3's financial stress metric)"
+        population: "All surveyed clients (same base as Part 3's financial stress metric) — not restricted to those who experienced an insured event"
       - key: healthcare_access
         label: "Healthcare Access Improved"
         fmt: "pct"
@@ -418,48 +399,69 @@ parts:
             p_path: "parts.part_5.drivers.financial_stress.p_value"
             n_path: "parts.part_5.drivers.financial_stress.n_valid"
             suppressed_path: "parts.part_5.drivers.financial_stress.suppressed"
+            direction: "Raw code: 1=stress significantly reduced (best) to 5=significantly increased (worst). A negative rho here means higher stress correlates with lower child wellbeing — the expected, negative real-world relationship."
           coverage_understanding:
             rho_path: "parts.part_5.drivers.coverage_understanding.value"
             p_path: "parts.part_5.drivers.coverage_understanding.p_value"
             n_path: "parts.part_5.drivers.coverage_understanding.n_valid"
             suppressed_path: "parts.part_5.drivers.coverage_understanding.suppressed"
+            direction: "Raw code: 1=very good understanding (best) to 4=very poor (worst). A negative rho here means better coverage understanding correlates with better child wellbeing — a positive real-world relationship, despite the negative sign."
           claim_process_understanding:
             rho_path: "parts.part_5.drivers.claim_process_understanding.value"
             p_path: "parts.part_5.drivers.claim_process_understanding.p_value"
             n_path: "parts.part_5.drivers.claim_process_understanding.n_valid"
             suppressed_path: "parts.part_5.drivers.claim_process_understanding.suppressed"
+            direction: "Raw code: 1=very good understanding (best) to 4=very poor (worst). A negative rho here means better claims-process understanding correlates with better child wellbeing — a positive real-world relationship, despite the negative sign."
           worth_premium:
             rho_path: "parts.part_5.drivers.worth_premium.value"
             p_path: "parts.part_5.drivers.worth_premium.p_value"
             n_path: "parts.part_5.drivers.worth_premium.n_valid"
             suppressed_path: "parts.part_5.drivers.worth_premium.suppressed"
             population: "Health & credit-life clients only — Vietnam's crop-insurance clients were not asked this question, so they are excluded from this correlation"
+            direction: "Raw code: 1=definitely worth it (best) to 5=definitely not worth it (worst). A negative rho here means feeling the premium is worth it correlates with better child wellbeing — a positive real-world relationship, despite the negative sign."
           renewal_intent:
             rho_path: "parts.part_5.drivers.renewal_intent.value"
             p_path: "parts.part_5.drivers.renewal_intent.p_value"
             n_path: "parts.part_5.drivers.renewal_intent.n_valid"
             suppressed_path: "parts.part_5.drivers.renewal_intent.suppressed"
-            population: "Vietnam's crop-insurance clients only (the low n=127 vs n≈1,928 for other drivers reflects this smaller population, not suppressed/missing data) — not asked of health or credit-life clients in any country"
+            population: "Vietnam's crop-insurance clients only — its lower N compared to other drivers (each driver's N is shown alongside it above) reflects this smaller population, not suppressed/missing data — not asked of health or credit-life clients in any country"
+            direction: "Raw code: 1=definitely would renew (best) to 5=definitely would not renew (worst). A negative rho here means STRONGER renewal intent correlates with BETTER child wellbeing — a positive real-world relationship. Do not describe this as renewal intent being bad for wellbeing; the negative sign is an artifact of the 1=best coding, not a negative finding."
           confidence_pay:
             rho_path: "parts.part_5.drivers.confidence_pay.value"
             p_path: "parts.part_5.drivers.confidence_pay.p_value"
             n_path: "parts.part_5.drivers.confidence_pay.n_valid"
             suppressed_path: "parts.part_5.drivers.confidence_pay.suppressed"
+            direction: "Raw code: 1=very confident (best) to 5=not confident at all (worst). A negative rho here means higher confidence correlates with better child wellbeing — a positive real-world relationship, despite the negative sign."
           nps_score:
             rho_path: "parts.part_5.drivers.nps_score.value"
             p_path: "parts.part_5.drivers.nps_score.p_value"
             n_path: "parts.part_5.drivers.nps_score.n_valid"
             suppressed_path: "parts.part_5.drivers.nps_score.suppressed"
+            direction: "Raw score: 0=worst to 10=best (NOT reverse-coded, unlike the other drivers here). A positive rho here means higher NPS correlates with better child wellbeing — the sign and the real-world relationship point the same direction."
         drivers_table:
           headers: ["Driver", "ρ (Spearman)", "p-value", "N"]
+          scale_note: >
+            Note: Financial Stress, Coverage Understanding, Claim Process Understanding, Worth
+            Premium, Renewal Intent, and Confidence in Payout are all scored so that a LOWER
+            number is the more positive response (e.g. 1 = "Definitely would renew"). A negative
+            correlation with child wellbeing for any of these therefore reflects a POSITIVE
+            real-world relationship (e.g. stronger renewal intent aligns with better wellbeing),
+            not a negative one. NPS Score runs the opposite way (0=worst, 10=best), so a positive
+            correlation there likewise reflects a positive relationship.
         note: >
-          All correlations are Spearman. financial_stress uses top_two_box (high stress);
-          all other drivers use bottom_two_box (positive response).
-          A negative rho for financial_stress means higher stress → lower CWB score (correct direction).
-          A driver with a null value in the JSON is suppressed — show "SUPPRESSED" in the table.
-          The worth_premium driver's lower N (n≈1,801 vs n≈1,928 for other drivers) reflects its
-          smaller population (see worth_premium's population note) — do not describe this as
-          missing or suppressed data.
+          All correlations are Spearman rank correlations computed directly on each question's
+          raw ordinal code (Likert 1-5/1-4, or NPS 0-10) — no top_two_box/bottom_two_box
+          transformation is applied in this section (unlike the Part 6/7 scorecards, which do
+          transform these same questions into % positive-response figures; do not assume the two
+          calculations use the same input values).
+          Each driver's own [direction: ...] note above states what its sign means in plain
+          English — use that stated direction rather than assuming a negative rho is a negative
+          finding; several of these are negative precisely because the underlying scale runs
+          1=best. A driver with a null value in the JSON is suppressed — show "SUPPRESSED" in
+          the table.
+          The worth_premium driver's lower N compared to other drivers (each driver's N is shown
+          alongside it above) reflects its smaller population (see worth_premium's population
+          note) — do not describe this as missing or suppressed data.
 
       s5_2:
         label: "Healthcare Access and Medical Cost"
@@ -475,11 +477,11 @@ parts:
             fmt: "pct"
             n_path: "parts.part_4.medical_cost_change.headline.n_valid"
             suppressed_path: "parts.part_4.medical_cost_change.headline.suppressed"
-            population: "Health-insurance clients who needed medical care (n≈926) -- this is asked of everyone in this group regardless of whether they filed an insurance claim; only about 14% of these respondents are actual claimants (claimants total n=153 across the whole survey), so this group must never be called 'claimants' or described as 'after claim'"
+            population: "Health-insurance clients who needed medical care -- this is asked of everyone in this group regardless of whether they filed an insurance claim; only a small minority of these respondents are actual claimants, so this group must never be called 'claimants' or described as 'after claim'"
         note: >
-          healthcare_access: % who said access to care improved (among those who needed care, n≈1,672).
+          healthcare_access: % who said access to care improved (among those who needed care).
           medical_cost_change: % who said medical costs decreased (among health clients who needed
-          medical care, n≈926) -- this is NOT limited to claimants and must not be framed as
+          medical care) -- this is NOT limited to claimants and must not be framed as
           happening "after a claim" or "after receiving their insurance claim"; it is a general
           medical-cost question asked of anyone in this group who needed care, independent of
           claim status. Do not say "claimants" anywhere in this section.
@@ -650,7 +652,7 @@ parts:
         word_limit: 100
         note: >
           Significance threshold: p < 0.05 = statistically significant, mark with *.
-          The female sample is dominant (n≈1,518 vs male n≈586); note this if relevant.
+          The female sample is the large majority of respondents; note this if relevant.
           worth_premium and renewal_intent each have their own population (see each
           row's population note in the scorecard table) — do not imply the same clients
           answered both.

@@ -166,6 +166,7 @@ def _build_drivers_data(analysis: dict, drivers_spec: dict) -> list:
             "n_valid":    n_val,
             "suppressed": sup,
             "population": d_cfg.get("population"),
+            "direction":  d_cfg.get("direction"),
         })
     # Sort by abs(rho) descending; suppressed rows go to bottom
     rows.sort(key=lambda r: (r["suppressed"], -abs(r["rho"]) if r["rho"] is not None else 0))

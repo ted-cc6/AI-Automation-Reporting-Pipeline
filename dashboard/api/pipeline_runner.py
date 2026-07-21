@@ -31,6 +31,7 @@ import run_analysis as ra
 from data_loader import (
     data_loader_derived,
     data_loader_profiler,
+    data_loader_screening,
     data_loader_transformer,
     data_loader_validator,
 )
@@ -46,7 +47,7 @@ from generation.writer import write_all_parts
 
 from dashboard.api.config import PROJECT_ROOT, RUNS_DIR, UPLOADS_DIR
 from dashboard.api.jobs import RUNS
-from dashboard.api.models import LlmConfig, PowerBiConfigRequest
+from dashboard.api.models import LlmConfig
 
 log = logging.getLogger(__name__)
 
@@ -92,6 +93,7 @@ def _run_stage1(state, csv_path: Path, run_dir: Path, country: str) -> None:
         ("profiler", lambda: data_loader_profiler.main(csv_path, mapping_path, run_dir)),
         ("transformer", lambda: data_loader_transformer.main(
             csv_path, mapping_path, value_map_path, run_dir)),
+        ("screening", lambda: data_loader_screening.main(run_dir)),
         ("derived", lambda: data_loader_derived.main(run_dir)),
         ("validator", lambda: data_loader_validator.main(run_dir)),
     ]

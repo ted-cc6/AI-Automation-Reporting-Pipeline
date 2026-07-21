@@ -40,6 +40,17 @@ figure describes all surveyed clients. Never present two metrics as a
 before/after or "however" contrast unless they describe the same population —
 check each metric's stated population before connecting it to another.
 
+SCALE DIRECTION: Several survey questions are coded so that a LOWER number is
+the more positive response (1=best, e.g. "Definitely would renew" = 1). When a
+Part 5 driver correlation gives a "[direction: ...]" note, that note states
+what the sign actually means in plain English for that specific driver — use
+its stated real-world direction verbatim rather than assuming a negative rho
+is automatically a negative finding. A negative correlation is frequently the
+EXPECTED, POSITIVE result once the 1=best coding is accounted for (e.g.
+stronger renewal intent aligning with better child wellbeing produces a
+negative rho, not a positive one) — never describe such a result as
+counterintuitive or concerning without first checking its direction note.
+
 VOICE RULES:
 - Professional, empathetic, evidence-based
 - Active voice. Past tense for findings ("revealed", "showed"), present for implications ("suggests", "indicates")
@@ -70,7 +81,7 @@ WORD_LIMITS = {
     "s1_1": 90, "s1_2": 90, "s1_2b": 70, "s1_3": 80,
     "s2_1": 100, "s2_2": 70, "s2_3": 80, "s2_4": 100,
     "s3_0": 70, "s3_1": 80, "s3_2": 70,
-    "s4_1": 90, "s4_2": 90, "s4_3": 80,
+    "s4_1": 90, "s4_2": 90,
     "s5_1": 90, "s5_2": 80, "s5_3": 80,
     "narrative": 100,
     "insight": 120,
@@ -81,7 +92,7 @@ _OUTPUT_SCHEMAS = {
     "part_1": {"s1_1": 90, "s1_2": 90, "s1_2b": 70, "s1_3": 80, "insight": 120},
     "part_2": {"s2_1": 100, "s2_2": 70, "s2_3": 80, "s2_4": 100, "insight": 120},
     "part_3": {"s3_0": 70, "s3_1": 80, "s3_2": 70, "insight": 120},
-    "part_4": {"s4_1": 90, "s4_2": 90, "s4_3": 80, "insight": 120},
+    "part_4": {"s4_1": 90, "s4_2": 90, "insight": 120},
     "part_5": {"s5_1": 90, "s5_2": 80, "s5_3": 80, "insight": 120},
     "part_6": {"narrative": 100, "insight": 120},
     "part_7": {"narrative": 100, "insight": 120},
@@ -245,6 +256,8 @@ def _build_sections_text(package: dict) -> str:
                     lines.append(f"    {d['label']}: rho={rho}, p={p}, n={n}")
                 if d.get("population"):
                     lines.append(f"      [population: {d['population']}]")
+                if d.get("direction"):
+                    lines.append(f"      [direction: {d['direction']}]")
 
         # Note
         note = s_data.get("note", "")
