@@ -87,10 +87,13 @@ likert_5:
 # 5. Binary standalone questions (NOT multi-select children)
 # ---------------------------------------------------------------------------
 # Affects: q_insured_event_12m (25), q_claim_submitted (26),
-#          q_claim_challenges_experienced (31), q_prior_access (83)
+#          q_claim_challenges_experienced (31), q_prior_access (83),
+#          q_survey_consent (9 -- full-sentence options, unlike the others)
 binary_standalone:
   "a. Yes": true
   "b. No":  false
+  "a. Yes, I agree to participate": true
+  "b. No, I do not agree":          false
 
 # ---------------------------------------------------------------------------
 # 6. Multi-select child encoding

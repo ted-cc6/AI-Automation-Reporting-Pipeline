@@ -134,10 +134,23 @@ def find_test_rows(df: pd.DataFrame) -> pd.Series:
 
 def find_non_consenting_rows(df: pd.DataFrame) -> pd.Series:
     """Boolean mask: True where the respondent answered "b. No" to the
-    opening consent question (q_survey_consent == False)."""
+    opening consent question (q_survey_consent == False).
+
+    q_survey_consent is a nullable BooleanDtype column, so `== False` can
+    itself produce NA (unknown) rather than True/False wherever the source
+    value didn't decode -- e.g. an unmapped/unexpected raw answer. NA must
+    never leak out of this function as a bare value: `df[mask]` treats an
+    all-NA mask as "select nothing," but `~mask` on that same all-NA mask is
+    ALSO all-NA (NOT of "unknown" is still "unknown"), which then makes
+    `df[~mask]` in screen() ALSO select nothing -- silently emptying the
+    entire dataset instead of just failing to flag the ambiguous rows. An
+    unmapped/missing consent answer must default to "not flagged for
+    removal" (never drop a respondent over ambiguous data), so any NA here
+    is resolved to False before returning.
+    """
     if "q_survey_consent" not in df.columns:
         return pd.Series(False, index=df.index)
-    return df["q_survey_consent"] == False  # noqa: E712 (BooleanDtype requires `== False`, not `is False`)
+    return (df["q_survey_consent"] == False).fillna(False)  # noqa: E712 (BooleanDtype requires `== False`, not `is False`)
 
 
 # ---------------------------------------------------------------------------

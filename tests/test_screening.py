@@ -90,6 +90,26 @@ class TestFindNonConsentingRows:
         mask = find_non_consenting_rows(df)
         assert not mask.any()
 
+    def test_unmapped_na_values_are_never_flagged(self):
+        # Regression test: an all-NA q_survey_consent column (e.g. every raw
+        # answer failed to decode against value_coding_map.yaml) must resolve
+        # to an all-False mask, never a mask containing pd.NA. `== False`
+        # alone produces NA here (unknown != known-False), and critically
+        # `~` of an all-NA mask is ALSO all-NA, not all-True -- which, unless
+        # this function neutralises it, makes screen()'s `working[~mask]`
+        # silently select zero rows instead of "no one flagged."
+        df = _base_df(q_survey_consent=pd.array([pd.NA, pd.NA, pd.NA], dtype=pd.BooleanDtype()))
+        mask = find_non_consenting_rows(df)
+        assert list(mask) == [False, False, False]
+        assert mask.isna().sum() == 0  # no NA slipped through (dtype can stay nullable boolean)
+
+    def test_all_na_consent_column_does_not_empty_the_dataset_via_screen(self):
+        # End-to-end version of the regression above, through screen() itself.
+        df = _base_df(q_survey_consent=pd.array([pd.NA, pd.NA, pd.NA], dtype=pd.BooleanDtype()))
+        result = screen(df)
+        assert len(result.df) == 3
+        assert len(result.removed_non_consenting) == 0
+
 
 # ---------------------------------------------------------------------------
 # find_out_of_scope_country_rows
