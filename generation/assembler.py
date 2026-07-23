@@ -113,6 +113,37 @@ def _add_insight_box(doc, insight_text: str, verbatims: list):
             attr.runs[0].italic = True
 
 
+def _group_header(groups: dict, key: str, fallback_label: str) -> str:
+    """Column header for a scorecard table group, e.g. 'Claimant (n=1,922)'."""
+    g = groups.get(key, {})
+    label = g.get("label", fallback_label)
+    n = g.get("n")
+    return f"{label} (n={n:,})" if isinstance(n, int) else label
+
+
+def _add_drivers_table(doc, section: dict):
+    """Renders a Spearman drivers table (Part 4's satisfaction drivers, Part 5's
+    child wellbeing drivers) -- shared since both sections use the identical shape."""
+    drivers_data  = section.get("drivers_data", [])
+    drivers_table = section.get("drivers_table", {})
+    if not drivers_data:
+        return
+    headers = drivers_table.get("headers", ["Driver", "ρ (Spearman)", "p-value", "N"])
+    rows = []
+    for d in drivers_data:
+        if d["suppressed"]:
+            rows.append([d["label"], "SUPPRESSED", "SUPPRESSED", "SUPPRESSED"])
+        else:
+            rho_str = f"{d['rho']:+.3f}" if d["rho"] is not None else "?"
+            p_str   = f"{d['p_value']:.4f}" if d["p_value"] is not None else "?"
+            n_str   = str(d["n_valid"]) if d["n_valid"] is not None else "?"
+            rows.append([d["label"], rho_str, p_str, n_str])
+    _add_table(doc, headers, rows)
+    scale_note = drivers_table.get("scale_note")
+    if scale_note:
+        _add_paragraph(doc, scale_note.strip())
+
+
 def _add_image_or_placeholder(doc, visual_info: dict):
     if visual_info.get("exists") and visual_info.get("path"):
         try:
@@ -350,6 +381,12 @@ def build_part_4(doc, package: dict, texts: dict):
     if len(visuals) > 1:
         _add_image_or_placeholder(doc, visuals[1])
 
+    s4_3 = sections.get("s4_3", {})
+    if s4_3.get("drivers_data"):
+        _add_heading(doc, s4_3.get("label", "Drivers of Satisfaction"), level=2)
+        _add_paragraph(doc, texts.get("s4_3", ""))
+        _add_drivers_table(doc, s4_3)
+
     _add_insight_box(doc, texts.get("insight", ""), sections.get("insight", {}).get("verbatims", []))
 
 
@@ -365,24 +402,7 @@ def build_part_5(doc, package: dict, texts: dict):
     s5_1 = sections.get("s5_1", {})
     _add_heading(doc, s5_1.get("label", "Child Wellbeing Drivers"), level=2)
     _add_paragraph(doc, texts.get("s5_1", ""))
-
-    drivers_data  = s5_1.get("drivers_data", [])
-    drivers_table = s5_1.get("drivers_table", {})
-    if drivers_data:
-        headers = drivers_table.get("headers", ["Driver", "ρ (Spearman)", "p-value", "N"])
-        rows    = []
-        for d in drivers_data:
-            if d["suppressed"]:
-                rows.append([d["label"], "SUPPRESSED", "SUPPRESSED", "SUPPRESSED"])
-            else:
-                rho_str = f"{d['rho']:+.3f}" if d["rho"] is not None else "?"
-                p_str   = f"{d['p_value']:.4f}" if d["p_value"] is not None else "?"
-                n_str   = str(d["n_valid"]) if d["n_valid"] is not None else "?"
-                rows.append([d["label"], rho_str, p_str, n_str])
-        _add_table(doc, headers, rows)
-        scale_note = drivers_table.get("scale_note")
-        if scale_note:
-            _add_paragraph(doc, scale_note.strip())
+    _add_drivers_table(doc, s5_1)
 
     if visuals:
         _add_image_or_placeholder(doc, visuals[0])
@@ -395,9 +415,13 @@ def build_part_5(doc, package: dict, texts: dict):
 
     scorecard = package.get("scorecard", [])
     if scorecard:
-        s5_3 = sections.get("s5_3", {})
+        s5_3   = sections.get("s5_3", {})
+        groups = package.get("groups", {})
         _add_heading(doc, s5_3.get("label", "Caregivers vs Non-Caregivers"), level=2)
-        headers = ["Metric", "Caregiver", "Non-Caregiver", "Sig.*"]
+        headers = ["Metric",
+                   _group_header(groups, "caregiver", "Caregiver"),
+                   _group_header(groups, "non_caregiver", "Non-Caregiver"),
+                   "Sig.*"]
         rows, footnotes = [], []
         for row in scorecard:
             sig_mark = "*" if row["significant"] else ""
@@ -405,6 +429,9 @@ def build_part_5(doc, package: dict, texts: dict):
             if row.get("population"):
                 label += " †"
                 footnotes.append(f"† {row['label']}: {row['population']}")
+            if row.get("sig_test_note"):
+                label += " ‡"
+                footnotes.append(f"‡ {row['label']}: {row['sig_test_note']}")
             rows.append([label, row["group_a_value"], row["group_b_value"], sig_mark])
         _add_table(doc, headers, rows)
         _add_paragraph(doc, "* p < 0.05 (chi-squared or Fisher's exact test)")
@@ -426,7 +453,11 @@ def build_part_6(doc, package: dict, texts: dict):
 
     scorecard = package.get("scorecard", [])
     if scorecard:
-        headers = ["Metric", "Claimant", "Non-Claimant", "Sig.*"]
+        groups = package.get("groups", {})
+        headers = ["Metric",
+                   _group_header(groups, "claimant", "Claimant"),
+                   _group_header(groups, "non_claimant", "Non-Claimant"),
+                   "Sig.*"]
         rows, footnotes = [], []
         for row in scorecard:
             sig_mark = "*" if row["significant"] else ""
@@ -434,6 +465,9 @@ def build_part_6(doc, package: dict, texts: dict):
             if row.get("population"):
                 label += " †"
                 footnotes.append(f"† {row['label']}: {row['population']}")
+            if row.get("sig_test_note"):
+                label += " ‡"
+                footnotes.append(f"‡ {row['label']}: {row['sig_test_note']}")
             rows.append([label, row["group_a_value"], row["group_b_value"], sig_mark])
         _add_table(doc, headers, rows)
         _add_paragraph(doc, "* p < 0.05 (chi-squared or Fisher's exact test)")
@@ -460,7 +494,11 @@ def build_part_7(doc, package: dict, texts: dict):
 
     scorecard = package.get("scorecard", [])
     if scorecard:
-        headers = ["Metric", "Female", "Male", "Sig.*"]
+        groups = package.get("groups", {})
+        headers = ["Metric",
+                   _group_header(groups, "female", "Female"),
+                   _group_header(groups, "male", "Male"),
+                   "Sig.*"]
         rows, footnotes = [], []
         for row in scorecard:
             sig_mark = "*" if row["significant"] else ""
@@ -468,6 +506,9 @@ def build_part_7(doc, package: dict, texts: dict):
             if row.get("population"):
                 label += " †"
                 footnotes.append(f"† {row['label']}: {row['population']}")
+            if row.get("sig_test_note"):
+                label += " ‡"
+                footnotes.append(f"‡ {row['label']}: {row['sig_test_note']}")
             rows.append([label, row["group_a_value"], row["group_b_value"], sig_mark])
         _add_table(doc, headers, rows)
         _add_paragraph(doc, "* p < 0.05 (chi-squared or Fisher's exact test)")

@@ -2,7 +2,8 @@
 import logging
 
 from analysis_engine.stats import (
-    top_two_box, bottom_two_box, share_true, scorecard_row as _scorecard_row_base,
+    top_two_box, bottom_two_box, share_true, share_selecting, nps_scorecard_row,
+    scorecard_row as _scorecard_row_base,
 )
 
 log = logging.getLogger("analysis_engine.sections.part_6")
@@ -15,6 +16,7 @@ COL_RENEWAL_INTENT              = "q_renewal_intent"
 COL_NEGATIVE_COPING             = "flag_negative_coping"
 COL_FINANCIAL_STRESS            = "q_financial_stress"
 COL_CONFIDENCE_PAY              = "q_confidence_pay"
+COL_CHILD_WELLBEING             = "q_child_wellbeing"
 
 _A = "claimant"
 _B = "non_claimant"
@@ -59,6 +61,17 @@ def calculate(ds, segment_masks: dict) -> dict:
         "confidence_pay": _scorecard_row(
             ds.df, COL_CONFIDENCE_PAY, bottom_two_box, segment_masks,
             "Confidence in Pay-out",
+        ),
+        # NPS isn't a proportion -- nps_scorecard_row() uses a Mann-Whitney U test
+        # instead of the two-proportion z-test every other row here uses.
+        "nps": nps_scorecard_row(
+            ds.df, segment_masks, "Net Promoter Score", _A, _B,
+        ),
+        # child_wellbeing_base is narrower than ds.df (clients with children in
+        # the household) -- a different population than every other row above.
+        "child_wellbeing": _scorecard_row(
+            ds.child_wellbeing_base, COL_CHILD_WELLBEING, share_selecting, segment_masks,
+            "Child Wellbeing Improved", values=["Yes"],
         ),
     }
 

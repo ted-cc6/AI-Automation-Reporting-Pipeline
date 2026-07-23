@@ -351,6 +351,85 @@ parts:
           theme_counts are Python-counted from Gemini's compact NPS tag arrays.
           Report top 3 promoter themes and top 3 detractor themes by count.
 
+      s4_3:
+        label: "Drivers of Satisfaction"
+        word_limit: 90
+        metrics:
+          nps_headline:
+            path: "parts.part_4.nps.result.value"
+            fmt: "nps"
+            n_path: "parts.part_4.satisfaction_drivers.n_base"
+        drivers:
+          financial_stress:
+            rho_path: "parts.part_4.satisfaction_drivers.drivers.financial_stress.value"
+            p_path: "parts.part_4.satisfaction_drivers.drivers.financial_stress.p_value"
+            n_path: "parts.part_4.satisfaction_drivers.drivers.financial_stress.n_valid"
+            suppressed_path: "parts.part_4.satisfaction_drivers.drivers.financial_stress.suppressed"
+            direction: "Raw code: 1=stress significantly reduced (best) to 5=significantly increased (worst); NPS runs 0=worst to 10=best. A negative rho here means lower financial stress correlates with a higher NPS — a positive real-world relationship, despite the negative sign."
+          coverage_understanding:
+            rho_path: "parts.part_4.satisfaction_drivers.drivers.coverage_understanding.value"
+            p_path: "parts.part_4.satisfaction_drivers.drivers.coverage_understanding.p_value"
+            n_path: "parts.part_4.satisfaction_drivers.drivers.coverage_understanding.n_valid"
+            suppressed_path: "parts.part_4.satisfaction_drivers.drivers.coverage_understanding.suppressed"
+            direction: "Raw code: 1=very good understanding (best) to 4=very poor (worst); NPS runs 0=worst to 10=best. A negative rho here means better coverage understanding correlates with a higher NPS — a positive real-world relationship, despite the negative sign."
+          claim_process_understanding:
+            rho_path: "parts.part_4.satisfaction_drivers.drivers.claim_process_understanding.value"
+            p_path: "parts.part_4.satisfaction_drivers.drivers.claim_process_understanding.p_value"
+            n_path: "parts.part_4.satisfaction_drivers.drivers.claim_process_understanding.n_valid"
+            suppressed_path: "parts.part_4.satisfaction_drivers.drivers.claim_process_understanding.suppressed"
+            direction: "Raw code: 1=very good understanding (best) to 4=very poor (worst); NPS runs 0=worst to 10=best. A negative rho here means better claims-process understanding correlates with a higher NPS — a positive real-world relationship, despite the negative sign."
+          worth_premium:
+            rho_path: "parts.part_4.satisfaction_drivers.drivers.worth_premium.value"
+            p_path: "parts.part_4.satisfaction_drivers.drivers.worth_premium.p_value"
+            n_path: "parts.part_4.satisfaction_drivers.drivers.worth_premium.n_valid"
+            suppressed_path: "parts.part_4.satisfaction_drivers.drivers.worth_premium.suppressed"
+            population: "Health & credit-life clients only — Vietnam's crop-insurance clients were not asked this question, so they are excluded from this correlation"
+            direction: "Raw code: 1=definitely worth it (best) to 5=definitely not worth it (worst); NPS runs 0=worst to 10=best. A negative rho here means feeling the premium is worth it correlates with a higher NPS — a positive real-world relationship, despite the negative sign."
+          renewal_intent:
+            rho_path: "parts.part_4.satisfaction_drivers.drivers.renewal_intent.value"
+            p_path: "parts.part_4.satisfaction_drivers.drivers.renewal_intent.p_value"
+            n_path: "parts.part_4.satisfaction_drivers.drivers.renewal_intent.n_valid"
+            suppressed_path: "parts.part_4.satisfaction_drivers.drivers.renewal_intent.suppressed"
+            population: "Vietnam's crop-insurance clients only — its lower N compared to other drivers reflects this smaller population, not suppressed/missing data — not asked of health or credit-life clients in any country"
+            direction: "Raw code: 1=definitely would renew (best) to 5=definitely would not renew (worst); NPS runs 0=worst to 10=best. A negative rho here means STRONGER renewal intent correlates with a HIGHER NPS — a positive real-world relationship. Do not describe this as renewal intent being bad for satisfaction; the negative sign is an artifact of the 1=best coding, not a negative finding."
+          confidence_pay:
+            rho_path: "parts.part_4.satisfaction_drivers.drivers.confidence_pay.value"
+            p_path: "parts.part_4.satisfaction_drivers.drivers.confidence_pay.p_value"
+            n_path: "parts.part_4.satisfaction_drivers.drivers.confidence_pay.n_valid"
+            suppressed_path: "parts.part_4.satisfaction_drivers.drivers.confidence_pay.suppressed"
+            direction: "Raw code: 1=very confident (best) to 5=not confident at all (worst); NPS runs 0=worst to 10=best. A negative rho here means higher confidence correlates with a higher NPS — a positive real-world relationship, despite the negative sign."
+        drivers_table:
+          headers: ["Driver", "ρ (Spearman)", "p-value", "N"]
+          scale_note: >
+            Note: ρ (rho) is the Spearman rank correlation coefficient, a value from -1 to +1
+            showing how strongly two things move together -- values near +1 or -1 indicate a
+            strong relationship, values near 0 indicate little to none. Spearman correlation is
+            calculated on the rank order of responses rather than their raw values, which makes
+            it well suited to Likert-scale survey questions like these. p (the p-value) shows how
+            likely a correlation this strong could appear by chance alone if no real relationship
+            existed; p<0.05 is the conventional threshold for statistical significance. N is the
+            number of respondents included in each specific calculation -- it varies by driver
+            because not every question was asked of every client (for example, Renewal Intent was
+            asked only of Vietnam's crop-insurance clients). Financial Stress, Coverage
+            Understanding, Claim Process Understanding, Worth Premium, Renewal Intent, and
+            Confidence in Payout are all scored so that a LOWER number is the more positive
+            response (e.g. 1 = "Definitely would renew"), while NPS runs the opposite way (0=worst,
+            10=best). A negative correlation with NPS for any of these drivers therefore reflects a
+            POSITIVE real-world relationship (e.g. stronger renewal intent aligns with a higher
+            NPS), not a negative one.
+        drivers_outcome_label: "client satisfaction (NPS)"
+        note: >
+          All correlations are Spearman rank correlations computed directly on q_nps_score
+          (0-10) against each driver's raw ordinal code (Likert 1-5/1-4) -- no
+          top_two_box/bottom_two_box transformation is applied, the same methodology Part 5
+          uses for its Child Wellbeing Drivers table, just with NPS instead of child wellbeing
+          as the outcome. Each driver's own [direction: ...] note above states what its sign
+          means in plain English -- use that stated direction rather than assuming a negative
+          rho is a negative finding. A driver with a null value in the JSON is suppressed --
+          show "SUPPRESSED" in the table. worth_premium and renewal_intent each have a smaller
+          N than the other drivers, reflecting their restricted populations (see each driver's
+          population note above) -- do not describe this as missing or suppressed data.
+
       insight:
         word_limit: 120
         verbatim_section: "part4"
@@ -577,6 +656,24 @@ parts:
         sig_path: "parts.part_6.metrics.confidence_pay.significance.p_value"
         claimant_sup: "parts.part_6.metrics.confidence_pay.claimant.suppressed"
         non_claimant_sup: "parts.part_6.metrics.confidence_pay.non_claimant.suppressed"
+      - key: nps
+        label: "Net Promoter Score"
+        fmt: "nps"
+        claimant_path: "parts.part_6.metrics.nps.claimant.value"
+        non_claimant_path: "parts.part_6.metrics.nps.non_claimant.value"
+        sig_path: "parts.part_6.metrics.nps.significance.p_value"
+        claimant_sup: "parts.part_6.metrics.nps.claimant.suppressed"
+        non_claimant_sup: "parts.part_6.metrics.nps.non_claimant.suppressed"
+        sig_test_note: "Significance for this row uses a Mann-Whitney U test on each group's underlying 0-10 scores, not the two-proportion z-test (chi-squared/Fisher's exact) used elsewhere in this table — NPS itself isn't a proportion."
+      - key: child_wellbeing
+        label: "Child Wellbeing Improved"
+        fmt: "pct"
+        claimant_path: "parts.part_6.metrics.child_wellbeing.claimant.value"
+        non_claimant_path: "parts.part_6.metrics.child_wellbeing.non_claimant.value"
+        sig_path: "parts.part_6.metrics.child_wellbeing.significance.p_value"
+        claimant_sup: "parts.part_6.metrics.child_wellbeing.claimant.suppressed"
+        non_claimant_sup: "parts.part_6.metrics.child_wellbeing.non_claimant.suppressed"
+        population: "Clients with children in the household (child wellbeing base), within each claimant/non-claimant group — narrower than the full claimant/non-claimant sample used by the other rows in this table"
     sections:
       narrative:
         word_limit: 100
@@ -586,7 +683,12 @@ parts:
           base (not both groups equally) should be mentioned if relevant.
           worth_premium and renewal_intent each have their own population (see each
           row's population note in the scorecard table) — do not imply the same clients
-          answered both.
+          answered both. The Net Promoter Score row is tested differently from every other
+          row (see that row's note) — do not describe it as "significant" or "not significant"
+          using the same p<0.05-chi-squared framing as the % rows; state its own p-value/test
+          if mentioning it. Child Wellbeing Improved uses a narrower population than the rest
+          of the table (see its population note) — do not imply it was asked of every
+          claimant/non-claimant.
       insight:
         word_limit: 120
         verbatim_section: "part6"

@@ -81,7 +81,7 @@ WORD_LIMITS = {
     "s1_1": 90, "s1_2": 90, "s1_2b": 70, "s1_3": 80,
     "s2_1": 100, "s2_2": 70, "s2_3": 80, "s2_4": 100,
     "s3_0": 70, "s3_1": 80, "s3_2": 70,
-    "s4_1": 90, "s4_2": 90,
+    "s4_1": 90, "s4_2": 90, "s4_3": 90,
     "s5_1": 90, "s5_2": 80, "s5_3": 80,
     "narrative": 100,
     "insight": 120,
@@ -92,7 +92,7 @@ _OUTPUT_SCHEMAS = {
     "part_1": {"s1_1": 90, "s1_2": 90, "s1_2b": 70, "s1_3": 80, "insight": 120},
     "part_2": {"s2_1": 100, "s2_2": 70, "s2_3": 80, "s2_4": 100, "insight": 120},
     "part_3": {"s3_0": 70, "s3_1": 80, "s3_2": 70, "insight": 120},
-    "part_4": {"s4_1": 90, "s4_2": 90, "insight": 120},
+    "part_4": {"s4_1": 90, "s4_2": 90, "s4_3": 90, "insight": 120},
     "part_5": {"s5_1": 90, "s5_2": 80, "s5_3": 80, "insight": 120},
     "part_6": {"narrative": 100, "insight": 120},
     "part_7": {"narrative": 100, "insight": 120},
@@ -242,10 +242,11 @@ def _build_sections_text(package: dict) -> str:
                 continue
             lines.append(_fmt_qual_value(q_key, q_val))
 
-        # Drivers (Part 5)
+        # Drivers (Part 4 satisfaction / Part 5 child wellbeing)
         drivers_data = s_data.get("drivers_data", [])
         if drivers_data:
-            lines.append("  DRIVERS (Spearman rho with child wellbeing):")
+            outcome_label = s_data.get("drivers_outcome_label", "child wellbeing")
+            lines.append(f"  DRIVERS (Spearman rho with {outcome_label}):")
             for d in drivers_data:
                 if d["suppressed"]:
                     lines.append(f"    {d['label']}: rho=SUPPRESSED")
@@ -280,6 +281,8 @@ def _build_scorecard_text(scorecard: list, group_a: str, group_b: str) -> str:
         )
         if row.get("population"):
             lines.append(f"    [population: {row['population']}]")
+        if row.get("sig_test_note"):
+            lines.append(f"    [note: {row['sig_test_note']}]")
     return "\n".join(lines)
 
 

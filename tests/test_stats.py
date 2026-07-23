@@ -16,6 +16,7 @@ from analysis_engine.stats import (
     composite_index,
     disaggregate,
     nps_score,
+    nps_scorecard_row,
     ranked_options,
     share_selecting,
     share_true,
@@ -213,6 +214,64 @@ class TestNpsScore:
         result = nps_score(pd.DataFrame({"other": [1, 2]}))
         assert result["promoters"] == {"n": 0, "pct": 0.0}
         assert result["value"] is None
+
+
+# ---------------------------------------------------------------------------
+# nps_scorecard_row
+# ---------------------------------------------------------------------------
+
+class TestNpsScorecardRow:
+    def _df_and_masks(self, scores_a, scores_b):
+        scores = scores_a + scores_b
+        df = pd.DataFrame({"q_nps_score": scores}, index=range(len(scores)))
+        mask_a = pd.Series([True] * len(scores_a) + [False] * len(scores_b), index=df.index)
+        mask_b = ~mask_a
+        return df, {"group_a": mask_a, "group_b": mask_b}
+
+    def test_shape_matches_scorecard_row_for_generic_plumbing(self):
+        # 35 promoters/detractors per side so neither is suppressed (n>=30)
+        scores_a = [9, 10] * 20  # all promoters -> NPS = 100
+        scores_b = [0, 1] * 20   # all detractors -> NPS = -100
+        df, masks = self._df_and_masks(scores_a, scores_b)
+        row = nps_scorecard_row(df, masks, "Net Promoter Score", "group_a", "group_b")
+        assert row["label"] == "Net Promoter Score"
+        assert set(row) == {"label", "group_a", "group_b", "significance"}
+        assert row["group_a"]["value"] == pytest.approx(100.0)
+        assert row["group_b"]["value"] == pytest.approx(-100.0)
+        assert row["significance"]["test"].startswith("Mann-Whitney U")
+
+    def test_large_gap_is_significant(self):
+        scores_a = [9, 10] * 20
+        scores_b = [0, 1] * 20
+        df, masks = self._df_and_masks(scores_a, scores_b)
+        row = nps_scorecard_row(df, masks, "NPS", "group_a", "group_b")
+        assert row["significance"]["p_value"] is not None
+        assert row["significance"]["p_value"] < 0.05
+        assert row["significance"]["significant"] is True
+
+    def test_identical_distributions_not_significant(self):
+        scores = [5, 6, 7, 8, 9] * 8  # n=40 per side
+        df, masks = self._df_and_masks(scores, list(scores))
+        row = nps_scorecard_row(df, masks, "NPS", "group_a", "group_b")
+        assert row["significance"]["significant"] is False
+
+    def test_suppressed_group_yields_no_p_value(self):
+        # group_b has only 5 responses -- below LOW_N_THRESHOLD (30) -> suppressed
+        scores_a = [9, 10] * 20
+        scores_b = [5, 6, 7, 8, 9]
+        df, masks = self._df_and_masks(scores_a, scores_b)
+        row = nps_scorecard_row(df, masks, "NPS", "group_a", "group_b")
+        assert row["group_b"]["suppressed"] is True
+        assert row["significance"]["p_value"] is None
+        assert row["significance"]["significant"] is False
+
+    def test_absent_segment_returns_placeholder_not_crash(self):
+        scores_a = [9, 10] * 20
+        df = pd.DataFrame({"q_nps_score": scores_a})
+        row = nps_scorecard_row(df, {"group_a": pd.Series([True] * len(df))}, "NPS", "group_a", "group_b")
+        assert row["group_b"]["suppressed"] is True
+        assert row["group_b"]["value"] is None
+        assert row["significance"]["p_value"] is None
 
 
 # ---------------------------------------------------------------------------
