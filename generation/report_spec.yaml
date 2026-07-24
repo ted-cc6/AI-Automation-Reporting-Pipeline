@@ -649,7 +649,7 @@ parts:
         claimant_sup: "parts.part_6.metrics.financial_stress_high.claimant.suppressed"
         non_claimant_sup: "parts.part_6.metrics.financial_stress_high.non_claimant.suppressed"
       - key: confidence_pay
-        label: "Confidence in Next Premium Payment"
+        label: "Confidence in Payout"
         fmt: "pct"
         claimant_path: "parts.part_6.metrics.confidence_pay.claimant.value"
         non_claimant_path: "parts.part_6.metrics.confidence_pay.non_claimant.value"
@@ -753,7 +753,7 @@ parts:
         female_sup: "parts.part_7.metrics.child_wellbeing.female.suppressed"
         male_sup: "parts.part_7.metrics.child_wellbeing.male.suppressed"
       - key: confidence_pay
-        label: "Confidence in Next Premium Payment"
+        label: "Confidence in Payout"
         fmt: "pct"
         female_path: "parts.part_7.metrics.confidence_pay.female.value"
         male_path: "parts.part_7.metrics.confidence_pay.male.value"
