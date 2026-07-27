@@ -1,0 +1,163 @@
+{
+  "codings": [
+    {
+      "response_id": "f94e2434-5b93-494d-8bf9-3379135b6409",
+      "themes": [],
+      "quote_worthy": false
+    },
+    {
+      "response_id": "8fea4ab9-52f9-40b5-8645-9a064c4ffe9c",
+      "themes": [],
+      "quote_worthy": false
+    },
+    {
+      "response_id": "f89872ab-330a-4d2f-8ebc-be27771da8b6",
+      "themes": [
+        "education_and_training"
+      ],
+      "quote_worthy": true
+    },
+    {
+      "response_id": "680ee577-5fa8-48ce-8e9b-2ca4e0666709",
+      "themes": [
+        "simplify_claim_process"
+      ],
+      "quote_worthy": true
+    },
+    {
+      "response_id": "07fa2cff-b906-4d13-a153-d7b7ee2fd0e3",
+      "themes": [],
+      "quote_worthy": false
+    },
+    {
+      "response_id": "ebfcb424-35ea-43b6-849f-ef84534463da",
+      "themes": [],
+      "quote_worthy": false
+    },
+    {
+      "response_id": "a6da53ef-e90b-425f-babd-c6a70aaaa5d5",
+      "themes": [
+        "education_and_training"
+      ],
+      "quote_worthy": true
+    },
+    {
+      "response_id": "d4a4cfb2-1d0f-4a49-8f36-f37f015b32b1",
+      "themes": [
+        "education_and_training"
+      ],
+      "quote_worthy": true
+    },
+    {
+      "response_id": "a8d32413-53cd-44b9-8106-bade46bde3ad",
+      "themes": [
+        "education_and_training"
+      ],
+      "quote_worthy": true
+    },
+    {
+      "response_id": "530b72d7-81be-4591-b71a-db72263c4357",
+      "themes": [
+        "education_and_training"
+      ],
+      "quote_worthy": false
+    },
+    {
+      "response_id": "cee7f8e1-b52f-453e-a36d-4dbc5306d8d8",
+      "themes": [
+        "education_and_training"
+      ],
+      "quote_worthy": false
+    },
+    {
+      "response_id": "b543ef89-851b-463e-b8aa-0cc9ffe1f3dd",
+      "themes": [],
+      "quote_worthy": false
+    },
+    {
+      "response_id": "3a76e7cc-906d-40fc-95e0-5958d540a676",
+      "themes": [
+        "increase_benefits"
+      ],
+      "quote_worthy": true
+    },
+    {
+      "response_id": "d077c719-2a7b-45ba-89b8-476be44a070a",
+      "themes": [],
+      "quote_worthy": false
+    },
+    {
+      "response_id": "e24841e9-7fb5-4ba0-bbb7-95ec1df136bd",
+      "themes": [],
+      "quote_worthy": false
+    },
+    {
+      "response_id": "c52a61ab-7356-4358-a578-2dc6549a2798",
+      "themes": [
+        "education_and_training"
+      ],
+      "quote_worthy": true
+    },
+    {
+      "response_id": "02ddb887-3290-4249-b81e-a63b03dd3eb3",
+      "themes": [
+        "education_and_training"
+      ],
+      "quote_worthy": true
+    },
+    {
+      "response_id": "8825273a-d4e3-4fa9-aaa4-816e3f0ac563",
+      "themes": [
+        "education_and_training"
+      ],
+      "quote_worthy": true
+    },
+    {
+      "response_id": "20b1f982-315f-4ca4-a317-656984bda580",
+      "themes": [
+        "education_and_training"
+      ],
+      "quote_worthy": true
+    },
+    {
+      "response_id": "6a66f84f-2f35-4ce6-980f-0e25f400e463",
+      "themes": [
+        "education_and_training"
+      ],
+      "quote_worthy": false
+    },
+    {
+      "response_id": "a07a241d-9483-4eef-9f61-30591279dadd",
+      "themes": [
+        "education_and_training"
+      ],
+      "quote_worthy": false
+    },
+    {
+      "response_id": "7efb0316-5826-4211-807a-955612a31083",
+      "themes": [],
+      "quote_worthy": false
+    },
+    {
+      "response_id": "aa4f09b6-8aa3-46f3-82b4-120ef9f850ad",
+      "themes": [
+        "education_and_training"
+      ],
+      "quote_worthy": false
+    },
+    {
+      "response_id": "2bf3b070-26e2-4eb2-be3a-48ec48dd1c05",
+      "themes": [
+        "education_and_training"
+      ],
+      "quote_worthy": true
+    },
+    {
+      "response_id": "a2a0f1fa-af79-471c-9bc4-25a0d8dfab2b",
+      "themes": [
+        "education_and_training"
+      ],
+      "quote_worthy": false
+    }
+  ]
+}

@@ -1,0 +1,7 @@
+@import "../../styles/forms.css";
+@import "../SetupPanel/SetupPanel.css";
+
+.gedsi-note {
+  margin: 0;
+  color: var(--color-ink-soft);
+}

@@ -1,0 +1,46 @@
+{
+  "themes": [
+    {
+      "code": "financial_protection_and_peace_of_mind",
+      "label": "Financial Protection and Peace of Mind",
+      "definition": "The insurance provides a valuable safety net, reducing financial stress and offering peace of mind during emergencies, illness, or death.",
+      "example_quote": "It protects your finances from unexpected events and knowing you're covered it reduces stress ."
+    },
+    {
+      "code": "no_prior_claims_or_experience",
+      "label": "No Prior Claims or Experience",
+      "definition": "The respondent has not yet experienced an emergency or made a claim, making it difficult to fully evaluate or recommend the insurance.",
+      "example_quote": "I have not made claims yet but I think it will be helpful"
+    },
+    {
+      "code": "need_for_training_and_awareness",
+      "label": "Need for Training and Awareness",
+      "definition": "Respondents express a desire for more education, training, or clearer information to fully understand how the insurance works and how to use it.",
+      "example_quote": "We need group training because there are some things we don’t fully understand"
+    },
+    {
+      "code": "low_payout_amounts",
+      "label": "Low Payout Amounts",
+      "definition": "While the insurance is helpful, the compensation or payout amount is perceived as too low to fully cover the losses or expenses incurred.",
+      "example_quote": "Bảo hiểm có bồi thường nhưng số tiền nhỏ nên tôi thấy chưa khắc phục được nhiều"
+    },
+    {
+      "code": "slow_processing_and_delays",
+      "label": "Slow Processing and Delays",
+      "definition": "The process of submitting claims, receiving compensation, or getting assistance from staff is slow or delayed.",
+      "example_quote": "Your service is good, but the problem is that compensation takes too long."
+    },
+    {
+      "code": "simple_procedures_and_good_service",
+      "label": "Simple Procedures and Good Service",
+      "definition": "The insurance application, claim procedures, or staff interactions are simple, easy to understand, and efficient.",
+      "example_quote": "Thủ tục gọn gàng, dễ hiểu. Số tiền bồi thường không nhiều nhưng động viên tinh thần trong lúc khó khăn"
+    },
+    {
+      "code": "affordability_and_value",
+      "label": "Affordable Premiums and Value",
+      "definition": "The insurance is highly valued because the premiums are low and affordable, especially relative to the potential benefits.",
+      "example_quote": "The premium we are paying is small, the benefits we will receive in time of unforeseen events will be high"
+    }
+  ]
+}

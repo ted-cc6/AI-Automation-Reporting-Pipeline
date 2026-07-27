@@ -1,0 +1,174 @@
+{
+  "codings": [
+    {
+      "response_id": "2fec562c-58f5-4feb-943a-fc96db80759f",
+      "themes": [
+        "timely_payouts"
+      ],
+      "quote_worthy": true
+    },
+    {
+      "response_id": "de7e5e9f-67a6-4556-871a-831c2316f12b",
+      "themes": [
+        "education_and_training",
+        "timely_payouts"
+      ],
+      "quote_worthy": false
+    },
+    {
+      "response_id": "16ff2318-76b6-454e-980c-580e66b480b7",
+      "themes": [
+        "education_and_training"
+      ],
+      "quote_worthy": false
+    },
+    {
+      "response_id": "546b5221-4ac4-4ed9-91ea-b9da55e39e0e",
+      "themes": [
+        "education_and_training"
+      ],
+      "quote_worthy": true
+    },
+    {
+      "response_id": "20a7850a-eed9-457e-ad52-3d936cb6e36a",
+      "themes": [
+        "timely_payouts",
+        "simplify_claim_process"
+      ],
+      "quote_worthy": true
+    },
+    {
+      "response_id": "465f24d0-1d53-4bb8-9872-f8fbdf188267",
+      "themes": [
+        "family_coverage"
+      ],
+      "quote_worthy": false
+    },
+    {
+      "response_id": "b2fbb759-fdf8-4d4c-9d77-29bb63c37f4f",
+      "themes": [],
+      "quote_worthy": false
+    },
+    {
+      "response_id": "4ad823d8-df47-4e86-aa6b-661b3acfa8e9",
+      "themes": [],
+      "quote_worthy": false
+    },
+    {
+      "response_id": "796a916f-145a-4b76-9a27-fec77765d4e3",
+      "themes": [
+        "education_and_training",
+        "simplify_claim_process"
+      ],
+      "quote_worthy": true
+    },
+    {
+      "response_id": "8a8d2330-e1e7-47c8-b8a6-d909f93b3058",
+      "themes": [
+        "family_coverage"
+      ],
+      "quote_worthy": true
+    },
+    {
+      "response_id": "d896d6b0-14c3-42fc-85f0-e9cd18fd1b97",
+      "themes": [
+        "education_and_training"
+      ],
+      "quote_worthy": false
+    },
+    {
+      "response_id": "fe2d2797-6ed1-40e9-bcfb-8b147a53d477",
+      "themes": [],
+      "quote_worthy": false
+    },
+    {
+      "response_id": "92a047ae-b721-4861-9a66-b4101ca52a31",
+      "themes": [
+        "education_and_training",
+        "increase_benefits"
+      ],
+      "quote_worthy": true
+    },
+    {
+      "response_id": "da04817b-2c22-4f6a-ab23-8636efc3872c",
+      "themes": [
+        "education_and_training"
+      ],
+      "quote_worthy": false
+    },
+    {
+      "response_id": "305007b8-0266-4ff0-bced-e369e799ac5b",
+      "themes": [],
+      "quote_worthy": false
+    },
+    {
+      "response_id": "9a112f80-e720-448a-a4ae-b0fb6fe41688",
+      "themes": [],
+      "quote_worthy": false
+    },
+    {
+      "response_id": "aade8389-e6d5-4da8-85c6-acc8b0527c18",
+      "themes": [
+        "family_coverage"
+      ],
+      "quote_worthy": true
+    },
+    {
+      "response_id": "b055b018-462d-4b33-ab1a-285b38ad6354",
+      "themes": [
+        "education_and_training"
+      ],
+      "quote_worthy": false
+    },
+    {
+      "response_id": "eb516d66-cf43-4d30-a2b3-c840aae7cac6",
+      "themes": [
+        "family_coverage"
+      ],
+      "quote_worthy": true
+    },
+    {
+      "response_id": "ae05c4d6-98d3-40f9-b57e-f0425e3c249a",
+      "themes": [
+        "increase_benefits"
+      ],
+      "quote_worthy": true
+    },
+    {
+      "response_id": "331d0b66-ce03-4c83-8744-1fe388147ef4",
+      "themes": [
+        "education_and_training",
+        "simplify_claim_process"
+      ],
+      "quote_worthy": true
+    },
+    {
+      "response_id": "053f5842-5b47-40f3-b01f-8dfebeab8cdd",
+      "themes": [
+        "timely_payouts"
+      ],
+      "quote_worthy": false
+    },
+    {
+      "response_id": "70fd113b-6dfd-45fc-9936-72a2aa2f20ca",
+      "themes": [
+        "timely_payouts"
+      ],
+      "quote_worthy": false
+    },
+    {
+      "response_id": "eace0974-07e5-4855-b26b-7eb528c6928a",
+      "themes": [
+        "education_and_training"
+      ],
+      "quote_worthy": false
+    },
+    {
+      "response_id": "fa665f99-e7f3-426e-813d-9e34858d3262",
+      "themes": [
+        "education_and_training"
+      ],
+      "quote_worthy": false
+    }
+  ]
+}

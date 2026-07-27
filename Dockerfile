@@ -26,13 +26,22 @@ COPY dashboard ./dashboard
 COPY country_configs ./country_configs
 COPY insurance-report-spec.yaml insurance-report-spec.schema.json ./
 
-RUN pip install --no-cache-dir ".[dashboard]"
+# GEDSI (Gender Study) pipeline lives in its own sibling project folder, not
+# pip-installed -- dashboard/api/config.py adds GENDSI_ROOT to sys.path at
+# import time so `from gedsi_pipeline import ...` resolves the same way it
+# does in dev. Only the source and the pre-reviewed codebooks ship in the
+# image; cache/, docs, RUNBOOK.md, and requirements.txt are dev-only and
+# never read at runtime.
+COPY GENDSI/gedsi_pipeline ./GENDSI/gedsi_pipeline
+COPY GENDSI/work/codebooks ./GENDSI/work/codebooks
+
+RUN pip install --no-cache-dir ".[dashboard]" openpyxl  # openpyxl: gedsi_pipeline's .xlsx workbook output
 
 # Bring in the built frontend from stage 1
 COPY --from=frontend-build /frontend/dist ./dashboard/web/dist
 
-# Runtime-writable dirs (uploads/runs) -- created empty, never baked with data
-RUN mkdir -p /app/runs /app/dashboard/api/uploads
+# Runtime-writable dirs (uploads/runs/GEDSI's LLM cache) -- created empty, never baked with data
+RUN mkdir -p /app/runs /app/dashboard/api/uploads /app/GENDSI/cache
 
 # Hugging Face Spaces (Docker SDK) proxies to the port declared as app_port
 # in the Space README (7860 by convention); PORT is read at runtime so

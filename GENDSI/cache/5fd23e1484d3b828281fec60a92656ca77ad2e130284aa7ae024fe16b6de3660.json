@@ -1,0 +1,40 @@
+{
+  "themes": [
+    {
+      "code": "health_and_medical_coverage",
+      "label": "Health and Medical Coverage",
+      "definition": "The insurance provides crucial financial support for medical bills, hospitalization, and sickness.",
+      "example_quote": "insurance will pay medical expenses when one is hospitalized"
+    },
+    {
+      "code": "financial_security_and_peace_of_mind",
+      "label": "Financial Security and Peace of Mind",
+      "definition": "The insurance reduces stress, protects assets, and provides a safety net that allows clients to maintain their normal lives during crises.",
+      "example_quote": "Its a safety  net for your finances  and future  and knowing  you're  covered  reduces  stress  and anxiety."
+    },
+    {
+      "code": "loan_repayment_and_death_benefits",
+      "label": "Loan Repayment and Death Benefits",
+      "definition": "The insurance covers outstanding loan balances and provides compensation or funeral support to families in the event of a member's death or disability.",
+      "example_quote": "taking a loan and have insurance cover helps reduce financial stress on family in the event of dead"
+    },
+    {
+      "code": "affordability_and_value",
+      "label": "Affordability and Value",
+      "definition": "The insurance is highly accessible due to its low cost, cheap premiums, and high cost-benefit ratio.",
+      "example_quote": "The health insurance its affordable because they pay on ush 600 monthly"
+    },
+    {
+      "code": "simple_processes_and_quick_claims",
+      "label": "Simple Processes and Quick Claims",
+      "definition": "The claims process is fast, transparent, and straightforward, with minimal administrative hassle.",
+      "example_quote": "Claims are processed quickly, provided all necessary documents are submitted with a witness from one of the group members."
+    },
+    {
+      "code": "education_and_customer_care",
+      "label": "Education and Customer Care",
+      "definition": "VisionFund staff provide excellent customer service, clear explanations, and valuable educational workshops about how insurance works.",
+      "example_quote": "The officer taught us insurance."
+    }
+  ]
+}

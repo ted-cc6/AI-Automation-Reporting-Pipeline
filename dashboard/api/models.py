@@ -42,15 +42,21 @@ class PowerBiConfigRequest(BaseModel):
     report_id: Optional[str] = None
 
 
+ReportType = Literal["cupboard_week", "gender_study"]
+
+
 class StartRunRequest(BaseModel):
+    report_type: ReportType = "cupboard_week"
     upload_id: str
-    country: str
-    year: int
-    quarter: int
-    run_id: Optional[str] = None
     llm: LlmConfig
-    powerbi: PowerBiConfigRequest = PowerBiConfigRequest()
+    run_id: Optional[str] = None
     dry_run: bool = False
+    # Cupboard Week only -- required when report_type == "cupboard_week",
+    # ignored for gender_study (which has no country/quarter concept).
+    country: Optional[str] = None
+    year: Optional[int] = None
+    quarter: Optional[int] = None
+    powerbi: PowerBiConfigRequest = PowerBiConfigRequest()
 
 
 class StartRunResponse(BaseModel):
@@ -60,6 +66,7 @@ class StartRunResponse(BaseModel):
 
 class RunSummary(BaseModel):
     run_id: str
+    pipeline: ReportType = "cupboard_week"
     status: str
     created_at: Optional[str] = None
 
@@ -127,6 +134,53 @@ class ApplyDecisionsRequest(BaseModel):
 
 
 class ApplyDecisionsResponse(BaseModel):
+    upload_id: str
+    validator_passed: bool
+    errors: list[str] = []
+    warnings: list[str] = []
+    renamed_count: int = 0
+    new_question_count: int = 0
+    dropped_count: int = 0
+
+
+# --- GEDSI (Gender Study) reconciliation ---
+# Same rename/new_question/dropped taxonomy as the Cupboard Week models
+# above, but "new_question" resolves to GENDSI's own role-typed mapping
+# (quant_indicator / qual_supplementary / multiselect_option / unused)
+# instead of a response_type. See dashboard/api/gedsi_reconciliation.py.
+GedsiNewRoleType = Literal["quant_indicator", "qual_supplementary", "multiselect_option", "unused"]
+
+
+class GedsiRecommendationOut(BaseModel):
+    id: str
+    type: RecommendationType
+    confidence: float
+    rationale: str
+    old_raw_index: Optional[int] = None
+    old_header: Optional[str] = None
+    old_role_type: Optional[str] = None
+    old_role_name: Optional[str] = None
+    old_group_name: Optional[str] = None
+    old_option_label: Optional[str] = None
+    new_csv_index: Optional[int] = None
+    new_header: Optional[str] = None
+    suggested_role_type: Optional[GedsiNewRoleType] = None
+    suggested_role_name: Optional[str] = None
+    suggested_group_name: Optional[str] = None
+    suggested_option_label: Optional[str] = None
+    suggested_applies_to: Optional[str] = None
+    approved: Optional[bool] = None
+
+
+class GedsiValidateDatasetResponse(BaseModel):
+    upload_id: str
+    clean: bool
+    recommendations: list[GedsiRecommendationOut] = []
+    residual_old_count: int = 0
+    residual_new_count: int = 0
+
+
+class GedsiApplyDecisionsResponse(BaseModel):
     upload_id: str
     validator_passed: bool
     errors: list[str] = []

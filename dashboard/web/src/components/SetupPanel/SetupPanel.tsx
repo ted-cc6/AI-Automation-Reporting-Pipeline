@@ -96,6 +96,7 @@ export function SetupPanel(props: {
         {props.csvUpload && (
           <DatasetValidation
             key={props.csvUpload.upload_id}
+            endpointBase="/reconcile"
             uploadId={props.csvUpload.upload_id}
             provider={props.provider}
             apiKey={props.apiKey}

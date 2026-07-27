@@ -1,0 +1,177 @@
+{
+  "codings": [
+    {
+      "response_id": "a9668eef-3b62-46c1-82d2-2524fbff380f",
+      "themes": [
+        "financial_protection_and_peace_of_mind"
+      ],
+      "quote_worthy": true
+    },
+    {
+      "response_id": "73fcc2d4-8dd0-4196-8447-bac495e7627b",
+      "themes": [
+        "financial_protection_and_peace_of_mind"
+      ],
+      "quote_worthy": true
+    },
+    {
+      "response_id": "943e0946-46d2-4cb8-b137-69eadba27fe5",
+      "themes": [
+        "financial_protection_and_peace_of_mind"
+      ],
+      "quote_worthy": false
+    },
+    {
+      "response_id": "5eb11f63-7a55-43e3-8fe4-b23ad9f8870d",
+      "themes": [
+        "financial_protection_and_peace_of_mind",
+        "no_prior_claims_or_experience"
+      ],
+      "quote_worthy": false
+    },
+    {
+      "response_id": "b1664d9b-305e-4799-a152-2594982a25a0",
+      "themes": [
+        "financial_protection_and_peace_of_mind"
+      ],
+      "quote_worthy": false
+    },
+    {
+      "response_id": "51404574-6581-4411-9495-4a626f3bcbc6",
+      "themes": [
+        "financial_protection_and_peace_of_mind"
+      ],
+      "quote_worthy": true
+    },
+    {
+      "response_id": "425ebc1a-8215-4901-9095-a360bb77f407",
+      "themes": [
+        "financial_protection_and_peace_of_mind"
+      ],
+      "quote_worthy": true
+    },
+    {
+      "response_id": "e91c62af-6753-4cd6-9265-9703ebc1f7ff",
+      "themes": [
+        "financial_protection_and_peace_of_mind"
+      ],
+      "quote_worthy": true
+    },
+    {
+      "response_id": "233c852c-3cdc-4bd1-b165-f3a38232f7b7",
+      "themes": [
+        "financial_protection_and_peace_of_mind"
+      ],
+      "quote_worthy": true
+    },
+    {
+      "response_id": "f41e6ac9-a685-426e-9b57-30cb89bacac1",
+      "themes": [
+        "financial_protection_and_peace_of_mind"
+      ],
+      "quote_worthy": true
+    },
+    {
+      "response_id": "f6b2908a-dd7b-4631-8d9f-e70e7fb3310b",
+      "themes": [],
+      "quote_worthy": false
+    },
+    {
+      "response_id": "f9e39ca2-7905-41f6-badf-a22fd26dbccd",
+      "themes": [],
+      "quote_worthy": false
+    },
+    {
+      "response_id": "e6251a52-4431-40a5-9fe9-9efa65b27236",
+      "themes": [
+        "financial_protection_and_peace_of_mind"
+      ],
+      "quote_worthy": false
+    },
+    {
+      "response_id": "acf75281-5633-4ff2-a9d4-4f626c82437c",
+      "themes": [
+        "financial_protection_and_peace_of_mind",
+        "simple_procedures_and_good_service"
+      ],
+      "quote_worthy": true
+    },
+    {
+      "response_id": "3885f22d-01bc-4ba2-819f-110e3635c244",
+      "themes": [],
+      "quote_worthy": false
+    },
+    {
+      "response_id": "3e25c1a9-dc51-4515-9227-479df09ceb1f",
+      "themes": [
+        "financial_protection_and_peace_of_mind"
+      ],
+      "quote_worthy": true
+    },
+    {
+      "response_id": "8ceda847-17b2-4bc7-bd8a-50ef9d2a4f54",
+      "themes": [
+        "financial_protection_and_peace_of_mind"
+      ],
+      "quote_worthy": false
+    },
+    {
+      "response_id": "2a887170-860c-44b3-bbff-0911714978d3",
+      "themes": [
+        "financial_protection_and_peace_of_mind"
+      ],
+      "quote_worthy": true
+    },
+    {
+      "response_id": "f82f32e9-560f-4526-9529-64fe0c884225",
+      "themes": [
+        "slow_processing_and_delays"
+      ],
+      "quote_worthy": false
+    },
+    {
+      "response_id": "ab02401d-e3d2-440e-b142-196e37145e1f",
+      "themes": [
+        "simple_procedures_and_good_service",
+        "slow_processing_and_delays"
+      ],
+      "quote_worthy": true
+    },
+    {
+      "response_id": "b29f45ad-b071-4329-bae6-9cadc02de5d5",
+      "themes": [
+        "simple_procedures_and_good_service",
+        "slow_processing_and_delays",
+        "need_for_training_and_awareness"
+      ],
+      "quote_worthy": true
+    },
+    {
+      "response_id": "d3baa29c-96e3-4ad0-bcf2-85f7ce8ed294",
+      "themes": [
+        "financial_protection_and_peace_of_mind"
+      ],
+      "quote_worthy": true
+    },
+    {
+      "response_id": "6fd07ab0-d3c9-42c7-9d3c-739f629b47ae",
+      "themes": [
+        "financial_protection_and_peace_of_mind"
+      ],
+      "quote_worthy": true
+    },
+    {
+      "response_id": "9eaa21db-2bff-4642-bb6a-596b4d33b69c",
+      "themes": [
+        "financial_protection_and_peace_of_mind",
+        "affordability_and_value"
+      ],
+      "quote_worthy": false
+    },
+    {
+      "response_id": "6a4632cd-158a-47e6-9d71-3e1d7d12502d",
+      "themes": [],
+      "quote_worthy": false
+    }
+  ]
+}

@@ -1,1 +1,7 @@
 @import "../../styles/forms.css";
+
+.locked-provider-note {
+  margin: 0;
+  font-size: var(--text-caption);
+  color: var(--color-ink-soft);
+}

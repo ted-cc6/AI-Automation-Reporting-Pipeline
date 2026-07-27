@@ -1,0 +1,196 @@
+{
+  "codings": [
+    {
+      "response_id": "c915368e-4268-4514-95d5-d5294c5678c8",
+      "themes": [
+        "simple_processes_and_quick_claims",
+        "financial_security_and_peace_of_mind"
+      ],
+      "quote_worthy": true
+    },
+    {
+      "response_id": "e865de29-4c74-4bf4-9dda-fff402d5d334",
+      "themes": [
+        "financial_security_and_peace_of_mind",
+        "simple_processes_and_quick_claims"
+      ],
+      "quote_worthy": true
+    },
+    {
+      "response_id": "d37cc275-ee50-46ae-be6e-fbcb0fcc42e5",
+      "themes": [
+        "education_and_customer_care",
+        "simple_processes_and_quick_claims"
+      ],
+      "quote_worthy": true
+    },
+    {
+      "response_id": "6c897da4-5aa6-47af-b08b-2cde8d47a11e",
+      "themes": [
+        "simple_processes_and_quick_claims",
+        "education_and_customer_care",
+        "financial_security_and_peace_of_mind"
+      ],
+      "quote_worthy": true
+    },
+    {
+      "response_id": "344f1ebb-e9d6-4549-bba5-fb7ba159a721",
+      "themes": [
+        "financial_security_and_peace_of_mind"
+      ],
+      "quote_worthy": true
+    },
+    {
+      "response_id": "5e892b87-ed51-4931-acc6-d0fb45060556",
+      "themes": [
+        "financial_security_and_peace_of_mind"
+      ],
+      "quote_worthy": true
+    },
+    {
+      "response_id": "aff2054a-2e34-4ca3-8f89-9effe9caa209",
+      "themes": [
+        "financial_security_and_peace_of_mind"
+      ],
+      "quote_worthy": true
+    },
+    {
+      "response_id": "0f14a0c9-9e8e-4841-b78b-e1a12d81bcb4",
+      "themes": [
+        "financial_security_and_peace_of_mind"
+      ],
+      "quote_worthy": false
+    },
+    {
+      "response_id": "3f142257-188c-4984-aa25-ecb479125f64",
+      "themes": [
+        "financial_security_and_peace_of_mind"
+      ],
+      "quote_worthy": false
+    },
+    {
+      "response_id": "cfd1ae18-5a14-48d6-a736-26cff87c86f5",
+      "themes": [
+        "affordability_and_value"
+      ],
+      "quote_worthy": false
+    },
+    {
+      "response_id": "f553b56b-6fea-4d72-8e0c-589ad6af7b34",
+      "themes": [
+        "financial_security_and_peace_of_mind"
+      ],
+      "quote_worthy": false
+    },
+    {
+      "response_id": "1233edc8-e08f-479b-bfa1-1e79d62ef110",
+      "themes": [
+        "education_and_customer_care",
+        "simple_processes_and_quick_claims",
+        "financial_security_and_peace_of_mind"
+      ],
+      "quote_worthy": true
+    },
+    {
+      "response_id": "d71f48e7-a5e4-4723-a7d6-79b6c9efa033",
+      "themes": [
+        "simple_processes_and_quick_claims"
+      ],
+      "quote_worthy": false
+    },
+    {
+      "response_id": "cc0d7e8b-3ae1-4b00-8957-fd4a599342d5",
+      "themes": [
+        "affordability_and_value",
+        "financial_security_and_peace_of_mind"
+      ],
+      "quote_worthy": true
+    },
+    {
+      "response_id": "8c1b4240-aae0-4ca5-8e51-b5c565426561",
+      "themes": [
+        "simple_processes_and_quick_claims",
+        "education_and_customer_care",
+        "financial_security_and_peace_of_mind"
+      ],
+      "quote_worthy": true
+    },
+    {
+      "response_id": "0bb5f85e-d1f0-4dbe-86c6-9074491690de",
+      "themes": [
+        "financial_security_and_peace_of_mind"
+      ],
+      "quote_worthy": true
+    },
+    {
+      "response_id": "7ac6639a-60b6-41ea-ab3d-d880987824b4",
+      "themes": [
+        "simple_processes_and_quick_claims"
+      ],
+      "quote_worthy": true
+    },
+    {
+      "response_id": "ea45f8cb-e6e3-4380-8fc1-ad8064afb92a",
+      "themes": [
+        "affordability_and_value",
+        "simple_processes_and_quick_claims"
+      ],
+      "quote_worthy": true
+    },
+    {
+      "response_id": "043e25a7-07ea-4998-9788-8a6a75a1bca3",
+      "themes": [
+        "education_and_customer_care",
+        "financial_security_and_peace_of_mind"
+      ],
+      "quote_worthy": true
+    },
+    {
+      "response_id": "87302349-c0eb-4791-ab2f-e6117cde7373",
+      "themes": [
+        "simple_processes_and_quick_claims",
+        "education_and_customer_care"
+      ],
+      "quote_worthy": true
+    },
+    {
+      "response_id": "2d30bfb1-6f3a-494a-b271-b17683b4e488",
+      "themes": [
+        "financial_security_and_peace_of_mind"
+      ],
+      "quote_worthy": true
+    },
+    {
+      "response_id": "023078cd-645f-47b3-bb8d-9417cbce8598",
+      "themes": [
+        "simple_processes_and_quick_claims",
+        "education_and_customer_care"
+      ],
+      "quote_worthy": true
+    },
+    {
+      "response_id": "42c661dc-7e75-462b-92f3-372d0d3a0484",
+      "themes": [
+        "education_and_customer_care",
+        "financial_security_and_peace_of_mind"
+      ],
+      "quote_worthy": true
+    },
+    {
+      "response_id": "64731123-e126-41ca-a290-b1728e39de39",
+      "themes": [
+        "simple_processes_and_quick_claims",
+        "education_and_customer_care"
+      ],
+      "quote_worthy": true
+    },
+    {
+      "response_id": "3562aac6-1bd9-42e5-9c8e-f406880ddcf3",
+      "themes": [
+        "simple_processes_and_quick_claims",
+        "financial_security_and_peace_of_mind"
+      ],
+      "quote_worthy": true
+    }
+  ]
+}

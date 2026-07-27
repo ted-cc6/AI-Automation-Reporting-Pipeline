@@ -22,12 +22,17 @@ export interface LlmValidateResponse {
 
 export type RecommendationType = "rename" | "new_question" | "dropped";
 export type NewQuestionResponseType = "open_text" | "single_select" | "likert5" | "nps_score" | "age";
+export type GedsiNewRoleType = "quant_indicator" | "qual_supplementary" | "multiselect_option" | "unused";
 
 export interface LikertValueEntry {
   int: number;
   label: string;
 }
 
+// Covers both reconciliation backends' recommendation shape (Cupboard
+// Week's question_ref/response_type taxonomy and GEDSI's role-typed
+// mapping) so DatasetValidation.tsx's card UI can render either without
+// forking the component -- see endpointBase on DatasetValidation.
 export interface Recommendation {
   id: string;
   type: RecommendationType;
@@ -35,14 +40,25 @@ export interface Recommendation {
   rationale: string;
   old_raw_index?: number | null;
   old_header?: string | null;
-  old_question_ref?: string | null;
-  old_category?: string | null;
   new_csv_index?: number | null;
   new_header?: string | null;
+  approved?: boolean | null;
+  // Cupboard Week fields:
+  old_question_ref?: string | null;
+  old_category?: string | null;
   suggested_question_ref?: string | null;
   suggested_response_type?: NewQuestionResponseType | null;
   suggested_value_map?: Record<string, LikertValueEntry> | null;
-  approved?: boolean | null;
+  // GEDSI fields:
+  old_role_type?: string | null;
+  old_role_name?: string | null;
+  old_group_name?: string | null;
+  old_option_label?: string | null;
+  suggested_role_type?: GedsiNewRoleType | null;
+  suggested_role_name?: string | null;
+  suggested_group_name?: string | null;
+  suggested_option_label?: string | null;
+  suggested_applies_to?: string | null;
 }
 
 export interface ValidateDatasetResponse {
@@ -68,8 +84,11 @@ export interface StartRunResponse {
   status: string;
 }
 
+export type ReportType = "cupboard_week" | "gender_study";
+
 export interface RunSummary {
   run_id: string;
+  pipeline: ReportType;
   status: string;
   created_at?: string;
 }
@@ -95,7 +114,8 @@ export interface PartStatus {
 
 export interface RunSnapshot {
   run_id: string;
-  country: string;
+  pipeline: ReportType;
+  country: string | null;
   created_at: string;
   status: string;
   current_stage: number;
@@ -103,8 +123,13 @@ export interface RunSnapshot {
   stage2: StageInfo;
   stage3: StageInfo;
   stage4: StageInfo & { parts: Record<string, PartStatus> };
+  // Only meaningful for gender_study runs (GEDSI's 6-stage pipeline);
+  // present but always "pending" on cupboard_week runs.
+  stage5: StageInfo;
+  stage6: StageInfo;
   error?: string | null;
   docx_ready: boolean;
+  xlsx_ready: boolean;
 }
 
 async function req<T>(path: string, init?: RequestInit): Promise<T> {
@@ -136,8 +161,16 @@ export function validateLlmKey(provider: Provider, api_key: string): Promise<Llm
   });
 }
 
-export function validateDataset(uploadId: string, provider: Provider, api_key: string): Promise<ValidateDatasetResponse> {
-  return req(`/reconcile/${uploadId}/validate`, {
+// endpointBase points at either reconciliation backend's route prefix, e.g.
+// "/reconcile" (Cupboard Week) or "/gedsi-reconcile" (Gender Study) -- both
+// mounted under the shared /api prefix already baked into req().
+export function validateDataset(
+  endpointBase: string,
+  uploadId: string,
+  provider: Provider,
+  api_key: string,
+): Promise<ValidateDatasetResponse> {
+  return req(`${endpointBase}/${uploadId}/validate`, {
     method: "POST",
     headers: jsonHeaders,
     body: JSON.stringify({ llm: { provider, api_key } }),
@@ -145,10 +178,11 @@ export function validateDataset(uploadId: string, provider: Provider, api_key: s
 }
 
 export function applyDecisions(
+  endpointBase: string,
   uploadId: string,
   decisions: { id: string; approved: boolean }[],
 ): Promise<ApplyDecisionsResponse> {
-  return req(`/reconcile/${uploadId}/apply`, {
+  return req(`${endpointBase}/${uploadId}/apply`, {
     method: "POST",
     headers: jsonHeaders,
     body: JSON.stringify({ decisions }),
@@ -156,12 +190,14 @@ export function applyDecisions(
 }
 
 export interface StartRunRequest {
+  report_type: ReportType;
   upload_id: string;
-  country: string;
-  year: number;
-  quarter: number;
   run_id?: string;
   llm: { provider: Provider; api_key: string; model?: string };
+  // Cupboard Week only -- required when report_type is "cupboard_week".
+  country?: string;
+  year?: number;
+  quarter?: number;
 }
 
 export function startRun(payload: StartRunRequest): Promise<StartRunResponse> {
@@ -189,4 +225,8 @@ export function uploadVisual(runId: string, slot: string, file: File): Promise<V
 
 export function downloadUrl(runId: string): string {
   return `${BASE}/runs/${runId}/download`;
+}
+
+export function downloadXlsxUrl(runId: string): string {
+  return `${BASE}/runs/${runId}/download-xlsx`;
 }

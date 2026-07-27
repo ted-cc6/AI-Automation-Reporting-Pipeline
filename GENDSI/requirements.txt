@@ -1,0 +1,8 @@
+pandas
+pyarrow
+anthropic
+python-docx
+openpyxl
+scipy
+statsmodels
+tqdm

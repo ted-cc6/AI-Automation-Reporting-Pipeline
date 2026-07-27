@@ -11,7 +11,15 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
 from dashboard.api.config import PROJECT_ROOT
-from dashboard.api.routes import country_routes, csv_routes, llm_routes, reconcile_routes, run_routes, visuals_routes
+from dashboard.api.routes import (
+    country_routes,
+    csv_routes,
+    gedsi_reconcile_routes,
+    llm_routes,
+    reconcile_routes,
+    run_routes,
+    visuals_routes,
+)
 
 app = FastAPI(title="VFI Insurance Report Dashboard API")
 
@@ -31,6 +39,7 @@ app.include_router(csv_routes.router)
 app.include_router(country_routes.router)
 app.include_router(llm_routes.router)
 app.include_router(reconcile_routes.router)
+app.include_router(gedsi_reconcile_routes.router)
 app.include_router(run_routes.router)
 app.include_router(visuals_routes.router)
 

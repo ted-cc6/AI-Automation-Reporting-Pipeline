@@ -1,0 +1,67 @@
+{
+  "codings": [
+    {
+      "response_id": "f4c4a1e2-c99e-42ad-96c2-f7ac9a4ed76c",
+      "themes": [
+        "simple_procedures_and_good_service",
+        "low_payout_amounts"
+      ],
+      "quote_worthy": true
+    },
+    {
+      "response_id": "cfc3ad40-8e29-49dd-a908-806689c4a555",
+      "themes": [
+        "simple_procedures_and_good_service"
+      ],
+      "quote_worthy": false
+    },
+    {
+      "response_id": "96a23fb1-ad2a-417e-9be4-a30fc04fd5b5",
+      "themes": [
+        "simple_procedures_and_good_service",
+        "financial_protection_and_peace_of_mind"
+      ],
+      "quote_worthy": true
+    },
+    {
+      "response_id": "c02a2a35-4970-4a06-8cd5-f3049ca6f326",
+      "themes": [],
+      "quote_worthy": false
+    },
+    {
+      "response_id": "6924d0df-f183-4004-9c98-fe1e1c1c7fc0",
+      "themes": [
+        "simple_procedures_and_good_service",
+        "low_payout_amounts",
+        "financial_protection_and_peace_of_mind"
+      ],
+      "quote_worthy": true
+    },
+    {
+      "response_id": "89e7b194-8267-4e8d-9540-36a25499a5e3",
+      "themes": [
+        "simple_procedures_and_good_service"
+      ],
+      "quote_worthy": false
+    },
+    {
+      "response_id": "b1943326-7836-42ad-90e0-9eb8dd09aa5b",
+      "themes": [],
+      "quote_worthy": false
+    },
+    {
+      "response_id": "061b1912-ef70-4117-a459-21566eea869d",
+      "themes": [
+        "low_payout_amounts"
+      ],
+      "quote_worthy": true
+    },
+    {
+      "response_id": "4c027b4a-ab7f-407f-bfee-0d27bbab3006",
+      "themes": [
+        "need_for_training_and_awareness"
+      ],
+      "quote_worthy": true
+    }
+  ]
+}
