@@ -36,6 +36,13 @@ class RoleMap:
     consent_col: int
     uuid_col: int
     pii_drop_cols: list[int]
+    # Named out of pii_drop_cols (not just anonymous positions) because
+    # screening.py needs their raw text transiently -- to flag test/QA
+    # submissions -- even though, like every other pii_drop column, neither
+    # ever appears in the final response frame. None if a mapping doesn't
+    # define one (screening.py skips that check rather than failing).
+    client_id_col: int | None
+    enumerator_col: int | None
     quant_indicators: dict[str, tuple[int, str | None]]        # role -> (raw index, applies_to)
     multiselect_groups: dict[str, tuple[int, dict[str, int]]]  # group -> (parent index, {option label: raw index})
     qual_primary: dict[str, int]
@@ -59,6 +66,8 @@ def load_role_map(path: Path) -> RoleMap:
     consent_col: int | None = None
     uuid_col: int | None = None
     pii_drop_cols: list[int] = []
+    client_id_col: int | None = None
+    enumerator_col: int | None = None
     quant_indicators: dict[str, tuple[int, str | None]] = {}
     multiselect_parents: dict[str, int] = {}
     multiselect_options: dict[str, dict[str, int]] = {}
@@ -88,6 +97,10 @@ def load_role_map(path: Path) -> RoleMap:
             uuid_col = idx
         elif role_type == "pii_drop":
             pii_drop_cols.append(idx)
+            if role_name == "client_id_number":
+                client_id_col = idx
+            elif role_name == "username":
+                enumerator_col = idx
         elif role_type == "quant_indicator":
             quant_indicators[role_name] = (idx, applies_to)
         elif role_type == "multiselect_parent":
@@ -119,6 +132,8 @@ def load_role_map(path: Path) -> RoleMap:
         consent_col=consent_col,
         uuid_col=uuid_col,
         pii_drop_cols=sorted(pii_drop_cols),
+        client_id_col=client_id_col,
+        enumerator_col=enumerator_col,
         quant_indicators=quant_indicators,
         multiselect_groups=multiselect_groups,
         qual_primary=qual_primary,

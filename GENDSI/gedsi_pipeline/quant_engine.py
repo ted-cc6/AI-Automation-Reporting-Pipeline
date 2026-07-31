@@ -104,6 +104,61 @@ def gender_comparisons(df: pd.DataFrame, role_map: RoleMap | None = None) -> pd.
     return pd.DataFrame(rows)
 
 
+def understanding_by_product(df: pd.DataFrame) -> pd.DataFrame:
+    """Female vs Male coverage-understanding, computed separately within each
+    insurance product (reusing the same per-category z-test as gender_comparisons,
+    just scoped to one product at a time via `applies_to`). This lets a gender gap
+    in understanding be attributed to a specific product rather than the sample
+    as a whole, or ruled out as sample-wide."""
+    rows = []
+    for itype in sorted(df["insurance_type"].dropna().unique()):
+        rows.extend(_binary_group_rows(df, "understanding_coverage", "sex", "Female", "Male", itype))
+    rows = _apply_fdr(rows)
+    return pd.DataFrame(rows)
+
+
+def claims_by_understanding(df: pd.DataFrame) -> pd.DataFrame:
+    """Among clients who experienced an insured event, claim-submission rate
+    split by coverage-understanding level (Poor/Very poor vs Good/Very good),
+    computed separately within each sex -- tests whether the previously
+    reported gender gap in claim submission tracks a gender gap in coverage
+    understanding, reusing the same per-category z-test as gender_comparisons."""
+    event = df[df["experienced_insured_event"] == "Yes"].copy()
+    level_map = {"Very poor": "Poor_understanding", "Poor": "Poor_understanding",
+                 "Very good": "Good_understanding", "Good": "Good_understanding"}
+    event["understanding_level"] = event["understanding_coverage"].map(level_map)
+    rows = []
+    for sex in ["Female", "Male"]:
+        sex_rows = _binary_group_rows(
+            event[event["sex"] == sex], "submitted_claim", "understanding_level",
+            "Poor_understanding", "Good_understanding", None,
+        )
+        for r in sex_rows:
+            r["sex"] = sex
+        rows.extend(sex_rows)
+    rows = _apply_fdr(rows)
+    return pd.DataFrame(rows)
+
+
+def stress_reduction_by_nps_category(df: pd.DataFrame) -> pd.DataFrame:
+    """Descriptive breakdown (no significance test -- nps_category has three levels, not
+    a two-group comparison) of financial_stress_reduction responses by NPS category. Used
+    to check whether the qualitative 'peace of mind' promoter theme reported elsewhere is
+    consistent with an actual gradient in measured stress-reduction outcomes, rather than
+    letting the two facts sit in separate sections looking contradictory."""
+    sub = df[df["nps_category"].notna() & df["financial_stress_reduction"].notna()]
+    rows = []
+    for cat in ["Promoter", "Passive", "Detractor"]:
+        s = sub[sub["nps_category"] == cat]
+        n = len(s)
+        for level, count in s["financial_stress_reduction"].value_counts().items():
+            rows.append({
+                "nps_category": cat, "financial_stress_reduction": level,
+                "n": n, "count": int(count), "pct": round(100 * count / n, 1) if n else None,
+            })
+    return pd.DataFrame(rows)
+
+
 def disability_comparisons(df: pd.DataFrame, role_map: RoleMap | None = None) -> pd.DataFrame:
     role_map = role_map or config.DEFAULT_ROLE_MAP
     d = df.copy()
@@ -186,6 +241,9 @@ def build_quant_tables(df: pd.DataFrame, role_map: RoleMap | None = None) -> dic
         "gender_comparisons": gender_comparisons(df, role_map),
         "disability_comparisons": disability_comparisons(df, role_map),
         "nps_by_group": nps_by_group(df),
+        "understanding_by_product": understanding_by_product(df),
+        "claims_by_understanding": claims_by_understanding(df),
+        "stress_reduction_by_nps_category": stress_reduction_by_nps_category(df),
     }
 
 

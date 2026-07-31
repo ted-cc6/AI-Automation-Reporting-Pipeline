@@ -2,19 +2,25 @@
 Stage 0/1 -- schema mapping (validated against a RoleMap, see mapping.py) +
 ingest & clean.
 
-Produces work/response_frame.parquet: one row per consenting respondent,
-PII columns dropped, sex/disability normalized, multi-select groups decoded
-into boolean columns, response_id minted from the platform's own _uuid.
+Produces work/response_frame.parquet: one row per in-scope, consenting,
+de-duplicated respondent, PII columns dropped, sex/disability normalized,
+multi-select groups decoded into boolean columns, response_id minted from
+the platform's own _uuid. Screening (test/QA rows, exact-content duplicate
+submissions, non-consenting respondents, out-of-scope-country respondents)
+is aligned with the Cupboard Week pipeline's data_loader_screening.py -- see
+screening.py -- so both reports describe the same population from the same
+raw export.
 """
 from __future__ import annotations
 
 import csv
+import json
 import uuid
 from pathlib import Path
 
 import pandas as pd
 
-from gedsi_pipeline import config, mapping
+from gedsi_pipeline import config, mapping, screening
 from gedsi_pipeline.mapping import RoleMap
 
 
@@ -43,26 +49,29 @@ def _strip_option_prefix(v: str | None) -> str | None:
     return v
 
 
-def build_response_frame(csv_path=None, role_map: RoleMap | None = None) -> pd.DataFrame:
+def build_response_frame(csv_path=None, role_map: RoleMap | None = None) -> tuple[pd.DataFrame, dict]:
     csv_path = csv_path or config.RAW_CSV_PATH
     role_map = role_map or config.DEFAULT_ROLE_MAP
     mapping.validate_role_map_against_csv(role_map, csv_path)
     header, rows = _read_raw_rows(csv_path)
 
     records = []
-    dropped_no_consent = 0
     for row in rows:
         # Pad short rows (shouldn't happen, but guards against ragged CSV rows)
         if len(row) < len(header):
             row = row + [""] * (len(header) - len(row))
 
         consent = _clean_str(row[role_map.consent_col])
-        if consent is None or consent.lower().startswith("b"):
-            dropped_no_consent += 1
-            continue
+        consent_ok = not (consent is None or consent.lower().startswith("b"))
 
         rec = {
             "response_id": _clean_str(row[role_map.uuid_col]) or str(uuid.uuid4()),
+            # Screening-only: read here so duplicate/test-row detection can
+            # use them, dropped again by screening.screen() before this
+            # frame is ever written or reported on.
+            "_client_id_raw": _clean_str(row[role_map.client_id_col]) if role_map.client_id_col is not None else None,
+            "_enumerator_raw": _clean_str(row[role_map.enumerator_col]) if role_map.enumerator_col is not None else None,
+            "_consent_ok": consent_ok,
             "region": _clean_str(row[role_map.demographic_cols["region"]]),
             "country": _clean_str(row[role_map.demographic_cols["country"]]),
             "branch": _clean_str(row[role_map.demographic_cols["branch"]]),
@@ -114,18 +123,32 @@ def build_response_frame(csv_path=None, role_map: RoleMap | None = None) -> pd.D
     df["nps_category"] = df["nps_score"].apply(nps_category)
     df["disability_flag"] = df["disability"].eq("Yes")
 
-    print(f"Ingest: {len(rows)} raw rows -> {len(df)} consenting responses "
-          f"({dropped_no_consent} dropped for non-consent).")
-    return df
+    n_raw = len(rows)
+    df, screen_stats = screening.screen(df)
+    screen_stats["n_raw"] = n_raw
+    screen_stats["n_final"] = len(df)
+
+    print(
+        f"Ingest: {n_raw} raw rows -> {len(df)} in-scope respondents "
+        f"({screen_stats['n_test_removed']} test/QA, "
+        f"{screen_stats['n_duplicates_removed']} duplicate, "
+        f"{screen_stats['n_non_consenting_removed']} non-consenting, "
+        f"{screen_stats['n_out_of_scope_removed']} out-of-scope-country removed)."
+    )
+    return df, screen_stats
 
 
 def main(csv_path=None, role_map: RoleMap | None = None, work_dir: Path | None = None):
-    df = build_response_frame(csv_path, role_map)
+    df, screen_stats = build_response_frame(csv_path, role_map)
     work_dir = work_dir or config.WORK_DIR
     response_frame_path = work_dir / "response_frame.parquet"
     work_dir.mkdir(parents=True, exist_ok=True)
     df.to_parquet(response_frame_path, index=False)
     print(f"Wrote {response_frame_path} ({len(df)} rows, {len(df.columns)} columns)")
+
+    screening_summary_path = work_dir / "screening_summary.json"
+    screening_summary_path.write_text(json.dumps(screen_stats, indent=2), encoding="utf-8")
+    print(f"Wrote {screening_summary_path}")
 
     # Sanity summary
     print("\nSex counts:\n", df["sex"].value_counts(dropna=False))
@@ -135,6 +158,8 @@ def main(csv_path=None, role_map: RoleMap | None = None, work_dir: Path | None =
     pii_terms = ["username", "device info", "client's id number"]
     leaked = [c for c in df.columns if any(t in c.lower() for t in pii_terms)]
     assert not leaked, f"PII columns leaked into response frame: {leaked}"
+    screening_leaked = [c for c in df.columns if c in ("_client_id_raw", "_enumerator_raw", "_consent_ok")]
+    assert not screening_leaked, f"Screening-only transient columns leaked into response frame: {screening_leaked}"
     print("\nNo PII columns present. OK.")
 
 

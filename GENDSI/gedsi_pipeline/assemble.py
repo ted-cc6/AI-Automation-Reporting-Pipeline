@@ -16,9 +16,9 @@ from pathlib import Path
 import pandas as pd
 from docx import Document
 from docx.enum.text import WD_COLOR_INDEX
-from docx.shared import Pt, RGBColor
+from docx.shared import Inches, Pt, RGBColor
 
-from gedsi_pipeline import config
+from gedsi_pipeline import config, visuals
 from gedsi_pipeline.ingest import _read_raw_rows
 
 SECTION_ORDER = [
@@ -61,6 +61,49 @@ def _add_demo_table(doc: Document, demo_df: pd.DataFrame, cut_name: str):
     doc.add_paragraph()
 
 
+def _add_nps_note(doc: Document) -> None:
+    """Fixed, code-authored explanation of NPS methodology -- not LLM-authored,
+    same reasoning as the Limitations & Methodology section: this needs to be
+    exactly right and identically worded every time, not re-derived per run.
+    Placed once, directly under the Executive Summary (the report's first and
+    most prominent NPS mention), since that's where the ambiguity this note
+    heads off actually shows up for a reader."""
+    p = doc.add_paragraph()
+    run = p.add_run(
+        "Note on NPS: a Net Promoter Score is not on the same 0-10 scale as the survey's own "
+        "recommendation-likelihood question. NPS is the percentage of respondents who are Promoters "
+        "(scored 9-10) minus the percentage who are Detractors (scored 0-6), so it is a percentage-point "
+        "gap, ranging from -100 to +100, not a rating out of 10. An NPS of, for example, 20 means the "
+        "promoter share exceeds the detractor share by 20 percentage points."
+    )
+    run.italic = True
+    run.font.size = Pt(9)
+    run.font.color.rgb = RGBColor(0x6B, 0x63, 0x60)
+
+
+def _add_understanding_chart(doc: Document, df: pd.DataFrame, work_dir: Path) -> None:
+    """Code-generated figure, not LLM-authored, for the same reason as
+    _add_nps_note: the numbers must exactly match quant_tables/
+    understanding_by_product.csv every time, not be redrawn in words by the
+    model."""
+    chart_path = visuals.render_understanding_by_product_chart(
+        df, work_dir / "visuals" / "understanding_by_product_sex.png"
+    )
+    doc.add_picture(str(chart_path), width=Inches(5.5))
+    caption = doc.add_paragraph()
+    run = caption.add_run(
+        "Figure: share of clients reporting \"very poor\" understanding of their own coverage, by "
+        "product and sex. This chart covers clients who already hold each policy; the survey does not "
+        "include clients who considered a product and did not enroll, so it cannot show that poor "
+        "understanding causes lower enrollment in a product, or the reverse, only that the two differ "
+        "together within a specific product."
+    )
+    run.italic = True
+    run.font.size = Pt(9)
+    run.font.color.rgb = RGBColor(0x6B, 0x63, 0x60)
+    doc.add_paragraph()
+
+
 def _add_section(doc: Document, title: str, headline: str, paragraphs: list[str]):
     doc.add_heading(title, level=1)
     p = doc.add_paragraph()
@@ -72,7 +115,7 @@ def _add_section(doc: Document, title: str, headline: str, paragraphs: list[str]
     doc.add_paragraph()
 
 
-def build_docx(drafts_dir, packs_dir, quant_dir, run_stats: dict) -> Document:
+def build_docx(df: pd.DataFrame, drafts_dir, packs_dir, quant_dir, work_dir: Path, run_stats: dict) -> Document:
     doc = Document()
 
     ORANGE = RGBColor(0xED, 0x7D, 0x31)  # Word's default "Accent 2" orange
@@ -86,9 +129,7 @@ def build_docx(drafts_dir, packs_dir, quant_dir, run_stats: dict) -> Document:
     sub_run.font.size = Pt(14)
     meta = doc.add_paragraph()
     meta.add_run(
-        f"Generated {dt.date.today().isoformat()} | Analysis assisted by Claude "
-        f"({config.CLAUDE_MODEL}) under human review | n={run_stats['n_respondents']} "
-        f"consenting respondents"
+        f"Generated {dt.date.today().isoformat()} | n={run_stats['n_respondents']} respondents"
     ).italic = True
     doc.add_page_break()
 
@@ -102,6 +143,7 @@ def build_docx(drafts_dir, packs_dir, quant_dir, run_stats: dict) -> Document:
     run.font.highlight_color = WD_COLOR_INDEX.YELLOW
     for para in exec_draft["paragraphs"]:
         doc.add_paragraph(para)
+    _add_nps_note(doc)
     doc.add_heading("Survey Demographics by Insurance Type", level=2)
     _add_demo_table(doc, demo_df, "Insurance Type")
     doc.add_heading("Survey Demographics by Country", level=2)
@@ -126,12 +168,19 @@ def build_docx(drafts_dir, packs_dir, quant_dir, run_stats: dict) -> Document:
             continue
         draft = _load_json(drafts_dir / f"{key}.json")
         _add_section(doc, section_titles[key], draft["headline_insight"], draft["paragraphs"])
+        if key == "access_understanding":
+            _add_understanding_chart(doc, df, work_dir)
 
     # Limitations & Methodology -- built directly from run facts, not LLM-authored
     doc.add_heading("Limitations & Methodology", level=1)
     limitations = [
-        f"Analysis covers {run_stats['n_respondents']} consenting respondents out of "
-        f"{run_stats['n_raw']} raw submissions ({run_stats['n_dropped_consent']} excluded for declining consent).",
+        f"Analysis covers {run_stats['n_respondents']} respondents out of {run_stats['n_raw']} raw "
+        f"submissions. Excluded: {run_stats['n_test_removed']} test/QA submission(s), "
+        f"{run_stats['n_duplicates_removed']} exact-content duplicate submission(s) (one canonical copy "
+        f"kept per duplicate group), {run_stats['n_non_consenting_removed']} respondent(s) who declined "
+        f"consent, and {run_stats['n_out_of_scope_removed']} respondent(s) outside the study's country "
+        f"scope. This screening is aligned with the Cupboard Week insurance report pipeline so both "
+        f"reports describe the same population from the same raw export.",
         f"Quantitative comparisons use a minimum cell size of n={config.MIN_N}; comparisons below this "
         f"threshold are marked not-statistically-robust (n_ok=false) and treated as directional only.",
         f"All gender- and disability-comparison p-values in this report were corrected in a single "
@@ -148,8 +197,10 @@ def build_docx(drafts_dir, packs_dir, quant_dir, run_stats: dict) -> Document:
         "No internal or external benchmark file (e.g. 60 Decibels, regional/global portfolio benchmarks) "
         "was supplied with this dataset. The Benchmarking section and per-indicator commentary state this "
         "gap explicitly rather than citing unverified figures.",
-        "Vietnam (Crop Insurance) and LACRO-region respondents are a small share of the sample; "
-        "country/region cuts for these groups are directional, not statistically robust.",
+        "Respondents outside the study's 8-country scope (Rwanda, Ghana, Zambia, Malawi, Uganda, "
+        "Tanzania, Kenya, Vietnam) are excluded entirely rather than reported as a small directional "
+        "share; Vietnam (Crop Insurance) remains in scope but is still a small share of the sample, so "
+        "its country/region cuts are directional, not statistically robust.",
     ]
     for note in limitations:
         doc.add_paragraph(note, style="List Bullet")
@@ -201,15 +252,26 @@ def main(csv_path=None, work_dir: Path | None = None, output_dir: Path | None = 
     _header, raw_rows = _read_raw_rows(csv_path or config.RAW_CSV_PATH)  # csv.reader-based: handles embedded newlines in quoted fields
     n_raw = len(raw_rows)
 
+    screening_summary_path = work_dir / "screening_summary.json"
+    if screening_summary_path.exists():
+        screen_stats = json.loads(screening_summary_path.read_text(encoding="utf-8"))
+    else:
+        # Stale work_dir from before per-reason screening existed -- only
+        # the raw/final counts are known, not the breakdown by reason.
+        screen_stats = {
+            "n_test_removed": 0, "n_duplicates_removed": 0,
+            "n_non_consenting_removed": n_raw - len(df), "n_out_of_scope_removed": 0,
+        }
+
     run_stats = {
+        **screen_stats,
         "n_respondents": len(df),
         "n_raw": n_raw,
-        "n_dropped_consent": n_raw - len(df),
     }
 
     date_str = dt.date.today().isoformat()
 
-    doc = build_docx(drafts_dir, packs_dir, quant_dir, run_stats)
+    doc = build_docx(df, drafts_dir, packs_dir, quant_dir, work_dir, run_stats)
     docx_path = output_dir / f"GEDSI_Insurance_Report_{date_str}.docx"
     doc.save(docx_path)
     print(f"Wrote {docx_path}")

@@ -209,7 +209,7 @@ def build_quote_bank(coded: pd.DataFrame, question: str, codebook: dict, top_n: 
             if row.country not in seen_countries or len(picks) < top_n // 2:
                 picks.append({
                     "response_id": row.response_id, "sex": row.sex, "country": row.country,
-                    "quote": getattr(row, question),
+                    "disability": row.disability, "quote": getattr(row, question),
                 })
                 seen_countries.add(row.country)
             if len(picks) >= top_n:
