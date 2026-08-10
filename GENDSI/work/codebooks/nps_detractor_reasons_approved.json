@@ -1,0 +1,46 @@
+{
+  "themes": [
+    {
+      "code": "education_and_training",
+      "label": "Provide Education and Training",
+      "definition": "Clients request more training, education, or detailed explanations to understand how the insurance works, its benefits, and how to make claims.",
+      "example_quote": "If they educate me more on how the insurance works"
+    },
+    {
+      "code": "timely_payouts",
+      "label": "Speed Up Claim Payouts",
+      "definition": "Clients request that insurance claims be processed and paid out much faster, without long delays or unfulfilled promises.",
+      "example_quote": "Your service is good, but the problem is that compensation takes too long."
+    },
+    {
+      "code": "family_coverage",
+      "label": "Expand Coverage to Family Members",
+      "definition": "Clients request that the insurance policy be extended to cover family members, such as spouses and children, instead of only covering the individual group member.",
+      "example_quote": "It could be better if this insurance supported even our children and spouses."
+    },
+    {
+      "code": "simplify_claim_process",
+      "label": "Simplify Claim Process and Requirements",
+      "definition": "Clients request a simpler, more accessible claim process, including reducing the burden of collecting hospital documents or relaxing strict ID requirements.",
+      "example_quote": "Make the claim process easy"
+    },
+    {
+      "code": "marketing_and_advertising",
+      "label": "Increase Product Awareness and Advertising",
+      "definition": "Clients suggest increasing advertising, holding physical meetings, or proactively informing clients about their coverage so they are aware the product exists.",
+      "example_quote": "IT MUST IMPRVE IN ADVERTIZING THE PRODUCT BECAUSE I WAS SICK AND I DIDNT KNOW THAT I WAS COVERED"
+    },
+    {
+      "code": "increase_benefits",
+      "label": "Increase Payout Amounts and Benefits",
+      "definition": "Clients request higher payout amounts to cover actual medical costs, or suggest introducing refunds or benefits for members who do not make claims.",
+      "example_quote": "We kindly request an increase in the reimbursement amounts, as there are cases where patients face high hospital costs while lacking sufficient financial capacity"
+    },
+    {
+      "code": "premium_cost_burden",
+      "label": "Premium Cost Hard to Justify",
+      "definition": "Clients feel the premium they pay is too high, difficult to afford, or hard to justify relative to the perceived benefit, distinct from wanting bigger claim payouts.",
+      "example_quote": "the cost of maintaining the insurance feels difficult to justify, especially when the benefits are not clearly visible or immediately impactful"
+    }
+  ]
+}

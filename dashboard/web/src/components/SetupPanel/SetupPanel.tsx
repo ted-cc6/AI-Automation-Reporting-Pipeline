@@ -3,7 +3,7 @@ import type { ChangeEvent, DragEvent } from "react";
 import { Card } from "../common/Card";
 import { Button } from "../common/Button";
 import { DatasetValidation } from "../DatasetValidation/DatasetValidation";
-import type { CountryOption, CsvUploadResponse, Provider, VisualSlotInfo } from "../../api/client";
+import type { CountryOption, CsvUploadResponse, Provider, ReportType, VisualSlotInfo } from "../../api/client";
 import "./SetupPanel.css";
 
 function slotLabel(filename: string): string {
@@ -14,6 +14,10 @@ function slotLabel(filename: string): string {
 }
 
 export function SetupPanel(props: {
+  reportType: ReportType;
+  onReportTypeChange: (v: ReportType) => void;
+  reportTypeDisabled: boolean;
+
   countries: CountryOption[];
   country: string;
   onCountryChange: (v: string) => void;
@@ -96,6 +100,7 @@ export function SetupPanel(props: {
         {props.csvUpload && (
           <DatasetValidation
             key={props.csvUpload.upload_id}
+            endpointBase="/reconcile"
             uploadId={props.csvUpload.upload_id}
             provider={props.provider}
             apiKey={props.apiKey}
@@ -105,7 +110,21 @@ export function SetupPanel(props: {
         )}
       </Card>
 
-      <Card title="2. Report period" subtitle="Determines the run identifier and country-specific analysis config.">
+      <Card
+        title="2. Report type & period"
+        subtitle="Choose which report to generate, then set the run identifier and country-specific analysis config."
+      >
+        <label className="field field--grow">
+          <span>Report type</span>
+          <select
+            value={props.reportType}
+            disabled={props.reportTypeDisabled}
+            onChange={(e) => props.onReportTypeChange(e.target.value as ReportType)}
+          >
+            <option value="cupboard_week">Insurance Cupboard Week Report</option>
+            <option value="gender_study">Insurance Gender Study Report</option>
+          </select>
+        </label>
         <div className="field-row">
           <label className="field">
             <span>Country</span>

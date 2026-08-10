@@ -25,8 +25,9 @@ HEALTHCARE_ACCESS_POSITIVE_VALUES = ["Yes", "Yes, a lot", "Yes, somewhat"]
 # Planned in the original report spec as subsection 5.2 ("Caregivers vs non
 # caregivers — financial stress & healthcare access") but never built until now.
 _CAREGIVER_COMPARISON_NOTE = (
-    "Financial stress is measured among clients who experienced an insured event "
-    "in the last 12 months (same base as Part 3's financial stress metric); "
+    "Financial stress is measured among all surveyed clients (same base as "
+    "Part 3's financial stress metric -- q_financial_stress has no skip logic "
+    "and is independent of claim/insured-event activity, see part_3.py); "
     "healthcare access is measured among health-insurance clients who needed "
     "care (same base as Part 4's healthcare access metric)."
 )
@@ -99,9 +100,9 @@ def _build_caregiver_comparison(ds, segment_masks: dict) -> dict:
 
     metrics: dict = {}
 
-    if COL_FINANCIAL_STRESS in ds.insured_event_base.columns:
+    if COL_FINANCIAL_STRESS in ds.df.columns:
         metrics["financial_stress_high"] = scorecard_row(
-            ds.insured_event_base, COL_FINANCIAL_STRESS, top_two_box, segment_masks,
+            ds.df, COL_FINANCIAL_STRESS, top_two_box, segment_masks,
             "High Financial Stress", "caregiver", "non_caregiver",
         )
     else:

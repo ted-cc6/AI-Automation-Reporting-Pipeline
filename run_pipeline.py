@@ -1,7 +1,7 @@
 """
 run_pipeline.py — VisionFund Insurance Survey Pipeline Orchestrator
 
-Runs all 4 data loader steps in sequence for a given CSV export, writing
+Runs all 5 data loader steps in sequence for a given CSV export, writing
 all outputs to a versioned run folder under runs/.
 
 Usage:
@@ -32,6 +32,11 @@ STEPS = [
         "name": "transformer",
         "script": DATA_LOADER / "data_loader_transformer.py",
         "args": lambda csv, run_dir: ["--csv", str(csv), "--output-dir", str(run_dir)],
+    },
+    {
+        "name": "screening",
+        "script": DATA_LOADER / "data_loader_screening.py",
+        "args": lambda csv, run_dir: ["--output-dir", str(run_dir)],
     },
     {
         "name": "derived",
@@ -87,6 +92,7 @@ def write_summary(run_dir: Path, csv: Path, run_id: str) -> None:
         "Artifacts:",
         f"  profile_report.md      : {(run_dir / 'profile_report.md').exists()}",
         f"  survey_clean.parquet   : {(run_dir / 'survey_clean.parquet').exists()}",
+        f"  screening_report.md    : {(run_dir / 'screening_report.md').exists()}",
         f"  data_quality_report.md : {(run_dir / 'data_quality_report.md').exists()}",
     ])
     summary_path = run_dir / "run_summary.txt"

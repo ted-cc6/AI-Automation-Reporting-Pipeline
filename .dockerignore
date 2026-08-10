@@ -1,0 +1,35 @@
+# Git
+.git
+.gitignore
+
+# Sensitive / large runtime data -- never bake into an image
+dashboard/api/uploads/
+runs/
+
+# Frontend deps/build (rebuilt fresh in the Docker build stage)
+dashboard/web/node_modules/
+dashboard/web/dist/
+
+# Python artifacts
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+*.egg-info/
+build/
+dist/
+.venv/
+venv/
+env/
+
+# Editor / OS junk
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Env / secrets
+.env
+.env.*
+!.env.example

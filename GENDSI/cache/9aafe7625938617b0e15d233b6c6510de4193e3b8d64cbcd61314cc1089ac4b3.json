@@ -1,0 +1,173 @@
+{
+  "codings": [
+    {
+      "response_id": "c5fe70b7-8b5e-4fcd-a220-a9bcb38a1751",
+      "themes": [
+        "need_for_training_and_awareness"
+      ],
+      "quote_worthy": true
+    },
+    {
+      "response_id": "2e718d38-6d98-420a-bbf8-898563280610",
+      "themes": [
+        "financial_protection_and_peace_of_mind"
+      ],
+      "quote_worthy": true
+    },
+    {
+      "response_id": "f894a600-68d4-444f-8dc6-64604641b97e",
+      "themes": [
+        "financial_protection_and_peace_of_mind"
+      ],
+      "quote_worthy": true
+    },
+    {
+      "response_id": "673d8c5b-5760-4176-b614-0817594ae25b",
+      "themes": [
+        "no_prior_claims_or_experience"
+      ],
+      "quote_worthy": false
+    },
+    {
+      "response_id": "a144d4b5-6dc8-4517-bf7d-f1306df88330",
+      "themes": [],
+      "quote_worthy": false
+    },
+    {
+      "response_id": "754e24aa-9676-4664-838e-f97ef0b08228",
+      "themes": [],
+      "quote_worthy": false
+    },
+    {
+      "response_id": "00536216-2342-4937-a8ad-ca8d35a6591a",
+      "themes": [
+        "financial_protection_and_peace_of_mind",
+        "no_prior_claims_or_experience"
+      ],
+      "quote_worthy": false
+    },
+    {
+      "response_id": "1250045e-77fd-40b8-9b94-568a8e2385b7",
+      "themes": [
+        "need_for_training_and_awareness"
+      ],
+      "quote_worthy": true
+    },
+    {
+      "response_id": "513a308b-9276-44eb-82d9-0c5c07e5d884",
+      "themes": [
+        "need_for_training_and_awareness"
+      ],
+      "quote_worthy": true
+    },
+    {
+      "response_id": "e440a751-b9d7-4b76-a9d0-be6bb9839bc3",
+      "themes": [
+        "slow_processing_and_delays"
+      ],
+      "quote_worthy": true
+    },
+    {
+      "response_id": "52ef3c24-ec76-43e7-888b-175b582ce48d",
+      "themes": [],
+      "quote_worthy": false
+    },
+    {
+      "response_id": "6461defa-5dd2-40be-a314-97f84ad4266a",
+      "themes": [
+        "no_prior_claims_or_experience"
+      ],
+      "quote_worthy": false
+    },
+    {
+      "response_id": "ef81d54f-a327-4e00-87f9-20d9db420ac5",
+      "themes": [
+        "financial_protection_and_peace_of_mind"
+      ],
+      "quote_worthy": false
+    },
+    {
+      "response_id": "17732046-db64-4bc3-8388-27662583b328",
+      "themes": [
+        "need_for_training_and_awareness"
+      ],
+      "quote_worthy": true
+    },
+    {
+      "response_id": "6da52f9e-4587-46d3-9625-bc8c1d01cc59",
+      "themes": [],
+      "quote_worthy": true
+    },
+    {
+      "response_id": "1b6ca748-50bb-49b4-a051-48966c938508",
+      "themes": [
+        "need_for_training_and_awareness"
+      ],
+      "quote_worthy": true
+    },
+    {
+      "response_id": "f81038aa-d321-4414-bc93-175c069b7cb7",
+      "themes": [
+        "no_prior_claims_or_experience"
+      ],
+      "quote_worthy": true
+    },
+    {
+      "response_id": "43e6707f-7d44-4144-ac91-8bbde064f888",
+      "themes": [
+        "financial_protection_and_peace_of_mind"
+      ],
+      "quote_worthy": false
+    },
+    {
+      "response_id": "614c6f82-3c6f-443f-86d9-72a82454a879",
+      "themes": [
+        "affordability_and_value"
+      ],
+      "quote_worthy": false
+    },
+    {
+      "response_id": "e0e36b1a-6e2f-4de4-8d41-5b0a0146df41",
+      "themes": [
+        "no_prior_claims_or_experience"
+      ],
+      "quote_worthy": false
+    },
+    {
+      "response_id": "fc36dd0b-0ed7-45f6-a49f-2f4607f63b75",
+      "themes": [
+        "no_prior_claims_or_experience"
+      ],
+      "quote_worthy": true
+    },
+    {
+      "response_id": "d4deda63-1f02-46fe-aef1-ec91519bdb3a",
+      "themes": [
+        "no_prior_claims_or_experience",
+        "need_for_training_and_awareness"
+      ],
+      "quote_worthy": false
+    },
+    {
+      "response_id": "ea589d38-9511-4a31-b594-396238d0fcb8",
+      "themes": [
+        "no_prior_claims_or_experience"
+      ],
+      "quote_worthy": false
+    },
+    {
+      "response_id": "97f30835-8be6-4629-a34c-27e02e9f46e0",
+      "themes": [
+        "affordability_and_value"
+      ],
+      "quote_worthy": false
+    },
+    {
+      "response_id": "6ec2e829-110e-4269-b9b8-5cd4d1e15bac",
+      "themes": [
+        "financial_protection_and_peace_of_mind"
+      ],
+      "quote_worthy": false
+    }
+  ]
+}

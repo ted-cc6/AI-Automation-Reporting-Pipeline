@@ -1,6 +1,6 @@
 """
 data_loader_transformer.py — VisionFund Insurance Survey Data Loader
-Step 2 of 4: Transform raw CSV into typed, clean parquet.
+Step 2 of 5: Transform raw CSV into typed, clean parquet.
 
 Usage:
     python data_loader/data_loader_transformer.py --csv path/to/export.csv --output-dir runs/2026_Q3

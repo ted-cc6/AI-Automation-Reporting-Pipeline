@@ -24,6 +24,8 @@ REQUIRED_SECTION_KEYS = {
     "part1", "part2", "part3", "part4", "part5", "part6", "part7"
 }
 
+SECTION_INSIGHT_FIELDS = {"theme_summary", "top_drivers", "sentiment_split"}
+
 NPS_GROUPS = ("promoters", "passives", "detractors")
 
 
@@ -45,6 +47,34 @@ def _validate(raw: dict) -> None:
     for section, ids in sv.items():
         if not isinstance(ids, list) or len(ids) == 0:
             raise ValueError(f"section_verbatims[{section}] is empty")
+
+
+def _check_section_insights(section_insights: dict) -> None:
+    """Soft-check section_insights: log warnings, never raise.
+
+    Unlike section_verbatims, this is additive analytical content -- a
+    missing or incomplete insight should not invalidate the whole
+    qualitative run (that fragility is exactly what made the original
+    single-gate _validate() risky).
+    """
+    if not section_insights:
+        log.warning(
+            "section_insights missing from Gemini response "
+            "(older prompt version, or model omitted it)"
+        )
+        return
+
+    missing_sections = REQUIRED_SECTION_KEYS - set(section_insights.keys())
+    if missing_sections:
+        log.warning(f"section_insights missing sections: {missing_sections}")
+
+    for section, entry in section_insights.items():
+        if not isinstance(entry, dict):
+            log.warning(f"section_insights[{section}] is not an object")
+            continue
+        missing_fields = SECTION_INSIGHT_FIELDS - set(entry.keys())
+        if missing_fields:
+            log.warning(f"section_insights[{section}] missing fields: {missing_fields}")
 
 
 def _count_themes(nps_tags: dict) -> dict:
@@ -149,7 +179,7 @@ def parse_and_save(
     Validate, enrich, and assemble final qualitative_results.json.
 
     Args:
-        raw_gemini:  Parsed dict from gemini_call.call_gemini()
+        raw_gemini:  Parsed dict from llm_call.call_gemini()
         df:          Full survey DataFrame (for profile lookups)
         run_id:      Run identifier (e.g. "2026_Q2")
         meta_extra:  Optional dict with token counts etc. from the API response
@@ -158,6 +188,9 @@ def parse_and_save(
         Final qualitative results dict (also written to disk)
     """
     _validate(raw_gemini)
+
+    section_insights = raw_gemini.get("section_insights", {})
+    _check_section_insights(section_insights)
 
     # All text columns (for verbatim text lookup)
     text_cols = [
@@ -183,7 +216,7 @@ def parse_and_save(
 
     result = {
         "meta": {
-            "schema_version": "1.0",
+            "schema_version": "1.1",
             "model": "gemini-2.5-pro",
             "run_id": run_id,
             "generated_at": datetime.now(timezone.utc).isoformat(),
@@ -195,6 +228,7 @@ def parse_and_save(
         "not_worth_it_themes": raw_gemini.get("not_worth_it_themes", []),
         "other_subthemes": raw_gemini.get("other_subthemes", {}),
         "section_verbatims": enriched_verbatims,
+        "section_insights": section_insights,
         "protection_flags": enriched_flags,
         "executive_summary": raw_gemini.get("executive_summary", ""),
     }

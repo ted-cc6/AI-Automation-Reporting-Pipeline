@@ -1,16 +1,27 @@
 """dashboard/api/routes/run_routes.py"""
 import asyncio
 import json
+import uuid
 
 from fastapi import APIRouter, Header, HTTPException
 from fastapi.responses import FileResponse, StreamingResponse
 
-from dashboard.api import pipeline_runner
-from dashboard.api.config import UPLOADS_DIR
+from dashboard.api import gedsi_runner, pipeline_runner
+from dashboard.api.config import RUNS_DIR, UPLOADS_DIR
 from dashboard.api.jobs import RunConflictError, get_run, list_runs, start_new_run
 from dashboard.api.models import RunSummary, StartRunRequest, StartRunResponse
 
 router = APIRouter(prefix="/api/runs", tags=["runs"])
+
+# Diagnostic report files a run produces alongside the final .docx. Fixed
+# allow-list (not an arbitrary filename param) so this endpoint can never be
+# used to read anything else on disk, regardless of what run_id resolves to.
+_ALLOWED_REPORT_FILES = frozenset({
+    "screening_report.md",
+    "data_quality_report.md",
+    "profile_report.md",
+    "run_summary.txt",
+})
 
 # Keep references to fire-and-forget run tasks so they aren't garbage-collected
 # mid-flight; there's no cancellation support in this first version, so tasks
@@ -19,7 +30,11 @@ _background_tasks: set[asyncio.Task] = set()
 
 
 def _default_run_id(req: StartRunRequest) -> str:
-    return req.run_id or f"{req.country}_{req.year}_Q{req.quarter}"
+    if req.run_id:
+        return req.run_id
+    if req.report_type == "gender_study":
+        return f"gender_study_{uuid.uuid4().hex[:10]}"
+    return f"{req.country}_{req.year}_Q{req.quarter}"
 
 
 @router.post("", response_model=StartRunResponse)
@@ -28,15 +43,23 @@ async def start_run(req: StartRunRequest) -> StartRunResponse:
     if not upload_path.exists():
         raise HTTPException(404, f"Upload '{req.upload_id}' not found -- upload the CSV first.")
 
+    if req.report_type == "cupboard_week" and (req.country is None or req.year is None or req.quarter is None):
+        raise HTTPException(400, "country, year, and quarter are required for cupboard_week runs.")
+    if req.report_type == "gender_study" and req.dry_run:
+        raise HTTPException(400, "dry_run is not supported for gender_study runs.")
+
     run_id = _default_run_id(req)
     try:
-        start_new_run(run_id, req.country)
+        start_new_run(run_id, req.report_type, req.country)
     except RunConflictError as exc:
         raise HTTPException(409, str(exc)) from exc
 
-    task = asyncio.create_task(
-        asyncio.to_thread(pipeline_runner.execute, run_id, upload_path, req.country, req.llm, req.dry_run)
-    )
+    if req.report_type == "gender_study":
+        task = asyncio.create_task(asyncio.to_thread(gedsi_runner.execute, run_id, upload_path, req.llm))
+    else:
+        task = asyncio.create_task(
+            asyncio.to_thread(pipeline_runner.execute, run_id, upload_path, req.country, req.llm, req.dry_run)
+        )
     _background_tasks.add(task)
     task.add_done_callback(_background_tasks.discard)
     return StartRunResponse(run_id=run_id, status="queued")
@@ -44,7 +67,10 @@ async def start_run(req: StartRunRequest) -> StartRunResponse:
 
 @router.get("", response_model=list[RunSummary])
 async def get_all_runs() -> list[RunSummary]:
-    return [RunSummary(run_id=r.run_id, status=r.status, created_at=r.created_at) for r in list_runs()]
+    return [
+        RunSummary(run_id=r.run_id, pipeline=r.pipeline, status=r.status, created_at=r.created_at)
+        for r in list_runs()
+    ]
 
 
 @router.get("/{run_id}")
@@ -100,3 +126,42 @@ async def download_report(run_id: str):
         media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
         filename=state.docx_path.name,
     )
+
+
+@router.get("/{run_id}/download-xlsx")
+async def download_workbook(run_id: str):
+    """GEDSI runs also produce a supporting .xlsx workbook alongside the
+    .docx report; Cupboard Week runs never populate xlsx_path, so this
+    always 404s for them."""
+    state = get_run(run_id)
+    if state is None or state.xlsx_path is None or not state.xlsx_path.exists():
+        raise HTTPException(404, "Workbook not ready yet for this run.")
+    return FileResponse(
+        state.xlsx_path,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        filename=state.xlsx_path.name,
+    )
+
+
+@router.get("/{run_id}/report/{filename}")
+async def download_report_file(run_id: str, filename: str):
+    """Serve one of the intermediate diagnostic reports a run produces
+    (screening_report.md, data_quality_report.md, profile_report.md,
+    run_summary.txt) -- for auditing what a run actually did, since only the
+    final .docx has a download route otherwise.
+    """
+    if filename not in _ALLOWED_REPORT_FILES:
+        raise HTTPException(
+            400, f"Unknown report file {filename!r}. Allowed: {sorted(_ALLOWED_REPORT_FILES)}"
+        )
+    # get_run() only recognises run_ids created through the normal POST /api/runs
+    # flow (see jobs.py's RUNS dict) -- this rejects any run_id that isn't a real,
+    # tracked run before it ever reaches a filesystem path, regardless of content.
+    state = get_run(run_id)
+    if state is None:
+        raise HTTPException(404, f"Run '{run_id}' not found.")
+
+    file_path = RUNS_DIR / run_id / filename
+    if not file_path.exists():
+        raise HTTPException(404, f"{filename} not found for run '{run_id}'.")
+    return FileResponse(file_path, media_type="text/plain; charset=utf-8", filename=filename)

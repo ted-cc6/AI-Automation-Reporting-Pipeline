@@ -28,6 +28,7 @@ def _build_response_record(row_id: str, text: str, row: pd.Series,
         "client_age": (None if pd.isna(row.get("q_client_age"))
                        else int(row["q_client_age"])),
         "branch": str(row.get("branch", "")) or None,
+        "country": str(row.get("country", "")) or None,
         "is_claimant": (False if pd.isna(row.get("flag_paid_claimant"))
                         else bool(row["flag_paid_claimant"])),
         # Canonical caregiver definition (matches analysis_engine/segments.py's

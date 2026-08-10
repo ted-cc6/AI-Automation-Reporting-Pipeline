@@ -1,6 +1,8 @@
 """
 data_loader_derived.py — VisionFund Insurance Survey Data Loader
-Step 3 of 4: Add derived boolean flag columns to survey_clean.parquet.
+Step 4 of 5: Add derived boolean flag columns to survey_clean.parquet.
+Runs after screening (data_loader_screening.py) so flags are never computed
+on rows that get dropped as duplicates or test/QA data.
 
 Usage:
     python data_loader/data_loader_derived.py --output-dir runs/2026_Q3

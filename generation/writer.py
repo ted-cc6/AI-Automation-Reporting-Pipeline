@@ -40,6 +40,17 @@ figure describes all surveyed clients. Never present two metrics as a
 before/after or "however" contrast unless they describe the same population —
 check each metric's stated population before connecting it to another.
 
+SCALE DIRECTION: Several survey questions are coded so that a LOWER number is
+the more positive response (1=best, e.g. "Definitely would renew" = 1). When a
+Part 5 driver correlation gives a "[direction: ...]" note, that note states
+what the sign actually means in plain English for that specific driver — use
+its stated real-world direction verbatim rather than assuming a negative rho
+is automatically a negative finding. A negative correlation is frequently the
+EXPECTED, POSITIVE result once the 1=best coding is accounted for (e.g.
+stronger renewal intent aligning with better child wellbeing produces a
+negative rho, not a positive one) — never describe such a result as
+counterintuitive or concerning without first checking its direction note.
+
 VOICE RULES:
 - Professional, empathetic, evidence-based
 - Active voice. Past tense for findings ("revealed", "showed"), present for implications ("suggests", "indicates")
@@ -48,6 +59,11 @@ VOICE RULES:
 - Every statistic you cite MUST come from the data package. Never invent or round figures beyond what is provided.
 - Suppressed values (marked "SUPPRESSED") must be noted as "data suppressed due to small sample size" — never estimate or interpolate
 - When a note field is present, incorporate its guidance into the narrative
+- For insight blocks: SECTION SUMMARY (theme summary, top drivers, sentiment split) describes the
+  pattern across all responses judged relevant to that section — use it for the section's overall
+  characterization. Use the quoted VERBATIM(s) to illustrate that pattern with a specific client
+  voice, not as evidence of the pattern itself — never imply that 1-3 quotes represent the full
+  client base's sentiment when a SENTIMENT SPLIT is available and shows a different balance.
 
 WORD LIMITS (strictly enforced):
 - If a section specifies word_limit: 90, write AT MOST 90 words. Aim for 85-90.
@@ -65,7 +81,7 @@ WORD_LIMITS = {
     "s1_1": 90, "s1_2": 90, "s1_2b": 70, "s1_3": 80,
     "s2_1": 100, "s2_2": 70, "s2_3": 80, "s2_4": 100,
     "s3_0": 70, "s3_1": 80, "s3_2": 70,
-    "s4_1": 90, "s4_2": 90, "s4_3": 80,
+    "s4_1": 90, "s4_2": 90, "s4_3": 90,
     "s5_1": 90, "s5_2": 80, "s5_3": 80,
     "narrative": 100,
     "insight": 120,
@@ -76,7 +92,7 @@ _OUTPUT_SCHEMAS = {
     "part_1": {"s1_1": 90, "s1_2": 90, "s1_2b": 70, "s1_3": 80, "insight": 120},
     "part_2": {"s2_1": 100, "s2_2": 70, "s2_3": 80, "s2_4": 100, "insight": 120},
     "part_3": {"s3_0": 70, "s3_1": 80, "s3_2": 70, "insight": 120},
-    "part_4": {"s4_1": 90, "s4_2": 90, "s4_3": 80, "insight": 120},
+    "part_4": {"s4_1": 90, "s4_2": 90, "s4_3": 90, "insight": 120},
     "part_5": {"s5_1": 90, "s5_2": 80, "s5_3": 80, "insight": 120},
     "part_6": {"narrative": 100, "insight": 120},
     "part_7": {"narrative": 100, "insight": 120},
@@ -160,6 +176,24 @@ def _fmt_qual_value(key: str, value) -> str:
     return f"  {key}: {value}"
 
 
+def _fmt_insight_summary(summary: dict | None) -> str:
+    """Format the section-scoped theme/driver/sentiment summary (qualitative
+    Task 5B) that grounds an insight block in the aggregate response pool,
+    not just the 1-3 quoted verbatims below it."""
+    if not summary:
+        return "  SECTION SUMMARY: (not available)"
+    lines = []
+    if summary.get("theme_summary"):
+        lines.append(f"  THEME SUMMARY: {summary['theme_summary']}")
+    if summary.get("top_drivers"):
+        lines.append(f"  TOP DRIVERS: {', '.join(summary['top_drivers'])}")
+    split = summary.get("sentiment_split")
+    if split:
+        split_str = ", ".join(f"{k}={v}" for k, v in split.items())
+        lines.append(f"  SENTIMENT SPLIT (approx., across all responses judged relevant to this section): {split_str}")
+    return "\n".join(lines) if lines else "  SECTION SUMMARY: (not available)"
+
+
 def _build_sections_text(package: dict) -> str:
     """Format section data as readable text for the Gemini prompt."""
     lines = []
@@ -167,6 +201,7 @@ def _build_sections_text(package: dict) -> str:
         if s_key == "insight":
             wl = s_data.get("word_limit", 120)
             lines.append(f"\nSECTION insight (word_limit: {wl} words)")
+            lines.append(_fmt_insight_summary(s_data.get("insight_summary")))
             verbatims = s_data.get("verbatims", [])
             if verbatims:
                 for i, v in enumerate(verbatims, 1):
@@ -207,10 +242,11 @@ def _build_sections_text(package: dict) -> str:
                 continue
             lines.append(_fmt_qual_value(q_key, q_val))
 
-        # Drivers (Part 5)
+        # Drivers (Part 4 satisfaction / Part 5 child wellbeing)
         drivers_data = s_data.get("drivers_data", [])
         if drivers_data:
-            lines.append("  DRIVERS (Spearman rho with child wellbeing):")
+            outcome_label = s_data.get("drivers_outcome_label", "child wellbeing")
+            lines.append(f"  DRIVERS (Spearman rho with {outcome_label}):")
             for d in drivers_data:
                 if d["suppressed"]:
                     lines.append(f"    {d['label']}: rho=SUPPRESSED")
@@ -221,6 +257,8 @@ def _build_sections_text(package: dict) -> str:
                     lines.append(f"    {d['label']}: rho={rho}, p={p}, n={n}")
                 if d.get("population"):
                     lines.append(f"      [population: {d['population']}]")
+                if d.get("direction"):
+                    lines.append(f"      [direction: {d['direction']}]")
 
         # Note
         note = s_data.get("note", "")
@@ -243,6 +281,8 @@ def _build_scorecard_text(scorecard: list, group_a: str, group_b: str) -> str:
         )
         if row.get("population"):
             lines.append(f"    [population: {row['population']}]")
+        if row.get("sig_test_note"):
+            lines.append(f"    [note: {row['sig_test_note']}]")
     return "\n".join(lines)
 
 
@@ -273,6 +313,7 @@ def _build_part_prompt(package: dict, part_key: str, report_title: str) -> str:
         # Insight verbatims
         insight = package.get("sections", {}).get("insight", {})
         lines.append(f"\nSECTION insight (word_limit: {insight.get('word_limit', 120)} words)")
+        lines.append(_fmt_insight_summary(insight.get("insight_summary")))
         verbatims = insight.get("verbatims", [])
         if verbatims:
             for i, v in enumerate(verbatims, 1):

@@ -3,15 +3,34 @@ import logging
 
 import pandas as pd
 
-from analysis_engine.stats import nps_score, share_selecting, share_true, disaggregate, SCOPE_SENTINEL
+from analysis_engine.stats import (
+    nps_score, share_selecting, share_true, disaggregate, spearman_correlation, SCOPE_SENTINEL,
+)
 
 log = logging.getLogger("analysis_engine.sections.part_4")
 
 # --- Column constants ---
-COL_NPS_SCORE           = "q_nps_score"
-COL_CHILD_WELLBEING     = "q_child_wellbeing"
-COL_HEALTHCARE_ACCESS   = "q_healthcare_access"
-COL_MEDICAL_COST_CHANGE = "q_medical_cost_change"
+COL_NPS_SCORE                   = "q_nps_score"
+COL_CHILD_WELLBEING             = "q_child_wellbeing"
+COL_HEALTHCARE_ACCESS           = "q_healthcare_access"
+COL_MEDICAL_COST_CHANGE         = "q_medical_cost_change"
+COL_FINANCIAL_STRESS            = "q_financial_stress"
+COL_COVERAGE_UNDERSTANDING      = "q_coverage_understanding"
+COL_CLAIM_PROCESS_UNDERSTANDING = "q_claim_process_understanding"
+COL_WORTH_PREMIUM               = "q_worth_premium"
+COL_RENEWAL_INTENT              = "q_renewal_intent"
+COL_CONFIDENCE_PAY              = "q_confidence_pay"
+
+# Same driver set as Part 5's Child Wellbeing Drivers (analysis_engine/sections/part_5.py),
+# minus nps_score itself -- here NPS is the outcome being predicted, not a predictor.
+_SATISFACTION_DRIVERS = [
+    ("financial_stress",            COL_FINANCIAL_STRESS),
+    ("coverage_understanding",      COL_COVERAGE_UNDERSTANDING),
+    ("claim_process_understanding", COL_CLAIM_PROCESS_UNDERSTANDING),
+    ("worth_premium",               COL_WORTH_PREMIUM),
+    ("renewal_intent",              COL_RENEWAL_INTENT),
+    ("confidence_pay",              COL_CONFIDENCE_PAY),
+]
 
 # Configurable positive-outcome values for healthcare access — update if survey wording changes.
 # Includes "Yes" for Q2 2026 (binary) and anticipated granular options in future waves.
@@ -104,11 +123,32 @@ def calculate(ds, segment_masks: dict) -> dict:
         ).astype("boolean")
         mc_headline = share_true(cost_improved)
 
+    # 4.5 Satisfaction drivers -- Spearman correlations of the same Likert questions
+    # used in Part 5's Child Wellbeing Drivers, but against q_nps_score as the outcome
+    # instead of q_child_wellbeing. Base is ds.df (NPS is asked of all respondents).
+    satisfaction_drivers: dict = {}
+    if COL_NPS_SCORE not in ds.df.columns:
+        log.warning(f"Part 4: outcome column '{COL_NPS_SCORE}' missing — cannot compute satisfaction drivers")
+    else:
+        nps_outcome = ds.df[COL_NPS_SCORE]
+        for key, col in _SATISFACTION_DRIVERS:
+            if col not in ds.df.columns:
+                log.warning(f"Part 4: column '{col}' missing — skipping satisfaction driver '{key}'")
+                continue
+            satisfaction_drivers[key] = spearman_correlation(nps_outcome, ds.df[col])
+
     return {
         "nps": {
             "base": "all_respondents_with_score",
             "n_base": n_nps_valid,
             "result": nps_result,
+        },
+        "satisfaction_drivers": {
+            "base": "all_respondents",
+            "n_base": n_nps_valid,
+            "outcome_variable": "q_nps_score (0=worst, 10=best)",
+            "method": "Spearman rank correlation",
+            "drivers": satisfaction_drivers,
         },
         "child_wellbeing": {
             "base": "child_wellbeing_base",

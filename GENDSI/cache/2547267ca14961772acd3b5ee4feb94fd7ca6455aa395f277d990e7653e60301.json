@@ -1,0 +1,174 @@
+{
+  "codings": [
+    {
+      "response_id": "eeef6340-cf3a-4c23-8997-a1f5eed6f808",
+      "themes": [
+        "education_and_training"
+      ],
+      "quote_worthy": true
+    },
+    {
+      "response_id": "3d2a38bc-5aca-4c1f-8223-8e0f65f13320",
+      "themes": [
+        "education_and_training"
+      ],
+      "quote_worthy": false
+    },
+    {
+      "response_id": "94474482-5c90-40bf-9a58-21d2d4d5ef1b",
+      "themes": [],
+      "quote_worthy": false
+    },
+    {
+      "response_id": "e86bad76-1fab-46c5-9917-f2184e2f1594",
+      "themes": [
+        "timely_payouts"
+      ],
+      "quote_worthy": false
+    },
+    {
+      "response_id": "5b0815d4-8ebf-45c4-8d75-3a6b75332b9b",
+      "themes": [
+        "family_coverage"
+      ],
+      "quote_worthy": true
+    },
+    {
+      "response_id": "b9f78638-01c3-4110-963e-8fa0490104d5",
+      "themes": [
+        "education_and_training"
+      ],
+      "quote_worthy": false
+    },
+    {
+      "response_id": "bd6658b7-4bae-4aae-a550-772e101e0023",
+      "themes": [],
+      "quote_worthy": false
+    },
+    {
+      "response_id": "185854fd-8771-4b83-849a-6be2a5d93600",
+      "themes": [
+        "education_and_training"
+      ],
+      "quote_worthy": true
+    },
+    {
+      "response_id": "52f27f1b-d1e5-4d72-9e75-cdabc02a9ef3",
+      "themes": [
+        "education_and_training"
+      ],
+      "quote_worthy": false
+    },
+    {
+      "response_id": "2ce2dcb6-19c2-4819-9558-00125eb49a59",
+      "themes": [
+        "education_and_training"
+      ],
+      "quote_worthy": false
+    },
+    {
+      "response_id": "f73c3bb6-48e0-488b-aa5e-99131d4a15b2",
+      "themes": [
+        "timely_payouts"
+      ],
+      "quote_worthy": false
+    },
+    {
+      "response_id": "c5482c3f-a42b-4249-bca0-a3feded5517a",
+      "themes": [
+        "marketing_and_advertising"
+      ],
+      "quote_worthy": true
+    },
+    {
+      "response_id": "75ab7594-9a4b-49af-813d-43e9c4aef045",
+      "themes": [
+        "timely_payouts"
+      ],
+      "quote_worthy": true
+    },
+    {
+      "response_id": "6a8047ba-984b-44e5-9b37-a31256c4e221",
+      "themes": [
+        "education_and_training",
+        "premium_cost_burden"
+      ],
+      "quote_worthy": true
+    },
+    {
+      "response_id": "a22d193a-2e45-40dc-909b-fa1709bd99d0",
+      "themes": [
+        "marketing_and_advertising"
+      ],
+      "quote_worthy": true
+    },
+    {
+      "response_id": "d5a7398d-f6d6-4a90-b9b0-c90aebfcf72b",
+      "themes": [
+        "education_and_training"
+      ],
+      "quote_worthy": true
+    },
+    {
+      "response_id": "eac8decf-9c4d-4dd1-b3f6-c1cb2c25b9f3",
+      "themes": [
+        "timely_payouts"
+      ],
+      "quote_worthy": false
+    },
+    {
+      "response_id": "86015826-fcdf-4ca6-b789-3c134488ca7e",
+      "themes": [
+        "education_and_training"
+      ],
+      "quote_worthy": false
+    },
+    {
+      "response_id": "fb2169ea-1a51-4f53-b6bb-5a713e883991",
+      "themes": [
+        "education_and_training"
+      ],
+      "quote_worthy": false
+    },
+    {
+      "response_id": "57980640-73b9-4e82-b857-6966ba166121",
+      "themes": [
+        "timely_payouts"
+      ],
+      "quote_worthy": true
+    },
+    {
+      "response_id": "4b1a7154-6bbc-4e74-894b-965f7b73f16b",
+      "themes": [],
+      "quote_worthy": false
+    },
+    {
+      "response_id": "5b6ed91b-e36a-4c09-9793-7276991246b4",
+      "themes": [
+        "education_and_training"
+      ],
+      "quote_worthy": false
+    },
+    {
+      "response_id": "3b7fc7ec-b126-49b8-8190-99a32635677e",
+      "themes": [
+        "education_and_training"
+      ],
+      "quote_worthy": true
+    },
+    {
+      "response_id": "5e77aaf9-79d2-4975-9cab-b171e97f079e",
+      "themes": [
+        "education_and_training"
+      ],
+      "quote_worthy": false
+    },
+    {
+      "response_id": "cc115359-222e-4b4d-81b4-13b85eb77803",
+      "themes": [
+        "education_and_training"
+      ],
+      "quote_worthy": false
+    }
+  ]
+}

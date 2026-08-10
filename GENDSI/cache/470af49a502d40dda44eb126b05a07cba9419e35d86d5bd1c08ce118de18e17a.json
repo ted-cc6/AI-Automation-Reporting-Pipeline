@@ -1,0 +1,183 @@
+{
+  "codings": [
+    {
+      "response_id": "98e183eb-bb22-4f18-9548-e73a1f52aaa4",
+      "themes": [
+        "health_and_medical_coverage"
+      ],
+      "quote_worthy": false
+    },
+    {
+      "response_id": "8fede22e-6cc1-4a24-b763-7b15c2ff3443",
+      "themes": [
+        "loan_repayment_and_death_benefits",
+        "financial_security_and_peace_of_mind"
+      ],
+      "quote_worthy": true
+    },
+    {
+      "response_id": "210271ba-fa09-48de-8e49-796ce83dc36b",
+      "themes": [
+        "health_and_medical_coverage",
+        "financial_security_and_peace_of_mind"
+      ],
+      "quote_worthy": true
+    },
+    {
+      "response_id": "3eb48fb0-2c0e-48e3-8c2a-528cd852de1f",
+      "themes": [
+        "affordability_and_value"
+      ],
+      "quote_worthy": false
+    },
+    {
+      "response_id": "961b06e6-6e1d-4b38-ba0c-3f57bc424097",
+      "themes": [
+        "health_and_medical_coverage",
+        "financial_security_and_peace_of_mind"
+      ],
+      "quote_worthy": true
+    },
+    {
+      "response_id": "f47c6459-3301-4d64-aa03-8875ffc06f4e",
+      "themes": [
+        "financial_security_and_peace_of_mind"
+      ],
+      "quote_worthy": false
+    },
+    {
+      "response_id": "c7566030-6935-44f1-a58f-41edf9936e39",
+      "themes": [
+        "financial_security_and_peace_of_mind"
+      ],
+      "quote_worthy": false
+    },
+    {
+      "response_id": "0d4e5eec-c155-4d06-8f94-50bfbe1ad14b",
+      "themes": [
+        "financial_security_and_peace_of_mind"
+      ],
+      "quote_worthy": false
+    },
+    {
+      "response_id": "775ed763-f24d-410c-b334-4658d4baf1fd",
+      "themes": [
+        "financial_security_and_peace_of_mind",
+        "simple_processes_and_quick_claims"
+      ],
+      "quote_worthy": false
+    },
+    {
+      "response_id": "dc3c8957-5b9c-4b15-b1aa-b855334775c4",
+      "themes": [],
+      "quote_worthy": false
+    },
+    {
+      "response_id": "746801d7-2b0f-46c2-8873-06a5bfeb3258",
+      "themes": [
+        "health_and_medical_coverage"
+      ],
+      "quote_worthy": false
+    },
+    {
+      "response_id": "b4eede6f-0e03-4c33-820a-06fda6cf74c9",
+      "themes": [
+        "affordability_and_value"
+      ],
+      "quote_worthy": false
+    },
+    {
+      "response_id": "83f34f35-f1e8-4561-a6f6-857f6fe28918",
+      "themes": [
+        "education_and_customer_care"
+      ],
+      "quote_worthy": false
+    },
+    {
+      "response_id": "12ea067e-58b9-4bcb-9726-20408288d256",
+      "themes": [
+        "health_and_medical_coverage"
+      ],
+      "quote_worthy": true
+    },
+    {
+      "response_id": "9480efba-1a79-4ff7-a12d-c43f7b3e9a40",
+      "themes": [
+        "health_and_medical_coverage"
+      ],
+      "quote_worthy": false
+    },
+    {
+      "response_id": "daa481f7-692a-4a1b-a3ee-8d820185409e",
+      "themes": [
+        "health_and_medical_coverage"
+      ],
+      "quote_worthy": false
+    },
+    {
+      "response_id": "c024d9a4-73ca-4c67-8f91-f20acc0f3bdf",
+      "themes": [
+        "health_and_medical_coverage"
+      ],
+      "quote_worthy": false
+    },
+    {
+      "response_id": "99c749af-f08b-49a3-8c81-93c3ff53f009",
+      "themes": [
+        "health_and_medical_coverage",
+        "financial_security_and_peace_of_mind"
+      ],
+      "quote_worthy": false
+    },
+    {
+      "response_id": "57308d24-5172-4923-a9f6-5eacd57bc921",
+      "themes": [
+        "health_and_medical_coverage",
+        "loan_repayment_and_death_benefits"
+      ],
+      "quote_worthy": false
+    },
+    {
+      "response_id": "d18e129c-38b5-4ece-9f82-0f74136f8799",
+      "themes": [
+        "financial_security_and_peace_of_mind",
+        "simple_processes_and_quick_claims"
+      ],
+      "quote_worthy": false
+    },
+    {
+      "response_id": "23b8c0df-efef-47cf-a825-e4c92a02de4f",
+      "themes": [
+        "health_and_medical_coverage"
+      ],
+      "quote_worthy": true
+    },
+    {
+      "response_id": "c5253554-c892-4e6e-a5cf-cf1a1d86c563",
+      "themes": [
+        "financial_security_and_peace_of_mind"
+      ],
+      "quote_worthy": true
+    },
+    {
+      "response_id": "7e5e184f-9e66-4e0d-9862-771479b3fd39",
+      "themes": [
+        "financial_security_and_peace_of_mind"
+      ],
+      "quote_worthy": false
+    },
+    {
+      "response_id": "ff3ed499-a1f1-4c41-9aed-e3879920be06",
+      "themes": [
+        "financial_security_and_peace_of_mind",
+        "simple_processes_and_quick_claims"
+      ],
+      "quote_worthy": true
+    },
+    {
+      "response_id": "03cdc07c-571b-44b0-9aa2-db23f815c2a4",
+      "themes": [],
+      "quote_worthy": false
+    }
+  ]
+}

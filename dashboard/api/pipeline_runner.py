@@ -31,13 +31,14 @@ import run_analysis as ra
 from data_loader import (
     data_loader_derived,
     data_loader_profiler,
+    data_loader_screening,
     data_loader_transformer,
     data_loader_validator,
 )
 from data_loader.data_loader_api import load_survey_data
 from analysis_engine.country_config import load_country_config
 from analysis_engine.segments import describe_segments, get_all_segment_masks
-from qualitative.gemini_call import call_gemini
+from qualitative.llm_call import call_gemini
 from qualitative.parse_results import parse_and_save
 from qualitative.prepare_payload import build_payload, load_config as load_qual_config, print_payload_stats
 from generation.assembler import assemble
@@ -46,7 +47,7 @@ from generation.writer import write_all_parts
 
 from dashboard.api.config import PROJECT_ROOT, RUNS_DIR, UPLOADS_DIR
 from dashboard.api.jobs import RUNS
-from dashboard.api.models import LlmConfig, PowerBiConfigRequest
+from dashboard.api.models import LlmConfig
 
 log = logging.getLogger(__name__)
 
@@ -92,6 +93,7 @@ def _run_stage1(state, csv_path: Path, run_dir: Path, country: str) -> None:
         ("profiler", lambda: data_loader_profiler.main(csv_path, mapping_path, run_dir)),
         ("transformer", lambda: data_loader_transformer.main(
             csv_path, mapping_path, value_map_path, run_dir)),
+        ("screening", lambda: data_loader_screening.main(run_dir)),
         ("derived", lambda: data_loader_derived.main(run_dir)),
         ("validator", lambda: data_loader_validator.main(run_dir)),
     ]

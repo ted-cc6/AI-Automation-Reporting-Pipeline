@@ -1,6 +1,6 @@
 """
 data_loader_profiler.py — VisionFund Insurance Survey Data Loader
-Step 1 of 4: Profile the raw CSV and produce profile_report.md.
+Step 1 of 5: Profile the raw CSV and produce profile_report.md.
 
 Usage:
     python data_loader/data_loader_profiler.py --csv path/to/export.csv --output-dir runs/2026_Q3

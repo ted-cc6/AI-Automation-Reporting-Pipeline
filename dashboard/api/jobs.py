@@ -3,6 +3,15 @@
 In-memory run-as-a-job model. No database -- justified by the single-operator,
 local-only scope: losing in-flight state on a process restart is acceptable.
 
+One RunState shape serves both pipelines this dashboard drives: Cupboard
+Week (4 stages, one .docx) and the GEDSI Gender Study (6 stages, a .docx
+plus a supporting .xlsx workbook) -- see pipeline_runner.py and
+gedsi_runner.py respectively. Every RunState always carries all 6 stage
+slots and both output paths regardless of which pipeline produced it;
+Cupboard Week runs just never touch stage5/stage6 or xlsx_path, and its own
+frontend only ever reads the 4 keys it knows about, so the unused slots are
+harmless rather than a fork of this module per pipeline.
+
 RunState.log() is safe to call from the worker thread pipeline_runner.execute()
 actually runs on (via asyncio.to_thread): it appends to a plain list (atomic
 enough under the GIL) and, if an event loop was captured at creation time,
@@ -18,6 +27,7 @@ from pathlib import Path
 from typing import Literal, Optional
 
 RunStatus = Literal["queued", "running", "succeeded", "partial_failure", "failed"]
+ReportType = Literal["cupboard_week", "gender_study"]
 
 
 class RunConflictError(Exception):
@@ -27,7 +37,8 @@ class RunConflictError(Exception):
 @dataclass
 class RunState:
     run_id: str
-    country: str
+    pipeline: ReportType = "cupboard_week"
+    country: Optional[str] = None
     created_at: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
     status: RunStatus = "queued"
     current_stage: int = 0
@@ -35,8 +46,11 @@ class RunState:
     stage2: dict = field(default_factory=lambda: {"status": "pending"})
     stage3: dict = field(default_factory=lambda: {"status": "pending"})
     stage4: dict = field(default_factory=lambda: {"status": "pending", "parts": {}})
+    stage5: dict = field(default_factory=lambda: {"status": "pending"})
+    stage6: dict = field(default_factory=lambda: {"status": "pending"})
     logs: list = field(default_factory=list)
     docx_path: Optional[Path] = None
+    xlsx_path: Optional[Path] = None
     error: Optional[str] = None
 
     def __post_init__(self) -> None:
@@ -71,6 +85,7 @@ class RunState:
     def snapshot(self) -> dict:
         return {
             "run_id": self.run_id,
+            "pipeline": self.pipeline,
             "country": self.country,
             "created_at": self.created_at,
             "status": self.status,
@@ -79,8 +94,11 @@ class RunState:
             "stage2": self.stage2,
             "stage3": self.stage3,
             "stage4": self.stage4,
+            "stage5": self.stage5,
+            "stage6": self.stage6,
             "error": self.error,
             "docx_ready": self.docx_path is not None,
+            "xlsx_ready": self.xlsx_path is not None,
         }
 
 
@@ -88,7 +106,7 @@ RUNS: dict[str, RunState] = {}
 _active_run_id: Optional[str] = None
 
 
-def start_new_run(run_id: str, country: str) -> RunState:
+def start_new_run(run_id: str, pipeline: ReportType = "cupboard_week", country: Optional[str] = None) -> RunState:
     global _active_run_id
     active = RUNS.get(_active_run_id) if _active_run_id else None
     if active is not None and active.status in ("queued", "running"):
@@ -96,7 +114,7 @@ def start_new_run(run_id: str, country: str) -> RunState:
             f"Run '{active.run_id}' is already {active.status}. "
             "Only one run can be active at a time."
         )
-    state = RunState(run_id=run_id, country=country)
+    state = RunState(run_id=run_id, pipeline=pipeline, country=country)
     RUNS[run_id] = state
     _active_run_id = run_id
     return state

@@ -10,7 +10,7 @@ import math
 
 import pandas as pd
 import statsmodels.api as sm
-from scipy.stats import norm as _norm, spearmanr
+from scipy.stats import norm as _norm, spearmanr, mannwhitneyu
 
 log = logging.getLogger("analysis_engine.stats")
 
@@ -312,6 +312,49 @@ def nps_score(df: pd.DataFrame) -> dict:
         result["value"] = (n_promoters - n_detractors) / n_valid * 100
 
     return result
+
+
+def nps_scorecard_row(df: pd.DataFrame, segment_masks: "dict[str, pd.Series]",
+                      label: str, group_a: str, group_b: str) -> dict:
+    """Two-group NPS comparison, shaped like scorecard_row()'s output so it
+    drops into the same generic scorecard plumbing (Parts 6/7).
+
+    NPS isn't a proportion (it's promoters% - detractors%, range -100..+100),
+    so it can't reuse significance_test()'s two-proportion z-test the way
+    every other scorecard row does. Instead each group's underlying 0-10
+    scores are compared directly with a Mann-Whitney U test (appropriate for
+    ordinal data), and each group's displayed value is still its own NPS via
+    nps_score() for a like-for-like read against the rest of the report.
+    """
+    _absent = {"value": None, "n_valid": 0, "suppressed": True, "suppress_reason": "segment absent"}
+
+    def _group_nps(seg_name: str) -> dict:
+        mask = segment_masks.get(seg_name)
+        if mask is None:
+            return _absent
+        seg_mask = mask.reindex(df.index, fill_value=False)
+        return nps_score(df[seg_mask])
+
+    a = _group_nps(group_a)
+    b = _group_nps(group_b)
+
+    p_value = None
+    if not a["suppressed"] and not b["suppressed"] and _COL_NPS_SCORE in df.columns:
+        mask_a = segment_masks[group_a].reindex(df.index, fill_value=False)
+        mask_b = segment_masks[group_b].reindex(df.index, fill_value=False)
+        scores_a = df.loc[mask_a, _COL_NPS_SCORE].dropna()
+        scores_b = df.loc[mask_b, _COL_NPS_SCORE].dropna()
+        if len(scores_a) > 0 and len(scores_b) > 0:
+            _, p_value = mannwhitneyu(scores_a, scores_b, alternative="two-sided")
+            p_value = float(p_value)
+
+    row = {"label": label, group_a: a, group_b: b}
+    row["significance"] = {
+        "p_value":     p_value,
+        "significant": bool(p_value is not None and p_value < 0.05),
+        "test":        "Mann-Whitney U (on underlying 0-10 scores; not a two-proportion z-test)",
+    }
+    return row
 
 
 # --- Comparison / correlation ---

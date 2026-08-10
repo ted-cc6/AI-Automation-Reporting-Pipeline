@@ -166,6 +166,7 @@ def _build_drivers_data(analysis: dict, drivers_spec: dict) -> list:
             "n_valid":    n_val,
             "suppressed": sup,
             "population": d_cfg.get("population"),
+            "direction":  d_cfg.get("direction"),
         })
     # Sort by abs(rho) descending; suppressed rows go to bottom
     rows.sort(key=lambda r: (r["suppressed"], -abs(r["rho"]) if r["rho"] is not None else 0))
@@ -194,6 +195,7 @@ def _build_scorecard_6(analysis: dict, scorecard_spec: list) -> list:
             "sig_p":         p_val,
             "significant":   sig,
             "population":    m.get("population"),
+            "sig_test_note": m.get("sig_test_note"),
         })
     return rows
 
@@ -216,6 +218,7 @@ def _build_scorecard_7(analysis: dict, scorecard_spec: list) -> list:
             "sig_p":         p_val,
             "significant":   sig,
             "population":    m.get("population"),
+            "sig_test_note": m.get("sig_test_note"),
         })
     return rows
 
@@ -239,6 +242,7 @@ def _build_scorecard_5(analysis: dict, scorecard_spec: list) -> list:
             "sig_p":         p_val,
             "significant":   sig,
             "population":    m.get("population"),
+            "sig_test_note": m.get("sig_test_note"),
         })
     return rows
 
@@ -253,14 +257,18 @@ def build_part_package(part_key: str, analysis: dict, qual: dict,
 
     for s_key, s_spec in spec_part.get("sections", {}).items():
         if s_key == "insight":
-            # Extract verbatims from qual
+            # Extract verbatims + the section-scoped theme/driver/sentiment
+            # summary from qual (see qualitative/llm_call.py Task 5B)
             verb_section = s_spec.get("verbatim_section", "")
             verbatims = []
+            insight_summary = {}
             if qual and verb_section:
                 verbatims = qual.get("section_verbatims", {}).get(verb_section, [])
+                insight_summary = qual.get("section_insights", {}).get(verb_section, {})
             sections_out[s_key] = {
                 "word_limit": s_spec.get("word_limit", 120),
                 "verbatims":  verbatims,
+                "insight_summary": insight_summary,
             }
             continue
 
@@ -287,21 +295,26 @@ def build_part_package(part_key: str, analysis: dict, qual: dict,
         if "funnel_table" in s_spec:
             sec["funnel_table"] = s_spec["funnel_table"]
 
-        # Drivers data (s5_1)
+        # Drivers data (s5_1, s4_3)
         if "drivers" in s_spec:
             sec["drivers_data"] = _build_drivers_data(analysis, s_spec["drivers"])
             sec["drivers_table"] = s_spec.get("drivers_table", {})
+            sec["drivers_outcome_label"] = s_spec.get("drivers_outcome_label", "child wellbeing")
 
         sections_out[s_key] = sec
 
     # Scorecard rows for Parts 5, 6 & 7
     scorecard = []
+    groups: dict = {}
     if part_key == "part_5" and "scorecard_metrics" in spec_part:
         scorecard = _build_scorecard_5(analysis, spec_part["scorecard_metrics"])
+        groups = get_nested(analysis, "parts.part_5.caregiver_comparison.groups", default={}) or {}
     elif part_key == "part_6" and "scorecard_metrics" in spec_part:
         scorecard = _build_scorecard_6(analysis, spec_part["scorecard_metrics"])
+        groups = get_nested(analysis, "parts.part_6.groups", default={}) or {}
     elif part_key == "part_7" and "scorecard_metrics" in spec_part:
         scorecard = _build_scorecard_7(analysis, spec_part["scorecard_metrics"])
+        groups = get_nested(analysis, "parts.part_7.groups", default={}) or {}
 
     # Visuals
     visuals = []
@@ -319,6 +332,7 @@ def build_part_package(part_key: str, analysis: dict, qual: dict,
         "title":    spec_part["title"],
         "sections": sections_out,
         "scorecard": scorecard,
+        "groups":   groups,
         "visuals":  visuals,
     }
 

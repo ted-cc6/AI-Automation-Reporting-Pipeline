@@ -1,0 +1,146 @@
+raw_index,raw_column_header,role_type,role_name,group_name,option_label,applies_to,notes
+0,Device Info,pii_drop,device_info,,,,
+1,start,pii_drop,start_timestamp,,,,
+2,end,pii_drop,end_timestamp,,,,
+3,Username,pii_drop,username,,,,
+4,Region,demographic,region,,,,
+5,Country,demographic,country,,,,
+6,What is the client's ID number in our systems?,pii_drop,client_id_number,,,,
+7,To which branch does the client belong?,demographic,branch,,,,
+8,Insurance_Type,demographic,insurance_type,,,,
+9,"Before we start, I would like to explain this survey.
+
+VisionFund is collecting this information to understand how our services affect our clients and to improve our products.
+
+Your participation is voluntary. Your answers will not affect your loan, insurance, or any other VisionFund services in any way.
+
+Your responses will be kept confidential and analyzed together with other clients’ answers. We will not share your name or personal details in reports.
+
+We may share anonymized survey data with trusted research or analysis partners to help us understand client experiences and improve our services.
+
+You may skip any question, stop the survey at any time, or ask for your data to be deleted later.
+
+Do you agree to participate in this survey?",consent,consent,,,,
+10,This section includes questions on the extent to which you understand the terms of insurance and claims.,unused,,,,,"Kobo section-intro/note text, no respondent data"
+11,How would you rate your understanding of what your insurance covers?,quant_indicator,understanding_coverage,,,,
+12,How you would you rate your understanding of how to make a claim?,quant_indicator,understanding_claims_process,,,,
+13,Which communication channel is the most effective in increasing your awareness and understanding of the claims process?,multiselect_parent,,comms_channel_effectiveness,,,
+14,Which communication channel is the most effective in increasing your awareness and understanding of the claims process?/a. In-person explanation from MFI staff/loan officer,multiselect_option,,comms_channel_effectiveness,In-person explanation from MFI staff/loan officer,,
+15,Which communication channel is the most effective in increasing your awareness and understanding of the claims process?/b. Group meeting,multiselect_option,,comms_channel_effectiveness,Group meeting,,
+16,Which communication channel is the most effective in increasing your awareness and understanding of the claims process?/c. SMS/WhatsApp messages from the MFI,multiselect_option,,comms_channel_effectiveness,SMS/WhatsApp messages from the MFI,,
+17,"Which communication channel is the most effective in increasing your awareness and understanding of the claims process?/d. Printed materials (leaflets, posters, brochures)",multiselect_option,,comms_channel_effectiveness,"Printed materials (leaflets, posters, brochures)",,
+18,Which communication channel is the most effective in increasing your awareness and understanding of the claims process?/e. Phone call from the MFI,multiselect_option,,comms_channel_effectiveness,Phone call from the MFI,,
+19,Which communication channel is the most effective in increasing your awareness and understanding of the claims process?/f. Email from the MFI,multiselect_option,,comms_channel_effectiveness,Email from the MFI,,
+20,Which communication channel is the most effective in increasing your awareness and understanding of the claims process?/g. Other (please specify),multiselect_option,,comms_channel_effectiveness,Other,,
+21,"If other, please specify:",qual_supplementary,comms_channel_other_specify,,,,
+22,Which channel do you prefer most for submitting insurance claims?,quant_indicator,preferred_claim_channel,,,,
+23,"If other, please specify:",qual_supplementary,preferred_claim_channel_specify,,,,
+24,I will now ask you questions regarding your experience when making an insurance claim.,unused,,,,,"Kobo section-intro/note text, no respondent data"
+25,"In the last 12 months, did you experience an event that might be covered by your insurance?",quant_indicator,experienced_insured_event,,,,
+26,[If Yes] Did you submit an insurance claim for that event?,quant_indicator,submitted_claim,,,,
+27,"[If No, did not submit an insurance claim] What was the main reason you did not submit an insurance claim for this event?",quant_indicator,reason_no_claim,,,,
+28,"If other, please specify:",qual_supplementary,reason_no_claim_other_specify,,,,
+29,"[If Yes, submitted a claim] What was the result of the claim?",quant_indicator,claim_result,,,,
+30,"If [Claim was approved and paid] Considering all costs related to the event, how much of the cost did the insurance payout cover?",quant_indicator,payout_coverage_ratio,,,,
+31,[If filed a claim] Have you experienced any challenges with the claim process?,quant_indicator,experienced_claim_challenges,,,,
+32,[If yes] What challenges did you experience with the claim process?,multiselect_parent,,claim_challenges,,,
+33,[If yes] What challenges did you experience with the claim process?/a. Claim documents were difficult to collect from hospitals or authorities,multiselect_option,,claim_challenges,Claim documents difficult to collect from hospitals/authorities,,
+34,[If yes] What challenges did you experience with the claim process?/b. Claim documents were difficult to submit,multiselect_option,,claim_challenges,Claim documents difficult to submit,,
+35,[If yes] What challenges did you experience with the claim process?/c. It was difficult to know the status of the claim once documents were submitted,multiselect_option,,claim_challenges,Difficult to know claim status once submitted,,
+36,[If yes] What challenges did you experience with the claim process?/d. It took a long time to receive the claim amount,multiselect_option,,claim_challenges,Took a long time to receive claim amount,,
+37,[If yes] What challenges did you experience with the claim process?/e. I did not receive enough support or guidance on the claim process,multiselect_option,,claim_challenges,Did not receive enough support/guidance on claim process,,
+38,[If yes] What challenges did you experience with the claim process?/f. Other (specify),multiselect_option,,claim_challenges,Other,,
+39,"If other, please specify:",unused,,,,,"'If other, please specify' for claim_challenges option f; not wired into QUAL_SUPPLEMENTARY in original config.py -- preserved as-is"
+40,[If e] What specific support would you need to make the claims process easier?,qual_supplementary,claim_support_needed,,,,
+41,"[If yes to experiencing an insured event] Because of the event, did you have to do any of the following?",multiselect_parent,,coping_behaviors_after_event,,,
+42,"[If yes to experiencing an insured event] Because of the event, did you have to do any of the following?/a. Use savings",multiselect_option,,coping_behaviors_after_event,Use savings,,
+43,"[If yes to experiencing an insured event] Because of the event, did you have to do any of the following?/b. Borrow money",multiselect_option,,coping_behaviors_after_event,Borrow money,,
+44,"[If yes to experiencing an insured event] Because of the event, did you have to do any of the following?/c. Sell assests or livestock",multiselect_option,,coping_behaviors_after_event,Sell assets or livestock,,
+45,"[If yes to experiencing an insured event] Because of the event, did you have to do any of the following?/d. Reduce food consumption or essential spending",multiselect_option,,coping_behaviors_after_event,Reduce food consumption or essential spending,,
+46,"[If yes to experiencing an insured event] Because of the event, did you have to do any of the following?/e. Take your children out of school",multiselect_option,,coping_behaviors_after_event,Take children out of school,,
+47,"[If yes to experiencing an insured event] Because of the event, did you have to do any of the following?/f. Closed business temporarily",multiselect_option,,coping_behaviors_after_event,Closed business temporarily,,
+48,"[If yes to experiencing an insured event] Because of the event, did you have to do any of the following?/g. None of the above",multiselect_option,,coping_behaviors_after_event,None of the above,,
+49,"[If yes to experiencing an insured event] Because of the event, did you have to do any of the following?/h. Other (specify)",multiselect_option,,coping_behaviors_after_event,Other,,
+50,"If other, please specify:",qual_supplementary,coping_behavior_other_specify,,,,
+51,This section includes questions related to additional services offered in the insurance.,unused,,,,,"Kobo section-intro/note text, no respondent data"
+52,"In the past 12 months, which of the following services did you use?",multiselect_parent,,additional_services_used,,,
+53,"In the past 12 months, which of the following services did you use?/a. Teleconsultation - doctor by phone (general or specialized such as psychologist, nutritionist)",multiselect_option,,additional_services_used,Teleconsultation (phone doctor),,
+54,"In the past 12 months, which of the following services did you use?/b. Face to face consultations (general or specialized such as dental, opthalmology)",multiselect_option,,additional_services_used,Face to face consultations,,
+55,"In the past 12 months, which of the following services did you use?/c. Access to medicines (discounts or free)",multiselect_option,,additional_services_used,Access to medicines (discounts/free),,
+56,"In the past 12 months, which of the following services did you use?/d. Lab examination/lab test",multiselect_option,,additional_services_used,Lab examination/lab test,,
+57,"In the past 12 months, which of the following services did you use?/e. Health events (mobile clinic, orange ambulance, medical brigades, etc.)",multiselect_option,,additional_services_used,"Health events (mobile clinic, ambulance, brigades)",,
+58,"In the past 12 months, which of the following services did you use?/f. None",multiselect_option,,additional_services_used,None,,
+59,"In the past 12 months, which of the following services did you use?/g. Other: please specify",multiselect_option,,additional_services_used,Other,,
+60,"If other, please specify:",unused,,,,,"'If other, please specify' for additional_services_used option g; not wired into QUAL_SUPPLEMENTARY in original config.py -- preserved as-is"
+61,If [did access the services] did the services help you as you wanted?,quant_indicator,claim_services_helped,,,,
+62,I will now ask you questions on how the insurance has impacted the wellbeing of your children and finances.,unused,,,,,"Kobo section-intro/note text, no respondent data"
+63,How much does the insurance help reduce your financial stress?,quant_indicator,financial_stress_reduction,,,,
+64,"Since taking the insurance product from VisionFund, has the wellbeing of the children you support improved?",quant_indicator,child_wellbeing_improved,,,,
+65,[If a] What improved for your children since having the insurance product?,multiselect_parent,,children_improvements,,,
+66,[If a] What improved for your children since having the insurance product?/a. Improved access to healthcare treatment and diagnosis,multiselect_option,,children_improvements,Improved access to healthcare treatment and diagnosis,,
+67,[If a] What improved for your children since having the insurance product?/b. Reduced out-of-pocket expenses that helped us maintain nutritious and sufficient meals.,multiselect_option,,children_improvements,"Reduced out-of-pocket expenses, maintained nutrition",,
+68,[If a] What improved for your children since having the insurance product?/c. Fewer school days missed due to improved health,multiselect_option,,children_improvements,Fewer school days missed due to improved health,,
+69,"[If a] What improved for your children since having the insurance product?/d. Reduced need to work extra hours after a shock, allowing more time to spend with children",multiselect_option,,children_improvements,Reduced need to work extra hours after a shock,,
+70,"[If a] What improved for your children since having the insurance product?/e. Ability to continue normal daily activities (play, social life, learning)",multiselect_option,,children_improvements,Ability to continue normal daily activities,,
+71,"[If a] What improved for your children since having the insurance product?/f. Increased savings after loss helped meet the children’s needs including clothing, shoes, and school supplies",multiselect_option,,children_improvements,"Increased savings met children's needs (clothing, school supplies)",,
+72,[If a] What improved for your children since having the insurance product?/g. Other (please specify),multiselect_option,,children_improvements,Other,,
+73,"If other, please specify:",unused,,,,,"'If other, please specify' for children_improvements option g; not wired into QUAL_SUPPLEMENTARY in original config.py -- preserved as-is"
+74,"This section includes questions on your level of satisfaction with your interaction with VisionFund, their products or services.",unused,,,,,"Kobo section-intro/note text, no respondent data"
+75,"On a scale of 0-10, how likely are you to recommend the VisionFund Insurance to a friend or family member, where 0 is not at all likely and 10 is extremely likely?",quant_indicator,nps_score,,,,
+76,[If 0-6] What actions could VisionFund take to make you more likely to recommend the insurance product to a friend or family member?,qual_primary,nps_detractor_reasons,,,,
+77,[If 7-8] What specifically about the VisionFund  Insurance caused you to give it the score that you did?,qual_primary,nps_passive_reasons,,,,
+78,[If 9-10] What specifically about the VisionFund Insurance would cause you to recommend it to a friend or family member?,qual_primary,nps_promoter_reasons,,,,
+79,"Considering the benefits and the cost of your insurance, do you feel the insurance is worth what you pay?",quant_indicator,worth_the_cost,,,,
+80,"If you had to pay the full insurance premium yourself, in the amount of 700,000 VND/hectare per year, would you renew this policy after it expires?",quant_indicator,renew_at_full_premium,,,Crop Insurance,
+81,How confident are you that the insurance will pay when something serious happens?,quant_indicator,confidence_payout,,,,
+82,I will now ask you questions about your levels of access to insurance services before and after VisionFund.,unused,,,,,"Kobo section-intro/note text, no respondent data"
+83,"Before VisionFund, did you have access to an insurance like VisionFund provides?",quant_indicator,had_access_before_vfi,,,,
+84,"If you could no longer access insurance from VisionFund, how easily could you get a comparable insurance product with another organization?",quant_indicator,ease_alternative_access,,,,
+85,This section includes specific questions related to your health insurance.,unused,,,,,"Kobo section-intro/note text, no respondent data"
+86,"Since having the insurance, were you or any member of your household able to seek medical care more easily?",quant_indicator,medical_care_easier,,,Health Insurance,
+87,"Compared to a similar illness before you had insurance, have your out-of-pocket medical costs changed because of the insurance? It has become…",quant_indicator,oop_cost_change,,,Health Insurance,
+88,This section includes specific questions related to your Crop insurance.,unused,,,,,"Kobo section-intro/note text, no respondent data"
+89,"After the weather shock, since having the insurance, how quickly were you able to recover and continue earning income?",quant_indicator,recovery_speed,,,Crop Insurance,
+90,"Since having a crop insurance, has your approach to farming changed (e.g., choice of crops, input investment, or planting practices)?",quant_indicator,farming_approach_changed,,,Crop Insurance,
+91,This section includes specific questions related to your Credit Life insurance.,unused,,,,,"Kobo section-intro/note text, no respondent data"
+92,"Besides the protection in case of death or disability, which other insurance benefits are included with your Credit insurance?",multiselect_parent,,credit_life_extra_benefits,,,
+93,"Besides the protection in case of death or disability, which other insurance benefits are included with your Credit insurance?/a. Help with medical or hospital costs",multiselect_option,,credit_life_extra_benefits,Help with medical or hospital costs,,
+94,"Besides the protection in case of death or disability, which other insurance benefits are included with your Credit insurance?/b. Help when crops or income are affected by weather (drought, flood, etc.)",multiselect_option,,credit_life_extra_benefits,Help when crops/income affected by weather,,
+95,"Besides the protection in case of death or disability, which other insurance benefits are included with your Credit insurance?/c. Help when property or business assets are damaged",multiselect_option,,credit_life_extra_benefits,Help when property or business assets damaged,,
+96,"Besides the protection in case of death or disability, which other insurance benefits are included with your Credit insurance?/d. No other benefits are included",multiselect_option,,credit_life_extra_benefits,No other benefits included,,
+97,"Besides the protection in case of death or disability, which other insurance benefits are included with your Credit insurance?/e. I am not sure",multiselect_option,,credit_life_extra_benefits,Not sure,,
+98,Most MFIs that provide a Credit Insurance only cover the outstanding loan amount in case of the death or disability of the borrower. How valuable are the additional benefits of this enhanced credit insurance to you?,quant_indicator,value_of_enhanced_benefits,,,Enhanced Credit Life,
+99,"Lastly, I will be asking questions about you and your household.",unused,,,,,"Kobo section-intro/note text, no respondent data"
+100,What is the client's age?,demographic,age,,,,
+101,What is the client's education level?,demographic,education,,,,
+102,What is the client's household size?,demographic,household_size,,,,
+103,What is the client's sex?,demographic,sex,,,,
+104,"Does anyone in your household experience serious difficulty in any of the following areas: seeing, hearing, walking or climbing steps, remembering or concentrating, self-care, or communicating?",demographic,disability,,,,
+105,"In the last 6 months, which services have you received from VisionFund apart from your insurance policy?",multiselect_parent,,other_vf_services_used,,,
+106,"In the last 6 months, which services have you received from VisionFund apart from your insurance policy?/a. Loans",multiselect_option,,other_vf_services_used,Loans,,
+107,"In the last 6 months, which services have you received from VisionFund apart from your insurance policy?/b. Savings Accounts",multiselect_option,,other_vf_services_used,Savings Accounts,,
+108,"In the last 6 months, which services have you received from VisionFund apart from your insurance policy?/c. Financial Education",multiselect_option,,other_vf_services_used,Financial Education,,
+109,"In the last 6 months, which services have you received from VisionFund apart from your insurance policy?/d. Health Services (telemedicine, education etc.)",multiselect_option,,other_vf_services_used,"Health Services (telemedicine, education)",,
+110,"In the last 6 months, which services have you received from VisionFund apart from your insurance policy?/e. None",multiselect_option,,other_vf_services_used,None,,
+111,"In the last 6 months, which services have you received from VisionFund apart from your insurance policy?/f. Other (please specify)",multiselect_option,,other_vf_services_used,Other,,
+112,"If other, please specify:",qual_supplementary,other_vf_service_specify,,,,
+113,What are your main sources of income?,multiselect_parent,,income_sources,,,
+114,What are your main sources of income?/a. Crop agriculture business,multiselect_option,,income_sources,Crop agriculture business,,
+115,What are your main sources of income?/b. Livestock agriculture business,multiselect_option,,income_sources,Livestock agriculture business,,
+116,"What are your main sources of income?/c. Trading/Wholesale/Retail (e.g., retail shop)",multiselect_option,,income_sources,Trading/Wholesale/Retail,,
+117,"What are your main sources of income?/d. Manufacturing (e.g., maker of furniture)",multiselect_option,,income_sources,Manufacturing,,
+118,"What are your main sources of income?/e. Service provision business (e.g., salon, skilled/casual laborer, or transport business)",multiselect_option,,income_sources,Service provision business,,
+119,What are your main sources of income?/f. Salaried wage-earner,multiselect_option,,income_sources,Salaried wage-earner,,
+120,"What are your main sources of income?/g. Remittances, donations, and government subsidy/assitance",multiselect_option,,income_sources,Remittances/donations/government assistance,,
+121,What are your main sources of income?/h. Other (please specify),multiselect_option,,income_sources,Other,,
+122,"If other, please specify:",qual_supplementary,income_source_other_specify,,,,
+123,Thank you very much for your time. We will use this information to improve our services to you and future clients. Have a great day!,unused,,,,,"Kobo section-intro/note text, no respondent data"
+124,_id,unused,,,,,"Kobo internal numeric id, not analytically used"
+125,_uuid,system_uuid,response_id_source,,,,"platform-minted _uuid, used to build response_id"
+126,_submission_time,unused,,,,,"Kobo submission timestamp, not analytically used"
+127,_validation_status,unused,,,,,"Kobo validation status, not analytically used"
+128,_notes,pii_drop,notes_field,,,,
+129,_status,unused,,,,,"Kobo status, not analytically used"
+130,_submitted_by,pii_drop,submitted_by,,,,
+131,_tags,unused,,,,,"Kobo tags, not analytically used"
+132,_index,unused,,,,,"Kobo row index, not analytically used"

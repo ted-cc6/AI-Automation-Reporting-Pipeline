@@ -18,26 +18,33 @@ export function LlmKeyPanel(props: {
   onValidateKey: () => void;
   validating: boolean;
   disabled: boolean;
+  // When set, the provider choice is fixed and the picker row is hidden --
+  // used by the Gender Study flow, whose pipeline only ever calls Claude.
+  lockedProvider?: Provider;
 }) {
   return (
     <Card
       title="Language model"
       subtitle="Used for dataset validation, qualitative tagging, and report writing. Your key stays in this browser session only."
     >
-      <div className="provider-row">
-        {(Object.keys(PROVIDER_LABELS) as Provider[]).map((p) => (
-          <label key={p} className={`provider-choice ${props.provider === p ? "provider-choice--selected" : ""}`}>
-            <input
-              type="radio"
-              name="provider"
-              checked={props.provider === p}
-              disabled={props.disabled}
-              onChange={() => props.onProviderChange(p)}
-            />
-            {PROVIDER_LABELS[p]}
-          </label>
-        ))}
-      </div>
+      {props.lockedProvider ? (
+        <p className="locked-provider-note">This report always uses {PROVIDER_LABELS[props.lockedProvider]}.</p>
+      ) : (
+        <div className="provider-row">
+          {(Object.keys(PROVIDER_LABELS) as Provider[]).map((p) => (
+            <label key={p} className={`provider-choice ${props.provider === p ? "provider-choice--selected" : ""}`}>
+              <input
+                type="radio"
+                name="provider"
+                checked={props.provider === p}
+                disabled={props.disabled}
+                onChange={() => props.onProviderChange(p)}
+              />
+              {PROVIDER_LABELS[p]}
+            </label>
+          ))}
+        </div>
+      )}
       <div className="field-row">
         <label className="field field--grow">
           <span>API key</span>

@@ -2,7 +2,7 @@
 
 Single call-through for the three LLM providers the dashboard lets a user pick:
 Gemini, Anthropic, and OpenAI. All three are used in "JSON-mode + prose-described
-shape" style, matching how qualitative/gemini_call.py and generation/writer.py
+shape" style, matching how qualitative/llm_call.py and generation/writer.py
 already prompt Gemini -- there is no formal structured-output schema object
 anywhere in this project, so the abstraction doesn't need one either.
 
@@ -40,7 +40,9 @@ def _call_gemini(api_key: str, system_prompt: str, user_content: str,
     from google import genai
     from google.genai import types
 
-    client = genai.Client(api_key=api_key)
+    # Same rationale as the Anthropic/OpenAI clients: a generous ceiling (ms)
+    # for the large single-batch qualitative-tagging call, not a floor.
+    client = genai.Client(api_key=api_key, http_options=types.HttpOptions(timeout=1_800_000))
     response = client.models.generate_content(
         model=model,
         contents=user_content,
@@ -58,7 +60,10 @@ def _call_anthropic(api_key: str, system_prompt: str, user_content: str,
                      max_output_tokens: int, temperature: float | None, model: str) -> str:
     from anthropic import Anthropic
 
-    client = Anthropic(api_key=api_key)
+    # Generous ceiling, not a floor: the qualitative-tagging call alone can
+    # request max_output_tokens=65536 over a large payload, well past the
+    # SDK's default (10 min) client timeout on a slow day.
+    client = Anthropic(api_key=api_key, timeout=1800.0)
     tool = {
         "name": "emit_json",
         "description": "Return the result as JSON matching the shape described in the prompt.",
@@ -75,8 +80,17 @@ def _call_anthropic(api_key: str, system_prompt: str, user_content: str,
     if temperature is not None and model not in _ANTHROPIC_NO_SAMPLING_PARAMS:
         kwargs["temperature"] = temperature
 
+    def _stream_to_message(kwargs):
+        # Anthropic's SDK refuses a blocking messages.create() once max_tokens
+        # is large enough that the request could plausibly run past 10 minutes
+        # (the qualitative-tagging call requests max_output_tokens=65536 over a
+        # large payload) -- streaming has no such limit and returns an
+        # equivalent final Message via get_final_message().
+        with client.messages.stream(**kwargs) as stream:
+            return stream.get_final_message()
+
     try:
-        response = client.messages.create(**kwargs)
+        response = _stream_to_message(kwargs)
     except Exception as exc:
         # Catch-all for any other/future tier that also rejects temperature --
         # the proactive skip above covers the known ones (incl. the default
@@ -84,7 +98,7 @@ def _call_anthropic(api_key: str, system_prompt: str, user_content: str,
         if "temperature" in kwargs and "temperature" in str(exc).lower():
             log.warning(f"Model {model} rejected temperature param; retrying without it.")
             kwargs.pop("temperature")
-            response = client.messages.create(**kwargs)
+            response = _stream_to_message(kwargs)
         else:
             raise
 
@@ -98,7 +112,9 @@ def _call_openai(api_key: str, system_prompt: str, user_content: str,
                   max_output_tokens: int, temperature: float | None, model: str) -> str:
     from openai import OpenAI
 
-    client = OpenAI(api_key=api_key)
+    # Same rationale as the Anthropic client above: a generous ceiling for the
+    # large single-batch qualitative-tagging call, not a floor.
+    client = OpenAI(api_key=api_key, timeout=1800.0)
     response = client.chat.completions.create(
         model=model,
         messages=[

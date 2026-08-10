@@ -24,6 +24,7 @@ function confidenceBadgeClass(confidence: number): string {
 }
 
 export function DatasetValidation(props: {
+  endpointBase: string;
   uploadId: string;
   provider: Provider;
   apiKey: string;
@@ -46,7 +47,7 @@ export function DatasetValidation(props: {
     setErrorMessage(null);
     props.onResolved(false);
     try {
-      const result = await validateDataset(props.uploadId, props.provider, props.apiKey);
+      const result = await validateDataset(props.endpointBase, props.uploadId, props.provider, props.apiKey);
       if (result.clean) {
         setPhase("clean");
         setRecommendations([]);
@@ -72,6 +73,7 @@ export function DatasetValidation(props: {
     setPhase("applying");
     try {
       const result = await applyDecisions(
+        props.endpointBase,
         props.uploadId,
         Object.entries(decisions).map(([id, approved]) => ({ id, approved })),
       );
@@ -184,9 +186,29 @@ function RecommendationCard({
         <span className="rec-card__diff-new">{newText}</span>
       </div>
 
-      {rec.type === "new_question" && (
+      {rec.type === "new_question" && rec.suggested_question_ref && (
         <p className="rec-card__meta">
           <span className="mono">{rec.suggested_question_ref}</span> · {rec.suggested_response_type}
+        </p>
+      )}
+
+      {rec.type === "new_question" && rec.suggested_role_type && (
+        <p className="rec-card__meta">
+          <span className="badge badge--neutral">{rec.suggested_role_type}</span>
+          {rec.suggested_role_name && (
+            <>
+              {" "}
+              · <span className="mono">{rec.suggested_role_name}</span>
+            </>
+          )}
+          {rec.suggested_group_name && (
+            <>
+              {" "}
+              · group <span className="mono">{rec.suggested_group_name}</span>
+            </>
+          )}
+          {rec.suggested_option_label && <> · option "{rec.suggested_option_label}"</>}
+          {rec.suggested_applies_to && <> · applies to {rec.suggested_applies_to}</>}
         </p>
       )}
 

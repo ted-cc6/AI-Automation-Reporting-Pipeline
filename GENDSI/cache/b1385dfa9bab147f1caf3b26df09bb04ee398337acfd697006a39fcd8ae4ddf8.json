@@ -1,0 +1,166 @@
+{
+  "codings": [
+    {
+      "response_id": "056810bd-a437-4665-8ce5-46d4010c9f87",
+      "themes": [
+        "health_and_medical_coverage"
+      ],
+      "quote_worthy": false
+    },
+    {
+      "response_id": "6be2b072-ecb7-4050-954f-481180b608f1",
+      "themes": [
+        "health_and_medical_coverage"
+      ],
+      "quote_worthy": true
+    },
+    {
+      "response_id": "075ea8df-1689-4841-adda-d65b0ffcc3ba",
+      "themes": [
+        "health_and_medical_coverage"
+      ],
+      "quote_worthy": false
+    },
+    {
+      "response_id": "d7edb9f3-a397-4bbd-9cd7-8c5292d4d72f",
+      "themes": [
+        "health_and_medical_coverage"
+      ],
+      "quote_worthy": false
+    },
+    {
+      "response_id": "d6b034f9-7dd8-4b7e-b3fa-2bdd2ddea9cd",
+      "themes": [],
+      "quote_worthy": false
+    },
+    {
+      "response_id": "234c8256-c57d-4976-a53f-dcd749d40bd6",
+      "themes": [
+        "health_and_medical_coverage"
+      ],
+      "quote_worthy": false
+    },
+    {
+      "response_id": "98e1e1d2-9af4-4f0b-be86-61abaa0372d7",
+      "themes": [],
+      "quote_worthy": false
+    },
+    {
+      "response_id": "444d252c-aecf-4f03-90e1-8e638417ef7b",
+      "themes": [
+        "health_and_medical_coverage"
+      ],
+      "quote_worthy": false
+    },
+    {
+      "response_id": "f2354f96-9ddb-4867-9053-8ec09940e03b",
+      "themes": [
+        "health_and_medical_coverage"
+      ],
+      "quote_worthy": false
+    },
+    {
+      "response_id": "d68b1b4a-19c0-4f7c-848e-d0484fce0725",
+      "themes": [
+        "financial_security_and_peace_of_mind"
+      ],
+      "quote_worthy": false
+    },
+    {
+      "response_id": "b66e9a83-f28a-48fd-ade4-a1839e68d568",
+      "themes": [
+        "health_and_medical_coverage"
+      ],
+      "quote_worthy": false
+    },
+    {
+      "response_id": "c45bd059-2da0-49c3-8b27-ef09f1e261e5",
+      "themes": [
+        "health_and_medical_coverage"
+      ],
+      "quote_worthy": false
+    },
+    {
+      "response_id": "a0743710-1773-4952-9cf3-5f6180b58ede",
+      "themes": [
+        "health_and_medical_coverage"
+      ],
+      "quote_worthy": false
+    },
+    {
+      "response_id": "56744c14-f2f4-4ca5-84f8-8352dc203b3a",
+      "themes": [],
+      "quote_worthy": false
+    },
+    {
+      "response_id": "dfa156d9-d274-469e-b30a-34af7dc44108",
+      "themes": [
+        "health_and_medical_coverage",
+        "financial_security_and_peace_of_mind"
+      ],
+      "quote_worthy": true
+    },
+    {
+      "response_id": "a4655fa5-6689-4878-bf7c-81fd6e680ac1",
+      "themes": [
+        "health_and_medical_coverage"
+      ],
+      "quote_worthy": false
+    },
+    {
+      "response_id": "08d9acf3-6f5f-4596-9455-2bfc3f8d5f5c",
+      "themes": [],
+      "quote_worthy": false
+    },
+    {
+      "response_id": "949c8aaf-f084-4604-901f-8c09fdd3dc84",
+      "themes": [
+        "health_and_medical_coverage"
+      ],
+      "quote_worthy": false
+    },
+    {
+      "response_id": "35d7062a-427b-4386-9ea0-f675484e1a9f",
+      "themes": [],
+      "quote_worthy": false
+    },
+    {
+      "response_id": "0a29c356-2964-4d85-8c09-83efba261068",
+      "themes": [],
+      "quote_worthy": false
+    },
+    {
+      "response_id": "c05e0709-e363-49ff-9af3-b61aa66d2811",
+      "themes": [
+        "financial_security_and_peace_of_mind"
+      ],
+      "quote_worthy": false
+    },
+    {
+      "response_id": "457f9692-10b0-4932-906e-e2d59546f060",
+      "themes": [],
+      "quote_worthy": false
+    },
+    {
+      "response_id": "4d7d0dc7-8703-4267-88b0-5128940a3a7b",
+      "themes": [
+        "financial_security_and_peace_of_mind"
+      ],
+      "quote_worthy": false
+    },
+    {
+      "response_id": "666fd099-a0e6-41b1-99fc-adcfa925994c",
+      "themes": [
+        "financial_security_and_peace_of_mind"
+      ],
+      "quote_worthy": true
+    },
+    {
+      "response_id": "8c608cbe-1373-448d-8744-f236803cdec2",
+      "themes": [
+        "financial_security_and_peace_of_mind"
+      ],
+      "quote_worthy": true
+    }
+  ]
+}

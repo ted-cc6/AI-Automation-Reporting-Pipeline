@@ -1,0 +1,185 @@
+{
+  "codings": [
+    {
+      "response_id": "66718865-d8fb-4010-bbbb-37d48d55cb97",
+      "themes": [
+        "financial_security_and_peace_of_mind"
+      ],
+      "quote_worthy": true
+    },
+    {
+      "response_id": "4a00a42d-e31c-4323-80b5-a07ecbd7420e",
+      "themes": [
+        "loan_repayment_and_death_benefits",
+        "simple_processes_and_quick_claims"
+      ],
+      "quote_worthy": true
+    },
+    {
+      "response_id": "863e45a4-9d02-4a45-8783-3762e328beb7",
+      "themes": [
+        "simple_processes_and_quick_claims"
+      ],
+      "quote_worthy": false
+    },
+    {
+      "response_id": "ef8bc0de-dab8-488b-b6ca-dbd8ef69fda8",
+      "themes": [
+        "health_and_medical_coverage"
+      ],
+      "quote_worthy": false
+    },
+    {
+      "response_id": "ca4a1118-1b7d-42ae-aa86-6efbdeccbe19",
+      "themes": [
+        "health_and_medical_coverage",
+        "simple_processes_and_quick_claims"
+      ],
+      "quote_worthy": true
+    },
+    {
+      "response_id": "bb27ecf2-68b0-4e13-96af-ededb2752aac",
+      "themes": [
+        "affordability_and_value"
+      ],
+      "quote_worthy": false
+    },
+    {
+      "response_id": "c5b857bb-3e4d-43e4-b5b0-fcf5194cfd0d",
+      "themes": [
+        "health_and_medical_coverage",
+        "financial_security_and_peace_of_mind"
+      ],
+      "quote_worthy": true
+    },
+    {
+      "response_id": "89b78325-7180-4739-9db3-a18f0b94bdd1",
+      "themes": [
+        "education_and_customer_care"
+      ],
+      "quote_worthy": false
+    },
+    {
+      "response_id": "6437e6af-05ee-4daf-87b7-8d965d6ec2c4",
+      "themes": [
+        "education_and_customer_care",
+        "health_and_medical_coverage"
+      ],
+      "quote_worthy": true
+    },
+    {
+      "response_id": "61b5c2d0-2dd7-4442-97e6-07ccda9282f9",
+      "themes": [
+        "financial_security_and_peace_of_mind"
+      ],
+      "quote_worthy": false
+    },
+    {
+      "response_id": "d8c65419-8172-4b09-8bc9-c436bd3cab12",
+      "themes": [
+        "financial_security_and_peace_of_mind"
+      ],
+      "quote_worthy": false
+    },
+    {
+      "response_id": "c786c870-0a3b-45d7-a752-2fd51b7cdedf",
+      "themes": [
+        "health_and_medical_coverage"
+      ],
+      "quote_worthy": true
+    },
+    {
+      "response_id": "240e8925-db59-4459-8c61-2052d91710f5",
+      "themes": [
+        "financial_security_and_peace_of_mind"
+      ],
+      "quote_worthy": false
+    },
+    {
+      "response_id": "9d984a5f-e840-4555-86bc-a200d40ebaa8",
+      "themes": [
+        "health_and_medical_coverage"
+      ],
+      "quote_worthy": false
+    },
+    {
+      "response_id": "0443cd93-f998-4df4-84cd-1b9b7614634b",
+      "themes": [
+        "financial_security_and_peace_of_mind"
+      ],
+      "quote_worthy": false
+    },
+    {
+      "response_id": "36e1c6df-2bde-400f-87f5-0cad19fb83ec",
+      "themes": [
+        "health_and_medical_coverage",
+        "financial_security_and_peace_of_mind"
+      ],
+      "quote_worthy": true
+    },
+    {
+      "response_id": "001be4a6-3f88-438c-adcd-d79927c7e550",
+      "themes": [
+        "financial_security_and_peace_of_mind"
+      ],
+      "quote_worthy": false
+    },
+    {
+      "response_id": "8e053ba7-6741-41ea-974a-caaab94245f3",
+      "themes": [
+        "education_and_customer_care"
+      ],
+      "quote_worthy": true
+    },
+    {
+      "response_id": "e637699c-3e4a-4f20-9210-ff959db5c1fe",
+      "themes": [
+        "health_and_medical_coverage"
+      ],
+      "quote_worthy": false
+    },
+    {
+      "response_id": "d4bc122f-d6fa-499d-92b5-ce58f8129120",
+      "themes": [
+        "financial_security_and_peace_of_mind"
+      ],
+      "quote_worthy": false
+    },
+    {
+      "response_id": "f41fd400-cde9-4c9f-9798-0095ec9a7c2d",
+      "themes": [
+        "health_and_medical_coverage"
+      ],
+      "quote_worthy": true
+    },
+    {
+      "response_id": "7a288b9b-293e-44cd-94b0-59d6db46f70a",
+      "themes": [
+        "health_and_medical_coverage",
+        "affordability_and_value"
+      ],
+      "quote_worthy": false
+    },
+    {
+      "response_id": "1eb1994f-5469-476c-a40b-484617865db7",
+      "themes": [
+        "health_and_medical_coverage"
+      ],
+      "quote_worthy": false
+    },
+    {
+      "response_id": "d17246ac-3b7a-4de3-9edd-ad2d285386b5",
+      "themes": [
+        "financial_security_and_peace_of_mind"
+      ],
+      "quote_worthy": false
+    },
+    {
+      "response_id": "f2ed18a9-86c4-4ec8-81d8-9f56b7d72f76",
+      "themes": [
+        "education_and_customer_care"
+      ],
+      "quote_worthy": false
+    }
+  ]
+}
