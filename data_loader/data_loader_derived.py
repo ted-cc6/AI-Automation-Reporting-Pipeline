@@ -103,8 +103,19 @@ def compute_flag_child_wellbeing_denominator(df: pd.DataFrame) -> pd.array:
 # Structural assertions (data-independent — valid for any quarterly CSV)
 # ---------------------------------------------------------------------------
 
-def run_assertions(df: pd.DataFrame) -> bool:
-    """Verify structural correctness of derived flags. No exact counts."""
+def run_assertions(df: pd.DataFrame, target_country: "str | None" = None) -> bool:
+    """Verify structural correctness of derived flags. No exact counts.
+
+    target_country: the country this run was scoped to (see
+    data_loader_screening.py's country filter), or None for the default
+    multi-country portfolio. Only used to relax the flag_negative_coping
+    "at least one True" check below -- a population-size threshold isn't a
+    safe proxy for "is this run scoped" here, since some single-country
+    subsets can still be large (e.g. Vietnam's country config: crop
+    insurance payout is automatic and triggered for every policyholder, so
+    its in-scope population can be close to its full respondent count, not
+    reliably small).
+    """
     failures = []
 
     # All flag columns must be present and typed as boolean
@@ -130,10 +141,23 @@ def run_assertions(df: pd.DataFrame) -> bool:
                 f"flag_negative_coping: {out_scope_not_na} non-NaN value(s) "
                 "outside insured-event rows"
             )
-        # Must have at least one True (some coping always occurs; guards against empty output)
+        # Must have at least one True on the default (unscoped) multi-country
+        # portfolio -- guards against a coding regression always returning
+        # False. A country-scoped run can legitimately have zero (e.g.
+        # Vietnam's automatic/index-triggered payout means nobody may ever
+        # need a severe coping strategy), so this is a warning, not a
+        # failure, whenever target_country is set.
         n_true = int(df["flag_negative_coping"].sum())
+        n_in_scope = int(insured_true.sum())
         if n_true == 0:
-            failures.append("flag_negative_coping: zero True values — possible coding error")
+            if target_country:
+                log.warning(
+                    f"flag_negative_coping: zero True values out of {n_in_scope} "
+                    f"insured-event respondents in country-scoped run ({target_country!r}) "
+                    "-- not treated as an error"
+                )
+            else:
+                failures.append("flag_negative_coping: zero True values — possible coding error")
 
     if "flag_promoter" in df.columns:
         # Must be non-null only where q_nps_score is non-null
@@ -170,7 +194,7 @@ def run_assertions(df: pd.DataFrame) -> bool:
 # Main
 # ---------------------------------------------------------------------------
 
-def main(output_dir: Path) -> None:
+def main(output_dir: Path, target_country: "str | None" = None) -> None:
     parquet_path = output_dir / "survey_clean.parquet"
     if not parquet_path.exists():
         log.error(f"Parquet not found: {parquet_path}")
@@ -192,7 +216,7 @@ def main(output_dir: Path) -> None:
     df["flag_child_wellbeing_denominator"] = compute_flag_child_wellbeing_denominator(df)
 
     log.info("Running structural assertions...")
-    if not run_assertions(df):
+    if not run_assertions(df, target_country=target_country):
         log.error("Assertions failed — output NOT written")
         sys.exit(1)
     log.info("All assertions passed.")
@@ -222,5 +246,10 @@ if __name__ == "__main__":
         "--output-dir", type=Path, required=True,
         help="Run output directory containing survey_clean.parquet (modified in place)",
     )
+    parser.add_argument(
+        "--country", type=str, default=None, metavar="COUNTRY",
+        help="If this run was scoped to a single country (see data_loader_screening.py "
+             "--country), relaxes the flag_negative_coping structural assertion.",
+    )
     args = parser.parse_args()
-    main(args.output_dir)
+    main(args.output_dir, target_country=args.country)

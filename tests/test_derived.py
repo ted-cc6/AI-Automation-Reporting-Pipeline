@@ -153,3 +153,65 @@ class TestRunAssertions:
         df = self._valid_df()
         df.loc[0, "insurance_type"] = "life_insurance"  # not a valid slug
         assert run_assertions(df) is False
+
+
+# ---------------------------------------------------------------------------
+# run_assertions -- flag_negative_coping "zero True values" check, scoped
+# vs. unscoped (regression coverage for the bug that blocked Vietnam runs:
+# a country-scoped population can legitimately have zero severe-coping
+# respondents, e.g. Vietnam's automatic/index-triggered crop payout, but the
+# default/global run should still catch a real coding regression)
+# ---------------------------------------------------------------------------
+
+class TestNegativeCopingZeroTrueAssertion:
+    def _df_all_false_coping(self, n_insured: int, n_total: int) -> pd.DataFrame:
+        insured = _bool_array([True] * n_insured + [False] * (n_total - n_insured))
+        all_false = _bool_array([False] * n_total)
+        df = pd.DataFrame({
+            "q_insured_event_12m":               insured,
+            "q_coping_mechanisms__c":             all_false,
+            "q_coping_mechanisms__d":             all_false,
+            "q_coping_mechanisms__e":             all_false,
+            "q_coping_mechanisms__f":             all_false,
+            "q_nps_score":                        pd.array([8] * n_total, dtype="Int16"),
+            "q_child_wellbeing":                  ["Yes"] * n_total,
+            "insurance_type":                     ["crop"] * n_total,
+        })
+        from data_loader.data_loader_derived import (
+            compute_flag_child_wellbeing_denominator,
+            compute_flag_negative_coping,
+            compute_flag_paid_claimant,
+            compute_flag_promoter,
+        )
+        df["flag_negative_coping"] = compute_flag_negative_coping(df)
+        df["flag_promoter"] = compute_flag_promoter(df)
+        df["q_claim_result"] = [None] * n_total
+        df["flag_paid_claimant"] = compute_flag_paid_claimant(df)
+        df["flag_child_wellbeing_denominator"] = compute_flag_child_wellbeing_denominator(df)
+        return df
+
+    def test_zero_true_fails_on_unscoped_default_run(self):
+        # No target_country -- must still catch a real coding regression on
+        # the full multi-country portfolio.
+        df = self._df_all_false_coping(n_insured=500, n_total=1000)
+        assert run_assertions(df, target_country=None) is False
+
+    def test_zero_true_passes_with_warning_when_country_scoped(self):
+        # Vietnam-shaped: near-100% insured-event rate (matches
+        # country_configs/vietnam.yaml's automatic/index-triggered payout),
+        # zero severe coping -- must not block the run.
+        df = self._df_all_false_coping(n_insured=150, n_total=154)
+        assert run_assertions(df, target_country="vietnam") is True
+
+    def test_zero_true_still_fails_for_same_data_when_not_marked_scoped(self):
+        # Identical shape to the Vietnam case above, but without the scope
+        # signal -- confirms the leniency is tied to target_country, not to
+        # population size (a country CAN have a large in-scope population).
+        df = self._df_all_false_coping(n_insured=150, n_total=154)
+        assert run_assertions(df, target_country=None) is False
+
+    def test_at_least_one_true_passes_regardless_of_scope(self):
+        df = self._df_all_false_coping(n_insured=10, n_total=20)
+        df.loc[0, "flag_negative_coping"] = True
+        assert run_assertions(df, target_country=None) is True
+        assert run_assertions(df, target_country="vietnam") is True

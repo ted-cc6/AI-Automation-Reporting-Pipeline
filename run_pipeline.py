@@ -36,8 +36,8 @@ STEPS = [
     {
         "name": "screening",
         "script": DATA_LOADER / "data_loader_screening.py",
-        # The only step that cares about country -- scopes the report to a
-        # single country instead of the full multi-country portfolio.
+        # Scopes the report to a single country instead of the full
+        # multi-country portfolio.
         "args": lambda csv, run_dir, country: (
             ["--output-dir", str(run_dir)] + (["--country", country] if country else [])
         ),
@@ -45,7 +45,12 @@ STEPS = [
     {
         "name": "derived",
         "script": DATA_LOADER / "data_loader_derived.py",
-        "args": lambda csv, run_dir, country: ["--output-dir", str(run_dir)],
+        # Also needs to know the scope: a country-scoped run can legitimately
+        # have zero severe-coping respondents (relaxes a structural assertion
+        # that would otherwise treat that as a coding bug).
+        "args": lambda csv, run_dir, country: (
+            ["--output-dir", str(run_dir)] + (["--country", country] if country else [])
+        ),
     },
     {
         "name": "validator",
