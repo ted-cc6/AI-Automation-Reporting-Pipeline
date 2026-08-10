@@ -15,6 +15,21 @@ log = logging.getLogger(__name__)
 ROOT = Path(__file__).parent.parent
 SPEC_PATH = ROOT / "generation" / "report_spec.yaml"
 
+def _not_applicable_path(suppressed_path: str) -> str:
+    """not_applicable lives as a sibling key next to suppressed in every
+    result dict analysis_engine/stats.py's _base_result() produces (see
+    Phase 3) -- derive its path by swapping the trailing key rather than
+    requiring report_spec.yaml to declare a parallel *_not_applicable_path
+    for every single metric/driver/scorecard entry. Returns "" (which
+    get_nested() resolves to the given default) if suppressed_path doesn't
+    end in ".suppressed" -- e.g. when a spec entry has no suppressed_path
+    at all.
+    """
+    if suppressed_path.endswith(".suppressed"):
+        return suppressed_path[: -len(".suppressed")] + ".not_applicable"
+    return ""
+
+
 _DRIVER_LABELS = {
     "financial_stress":             "Financial Stress (High)",
     "coverage_understanding":       "Coverage Understanding",
@@ -91,8 +106,10 @@ def extract_metrics(analysis: dict, section_spec: dict) -> dict:
 
     for m_key, m_cfg in section_spec.get("metrics", {}).items():
         v    = get_nested(analysis, m_cfg["path"])
-        sup  = bool(get_nested(analysis, m_cfg.get("suppressed_path", ""), default=False))
-        result[m_key] = format_value(v, m_cfg["fmt"], suppressed=sup)
+        sup_path = m_cfg.get("suppressed_path", "")
+        sup  = bool(get_nested(analysis, sup_path, default=False))
+        not_app = bool(get_nested(analysis, _not_applicable_path(sup_path), default=False))
+        result[m_key] = format_value(v, m_cfg["fmt"], suppressed=sup, not_applicable=not_app)
 
         n_path = m_cfg.get("n_path")
         if n_path:
@@ -105,13 +122,16 @@ def extract_metrics(analysis: dict, section_spec: dict) -> dict:
 
     # Driver rho/p/n for Part 5 sections
     for d_key, d_cfg in section_spec.get("drivers", {}).items():
-        sup   = bool(get_nested(analysis, d_cfg.get("suppressed_path", ""), default=False))
+        sup_path = d_cfg.get("suppressed_path", "")
+        sup   = bool(get_nested(analysis, sup_path, default=False))
+        not_app = bool(get_nested(analysis, _not_applicable_path(sup_path), default=False))
         rho   = get_nested(analysis, d_cfg["rho_path"])
         p_val = get_nested(analysis, d_cfg["p_path"])
         n_val = get_nested(analysis, d_cfg["n_path"])
-        result[d_key + "_rho"] = format_value(rho, "rho", suppressed=sup)
-        result[d_key + "_p"]   = f"{p_val:.4f}" if (p_val is not None and not sup) else "SUPPRESSED"
-        result[d_key + "_n"]   = format_value(n_val, "count") if (n_val is not None and not sup) else "SUPPRESSED"
+        marker = "NOT APPLICABLE" if not_app else "SUPPRESSED"
+        result[d_key + "_rho"] = format_value(rho, "rho", suppressed=sup, not_applicable=not_app)
+        result[d_key + "_p"]   = f"{p_val:.4f}" if (p_val is not None and not sup) else marker
+        result[d_key + "_n"]   = format_value(n_val, "count") if (n_val is not None and not sup) else marker
 
     return result
 
@@ -154,19 +174,22 @@ def _build_drivers_data(analysis: dict, drivers_spec: dict) -> list:
     """Pre-compute the sorted drivers table rows for the assembler."""
     rows = []
     for d_key, d_cfg in drivers_spec.items():
-        sup   = bool(get_nested(analysis, d_cfg.get("suppressed_path", ""), default=False))
+        sup_path = d_cfg.get("suppressed_path", "")
+        sup   = bool(get_nested(analysis, sup_path, default=False))
+        not_app = bool(get_nested(analysis, _not_applicable_path(sup_path), default=False))
         rho   = get_nested(analysis, d_cfg["rho_path"])
         p_val = get_nested(analysis, d_cfg["p_path"])
         n_val = get_nested(analysis, d_cfg["n_path"])
         rows.append({
-            "key":        d_key,
-            "label":      _DRIVER_LABELS.get(d_key, d_key.replace("_", " ").title()),
-            "rho":        rho,
-            "p_value":    p_val,
-            "n_valid":    n_val,
-            "suppressed": sup,
-            "population": d_cfg.get("population"),
-            "direction":  d_cfg.get("direction"),
+            "key":            d_key,
+            "label":          _DRIVER_LABELS.get(d_key, d_key.replace("_", " ").title()),
+            "rho":            rho,
+            "p_value":        p_val,
+            "n_valid":        n_val,
+            "suppressed":     sup,
+            "not_applicable": not_app,
+            "population":     d_cfg.get("population"),
+            "direction":      d_cfg.get("direction"),
         })
     # Sort by abs(rho) descending; suppressed rows go to bottom
     rows.sort(key=lambda r: (r["suppressed"], -abs(r["rho"]) if r["rho"] is not None else 0))
@@ -182,8 +205,10 @@ def _build_scorecard_6(analysis: dict, scorecard_spec: list) -> list:
     for m in scorecard_spec:
         sup_a = bool(get_nested(analysis, m["claimant_sup"], default=False))
         sup_b = bool(get_nested(analysis, m["non_claimant_sup"], default=False))
-        val_a = format_value(get_nested(analysis, m["claimant_path"]), m["fmt"], suppressed=sup_a)
-        val_b = format_value(get_nested(analysis, m["non_claimant_path"]), m["fmt"], suppressed=sup_b)
+        not_app_a = bool(get_nested(analysis, _not_applicable_path(m["claimant_sup"]), default=False))
+        not_app_b = bool(get_nested(analysis, _not_applicable_path(m["non_claimant_sup"]), default=False))
+        val_a = format_value(get_nested(analysis, m["claimant_path"]), m["fmt"], suppressed=sup_a, not_applicable=not_app_a)
+        val_b = format_value(get_nested(analysis, m["non_claimant_path"]), m["fmt"], suppressed=sup_b, not_applicable=not_app_b)
         p_val = get_nested(analysis, m["sig_path"])
         sig   = (p_val is not None and p_val < 0.05)
         rows.append({
@@ -205,8 +230,10 @@ def _build_scorecard_7(analysis: dict, scorecard_spec: list) -> list:
     for m in scorecard_spec:
         sup_a = bool(get_nested(analysis, m["female_sup"], default=False))
         sup_b = bool(get_nested(analysis, m["male_sup"], default=False))
-        val_a = format_value(get_nested(analysis, m["female_path"]), m["fmt"], suppressed=sup_a)
-        val_b = format_value(get_nested(analysis, m["male_path"]), m["fmt"], suppressed=sup_b)
+        not_app_a = bool(get_nested(analysis, _not_applicable_path(m["female_sup"]), default=False))
+        not_app_b = bool(get_nested(analysis, _not_applicable_path(m["male_sup"]), default=False))
+        val_a = format_value(get_nested(analysis, m["female_path"]), m["fmt"], suppressed=sup_a, not_applicable=not_app_a)
+        val_b = format_value(get_nested(analysis, m["male_path"]), m["fmt"], suppressed=sup_b, not_applicable=not_app_b)
         p_val = get_nested(analysis, m["sig_path"])
         sig   = (p_val is not None and p_val < 0.05)
         rows.append({
@@ -229,8 +256,10 @@ def _build_scorecard_5(analysis: dict, scorecard_spec: list) -> list:
     for m in scorecard_spec:
         sup_a = bool(get_nested(analysis, m["caregiver_sup"], default=False))
         sup_b = bool(get_nested(analysis, m["non_caregiver_sup"], default=False))
-        val_a = format_value(get_nested(analysis, m["caregiver_path"]), m["fmt"], suppressed=sup_a)
-        val_b = format_value(get_nested(analysis, m["non_caregiver_path"]), m["fmt"], suppressed=sup_b)
+        not_app_a = bool(get_nested(analysis, _not_applicable_path(m["caregiver_sup"]), default=False))
+        not_app_b = bool(get_nested(analysis, _not_applicable_path(m["non_caregiver_sup"]), default=False))
+        val_a = format_value(get_nested(analysis, m["caregiver_path"]), m["fmt"], suppressed=sup_a, not_applicable=not_app_a)
+        val_b = format_value(get_nested(analysis, m["non_caregiver_path"]), m["fmt"], suppressed=sup_b, not_applicable=not_app_b)
         p_val = get_nested(analysis, m["sig_path"])
         sig   = (p_val is not None and p_val < 0.05)
         rows.append({

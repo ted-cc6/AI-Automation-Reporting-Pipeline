@@ -47,8 +47,21 @@ def _to_python_list(val) -> list:
 
 
 def _base_result(n_valid: int, n_total: int) -> dict:
-    """Standard result skeleton with suppression flag pre-computed."""
+    """Standard result skeleton with suppression flag pre-computed.
+
+    not_applicable is distinct from suppressed: suppressed means "asked, but
+    too few answered to report reliably" (n_valid below LOW_N_THRESHOLD);
+    not_applicable means "nobody in this population was ever asked this
+    question at all" (n_valid == 0 while the population itself is non-empty
+    -- e.g. worth_premium for a Vietnam-only run, or renewal_intent for a
+    non-Vietnam country run; see report_spec.yaml's population: notes for
+    which metrics are population-exclusive like this). A metric with zero
+    valid responses is always suppressed too (0 < LOW_N_THRESHOLD), but the
+    writer should say "not asked of this population" instead of "sample too
+    small" when not_applicable is True -- see generation/writer.py Phase 5.
+    """
     suppressed = n_valid < LOW_N_THRESHOLD
+    not_applicable = n_total > 0 and n_valid == 0
     return {
         "value": None,
         "n_valid": n_valid,
@@ -57,6 +70,7 @@ def _base_result(n_valid: int, n_total: int) -> dict:
         "suppress_reason": (
             f"n_valid={n_valid} below threshold={LOW_N_THRESHOLD}" if suppressed else None
         ),
+        "not_applicable": not_applicable,
         "ci_lower": None,
         "ci_upper": None,
         "ci_level": 0.95,
@@ -326,7 +340,8 @@ def nps_scorecard_row(df: pd.DataFrame, segment_masks: "dict[str, pd.Series]",
     ordinal data), and each group's displayed value is still its own NPS via
     nps_score() for a like-for-like read against the rest of the report.
     """
-    _absent = {"value": None, "n_valid": 0, "suppressed": True, "suppress_reason": "segment absent"}
+    _absent = {"value": None, "n_valid": 0, "suppressed": True, "suppress_reason": "segment absent",
+               "not_applicable": False}
 
     def _group_nps(seg_name: str) -> dict:
         mask = segment_masks.get(seg_name)
@@ -439,6 +454,11 @@ def logistic_regression(y: pd.Series, X: "pd.DataFrame", confidence: float = 0.9
         "suppress_reason": (
             f"n_valid={n_valid} below threshold={LOW_N_THRESHOLD}" if suppressed else None
         ),
+        # Regression predictors that don't apply to this population are
+        # dropped individually (see the zero-variance filter below), not
+        # represented by not_applicable -- kept here only for schema
+        # consistency with every other suppressed-bearing result dict.
+        "not_applicable":     False,
         "converged":          False,
         "pseudo_r2":          None,
         "predictors_dropped": [],
@@ -560,7 +580,8 @@ def scorecard_row(
     non-claimant, Part 7 female vs male, Part 5 caregiver vs non-caregiver).
     """
     disag = disaggregate(scoped_df, col_or_series, stat_fn, segment_masks, **stat_kwargs)
-    _absent = {"value": None, "n_valid": 0, "suppressed": True, "suppress_reason": "segment absent"}
+    _absent = {"value": None, "n_valid": 0, "suppressed": True, "suppress_reason": "segment absent",
+               "not_applicable": False}
     a = disag.get(group_a, _absent)
     b = disag.get(group_b, _absent)
 
@@ -617,6 +638,10 @@ def composite_index(
             f"only {len(values)} of {len(dimension_scores)} dimensions available "
             f"(minimum {min_dimensions} required)" if suppressed else None
         ),
+        # A composite aggregates several dimensions -- "not applicable" isn't a
+        # meaningful state for the composite itself (each dimension already
+        # carries its own not_applicable and is excluded above if so).
+        "not_applicable": False,
         "dimensions_included": included,
         "dimensions_excluded": excluded,
         "n_dimensions": len(dimension_scores),

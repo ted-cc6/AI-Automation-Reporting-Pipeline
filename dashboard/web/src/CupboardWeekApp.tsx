@@ -6,7 +6,7 @@ import { LogPanel } from "./components/LogPanel/LogPanel";
 import { ResultsPanel } from "./components/ResultsPanel/ResultsPanel";
 import { useRunEvents } from "./state/useRunEvents";
 import {
-  listCountries,
+  listUploadCountries,
   uploadCsv,
   validateLlmKey,
   startRun,
@@ -25,6 +25,12 @@ import "./App.css";
 
 const CURRENT_YEAR = new Date().getFullYear();
 
+// "default" is the sentinel meaning "no single country selected" -- the
+// full multi-country portfolio rollup (see analysis_engine/country_config.py's
+// DEFAULT_COUNTRY). Always the first, permanent option in the country picker;
+// listUploadCountries() supplies the rest once a CSV is uploaded.
+const DEFAULT_COUNTRY_OPTION: CountryOption = { value: "default", label: "All Countries (Global Portfolio)" };
+
 export function CupboardWeekApp({
   reportType,
   onReportTypeChange,
@@ -32,7 +38,7 @@ export function CupboardWeekApp({
   reportType: ReportType;
   onReportTypeChange: (t: ReportType) => void;
 }) {
-  const [countries, setCountries] = useState<CountryOption[]>([]);
+  const [countries, setCountries] = useState<CountryOption[]>([DEFAULT_COUNTRY_OPTION]);
   const [country, setCountry] = useState("default");
   const [year, setYear] = useState(CURRENT_YEAR);
   const [quarter, setQuarter] = useState(2);
@@ -63,14 +69,21 @@ export function CupboardWeekApp({
   );
 
   useEffect(() => {
-    listCountries().then((opts) => {
-      setCountries(opts);
-      if (opts.length && !opts.some((o) => o.value === country)) {
-        setCountry(opts[0].value);
-      }
-    });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    if (!csvUpload) {
+      setCountries([DEFAULT_COUNTRY_OPTION]);
+      return;
+    }
+    listUploadCountries(csvUpload.upload_id)
+      .then((opts) => {
+        const merged = [DEFAULT_COUNTRY_OPTION, ...opts];
+        setCountries(merged);
+        // If the previously-selected country isn't in this upload's data
+        // (e.g. a new file was uploaded), fall back to the full portfolio
+        // rather than silently keeping a now-nonexistent selection.
+        setCountry((prev) => (merged.some((o) => o.value === prev) ? prev : "default"));
+      })
+      .catch(() => setCountries([DEFAULT_COUNTRY_OPTION]));
+  }, [csvUpload]);
 
   useEffect(() => {
     getVisualSlots(computedRunId)

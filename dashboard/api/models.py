@@ -15,6 +15,11 @@ class CsvUploadResponse(BaseModel):
 class CountryOption(BaseModel):
     value: str
     label: str
+    # Respondent count for this country within a specific upload. Only set
+    # by GET /api/csv/{upload_id}/countries (data-driven discovery); the
+    # static GET /api/countries (config-file-driven) leaves this None since
+    # it isn't scoped to any particular dataset.
+    count: Optional[int] = None
 
 
 class LlmValidateRequest(BaseModel):

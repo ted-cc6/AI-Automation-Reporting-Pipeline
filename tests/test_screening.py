@@ -17,6 +17,7 @@ from data_loader.data_loader_screening import (
     find_non_consenting_rows,
     find_out_of_scope_country_rows,
     find_test_rows,
+    find_unselected_country_rows,
     screen,
 )
 
@@ -129,6 +130,32 @@ class TestFindOutOfScopeCountryRows:
     def test_missing_column_flags_nothing(self):
         df = _base_df().drop(columns=["country"])
         mask = find_out_of_scope_country_rows(df)
+        assert not mask.any()
+
+
+# ---------------------------------------------------------------------------
+# find_unselected_country_rows
+# ---------------------------------------------------------------------------
+
+class TestFindUnselectedCountryRows:
+    def test_flags_every_row_not_matching_the_target_country(self):
+        df = _base_df(country=["Kenya", "Vietnam", "Kenya"])
+        mask = find_unselected_country_rows(df, "Vietnam")
+        assert list(mask) == [True, False, True]
+
+    def test_comparison_is_case_insensitive(self):
+        df = _base_df(country=["Vietnam", "vietnam", "VIETNAM"])
+        mask = find_unselected_country_rows(df, "vietnam")
+        assert not mask.any()
+
+    def test_target_country_with_surrounding_whitespace_still_matches(self):
+        df = _base_df(country=[" Vietnam ", "Kenya", "Vietnam"])
+        mask = find_unselected_country_rows(df, "  Vietnam  ")
+        assert list(mask) == [False, True, False]
+
+    def test_missing_column_flags_nothing(self):
+        df = _base_df().drop(columns=["country"])
+        mask = find_unselected_country_rows(df, "Vietnam")
         assert not mask.any()
 
 
@@ -306,3 +333,36 @@ class TestScreen:
 
         # All three rows were removed for one reason or another -- nothing survives.
         assert len(result.df) == 0
+
+    def test_target_country_scopes_the_run_to_just_that_country(self):
+        df = _base_df(country=["Kenya", "Vietnam", "Vietnam"])
+        result = screen(df, target_country="Vietnam")
+
+        assert len(result.df) == 2
+        assert set(result.df["country"]) == {"Vietnam"}
+        assert len(result.removed_unselected_country) == 1
+        assert result.removed_unselected_country[0]["client_id"] == "A1"
+        assert result.removed_unselected_country[0]["country"] == "Kenya"
+
+    def test_no_target_country_leaves_removed_unselected_country_empty(self):
+        df = _base_df(country=["Kenya", "Vietnam", "Vietnam"])
+        result = screen(df)
+
+        assert len(result.df) == 3  # nothing removed by country selection
+        assert result.removed_unselected_country == []
+
+    def test_target_country_runs_after_other_screens_not_instead_of_them(self):
+        # A test-QA row and an out-of-scope-country row should still be
+        # removed by their own screens even when a target_country is set --
+        # country selection is an additional narrowing, not a replacement.
+        df = _base_df(
+            client_id=["test rosa", "A2", "A3"],
+            country=["Vietnam", "Vietnam", "Mexico"],
+        )
+        result = screen(df, target_country="Vietnam")
+
+        assert len(result.removed_test) == 1
+        assert len(result.removed_out_of_scope) == 1
+        assert result.removed_out_of_scope[0]["client_id"] == "A3"
+        assert len(result.df) == 1
+        assert result.df.iloc[0]["client_id"] == "A2"

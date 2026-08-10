@@ -36,7 +36,7 @@ from data_loader import (
     data_loader_validator,
 )
 from data_loader.data_loader_api import load_survey_data
-from analysis_engine.country_config import load_country_config
+from analysis_engine.country_config import DEFAULT_COUNTRY, load_country_config
 from analysis_engine.segments import describe_segments, get_all_segment_masks
 from qualitative.llm_call import call_gemini
 from qualitative.parse_results import parse_and_save
@@ -61,11 +61,19 @@ def _run_stage1(state, csv_path: Path, run_dir: Path, country: str) -> None:
     state.stage1 = {"status": "running"}
     state.log("Stage 1/4 -- Loading and cleaning survey data...")
 
+    # "default" (DEFAULT_COUNTRY) is the sentinel for "no single country
+    # selected" -- it means "use country_configs/default.yaml" (no segment
+    # overrides), not an actual country to filter survey_clean.parquet down
+    # to. Any other value scopes stage 1's screening step to just that
+    # country; None here means "don't filter, analyze the full portfolio."
+    filter_country = country if country and country != DEFAULT_COUNTRY else None
+
     run_dir.mkdir(parents=True, exist_ok=True)
     run_metadata_path = run_dir / "run_metadata.yaml"
     with open(run_metadata_path, "w", encoding="utf-8") as f:
         yaml.dump(
             {"run_id": state.run_id, "country": country,
+             "country_filter_applied": filter_country is not None,
              "created_at": datetime.now(timezone.utc).isoformat()},
             f, default_flow_style=False, allow_unicode=True,
         )
@@ -93,7 +101,7 @@ def _run_stage1(state, csv_path: Path, run_dir: Path, country: str) -> None:
         ("profiler", lambda: data_loader_profiler.main(csv_path, mapping_path, run_dir)),
         ("transformer", lambda: data_loader_transformer.main(
             csv_path, mapping_path, value_map_path, run_dir)),
-        ("screening", lambda: data_loader_screening.main(run_dir)),
+        ("screening", lambda: data_loader_screening.main(run_dir, target_country=filter_country)),
         ("derived", lambda: data_loader_derived.main(run_dir)),
         ("validator", lambda: data_loader_validator.main(run_dir)),
     ]

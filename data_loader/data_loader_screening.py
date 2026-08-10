@@ -28,8 +28,15 @@ for what look like two different real interviews) are logged as a WARNING
 for field-team reconciliation -- silently dropping one would delete a real
 respondent's answers.
 
+An optional sixth step -- distinct from screen 4 above -- restricts the
+dataset to a single caller-selected country, for a country-scoped report
+(e.g. "generate the Vietnam report" instead of the default multi-country
+portfolio rollup). This only runs when a target_country is explicitly
+passed in; it is not part of the always-on scope check.
+
 Usage:
     python data_loader/data_loader_screening.py --output-dir runs/2026_Q3
+    python data_loader/data_loader_screening.py --output-dir runs/2026_Q3 --country Vietnam
 """
 
 import sys
@@ -165,6 +172,25 @@ def find_out_of_scope_country_rows(df: pd.DataFrame) -> pd.Series:
 
 
 # ---------------------------------------------------------------------------
+# Screen — Country selection (for a single-country-scoped report)
+# ---------------------------------------------------------------------------
+# Distinct from find_out_of_scope_country_rows() above: that one enforces the
+# study-wide allow-list regardless of what's being generated. This one is
+# only used when the caller has asked for a report scoped to one specific
+# country -- it drops every OTHER in-scope country too. Comparison is
+# case-insensitive since country_configs/*.yaml identifiers are lowercase
+# slugs (e.g. "vietnam") while the survey data's country column is the
+# title-cased value KoBoToolbox recorded (e.g. "Vietnam").
+
+def find_unselected_country_rows(df: pd.DataFrame, target_country: str) -> pd.Series:
+    """Boolean mask: True where country does not case-insensitively match target_country."""
+    if "country" not in df.columns:
+        return pd.Series(False, index=df.index)
+    target = target_country.strip().lower()
+    return df["country"].astype(str).str.strip().str.lower() != target
+
+
+# ---------------------------------------------------------------------------
 # Screen 2 — Exact-content duplicate submissions
 # ---------------------------------------------------------------------------
 
@@ -227,13 +253,15 @@ def find_client_id_collisions(df: pd.DataFrame) -> dict:
 class ScreeningResult:
     def __init__(self, df: pd.DataFrame, removed_test: list[dict],
                  removed_duplicates: list[dict], id_collisions: dict,
-                 removed_non_consenting: list[dict], removed_out_of_scope: list[dict]):
+                 removed_non_consenting: list[dict], removed_out_of_scope: list[dict],
+                 removed_unselected_country: "list[dict] | None" = None):
         self.df = df
         self.removed_test = removed_test
         self.removed_duplicates = removed_duplicates
         self.id_collisions = id_collisions
         self.removed_non_consenting = removed_non_consenting
         self.removed_out_of_scope = removed_out_of_scope
+        self.removed_unselected_country = removed_unselected_country or []
 
 
 def _row_label(row: pd.Series) -> str:
@@ -244,7 +272,7 @@ def _row_label(row: pd.Series) -> str:
     )
 
 
-def screen(df: pd.DataFrame) -> ScreeningResult:
+def screen(df: pd.DataFrame, target_country: "str | None" = None) -> ScreeningResult:
     working = df
 
     # 1. Test/QA rows -- removed entirely.
@@ -297,21 +325,35 @@ def screen(df: pd.DataFrame) -> ScreeningResult:
     ]
     working = working[~scope_mask]
 
-    # 5. Client-ID reuse with differing content -- report only, never dropped.
+    # 5. Country selection -- only when this run is scoped to one country.
+    removed_unselected_country = []
+    if target_country:
+        selection_mask = find_unselected_country_rows(working, target_country)
+        removed_unselected_country = [
+            {"client_id": r.get("client_id"), "kobotoolbox_id": r.get("kobotoolbox_id"),
+             "uuid": r.get("uuid"), "country": r.get("country"),
+             "reason": f"report scoped to {target_country!r}"}
+            for _, r in working[selection_mask].iterrows()
+        ]
+        working = working[~selection_mask]
+
+    # 6. Client-ID reuse with differing content -- report only, never dropped.
     id_collisions = find_client_id_collisions(working)
 
     return ScreeningResult(
         working, removed_test, removed_duplicates, id_collisions,
-        removed_non_consenting, removed_out_of_scope,
+        removed_non_consenting, removed_out_of_scope, removed_unselected_country,
     )
 
 
-def build_screening_report(result: ScreeningResult, n_start: int) -> str:
+def build_screening_report(result: ScreeningResult, n_start: int,
+                            target_country: "str | None" = None) -> str:
     ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     n_test = len(result.removed_test)
     n_dup = len(result.removed_duplicates)
     n_non_consenting = len(result.removed_non_consenting)
     n_out_of_scope = len(result.removed_out_of_scope)
+    n_unselected = len(result.removed_unselected_country)
     n_end = len(result.df)
 
     lines: list[str] = [
@@ -324,6 +366,10 @@ def build_screening_report(result: ScreeningResult, n_start: int) -> str:
         f"- Duplicate-submission rows removed: {n_dup}",
         f"- Non-consenting rows removed: {n_non_consenting}",
         f"- Out-of-scope-country rows removed: {n_out_of_scope}",
+    ]
+    if target_country:
+        lines.append(f"- Rows outside the selected country ({target_country!r}) removed: {n_unselected}")
+    lines += [
         f"- Rows out (fed to derived flags + analysis): {n_end:,}",
         f"- Client-ID reuse warnings (NOT removed — needs field-team review): {len(result.id_collisions)}",
         "",
@@ -385,6 +431,23 @@ def build_screening_report(result: ScreeningResult, n_start: int) -> str:
         lines.append("None found.")
     lines.append("")
 
+    if target_country:
+        lines.append(f"## Country-Selection Rows Removed (report scoped to {target_country!r})")
+        lines.append(
+            "_This run was scoped to a single country; every respondent from any "
+            "other country (including other in-scope study countries) was removed here._"
+        )
+        if result.removed_unselected_country:
+            lines.append("| client_id | kobotoolbox_id | uuid | country | reason |")
+            lines.append("|---|---|---|---|---|")
+            for r in result.removed_unselected_country:
+                lines.append(
+                    f"| {r['client_id']} | {r['kobotoolbox_id']} | {r['uuid']} | {r['country']} | {r['reason']} |"
+                )
+        else:
+            lines.append("None found.")
+        lines.append("")
+
     lines.append("## Client-ID Reuse Warnings (not removed)")
     lines.append(
         "_Same client_id appears more than once but the answers differ — likely "
@@ -408,7 +471,7 @@ def build_screening_report(result: ScreeningResult, n_start: int) -> str:
 # Main
 # ---------------------------------------------------------------------------
 
-def main(output_dir: Path) -> None:
+def main(output_dir: Path, target_country: "str | None" = None) -> None:
     parquet_path = output_dir / "survey_clean.parquet"
     report_path = output_dir / "screening_report.md"
 
@@ -421,13 +484,26 @@ def main(output_dir: Path) -> None:
     n_start = len(df)
     log.info(f"  {n_start:,} rows, {len(df.columns)} columns")
 
-    log.info("Screening for test/QA and duplicate submissions...")
-    result = screen(df)
+    if target_country:
+        log.info(f"Screening for test/QA, duplicate submissions, and scoping to country={target_country!r}...")
+    else:
+        log.info("Screening for test/QA and duplicate submissions...")
+    result = screen(df, target_country=target_country)
 
-    report_md = build_screening_report(result, n_start)
+    report_md = build_screening_report(result, n_start, target_country=target_country)
     report_path.write_text(report_md, encoding="utf-8")
 
     out_df = result.df.reset_index(drop=True)
+
+    if target_country and len(out_df) == 0:
+        log.error(
+            f"No rows remain for country={target_country!r} after screening — "
+            "this country isn't present in the uploaded dataset (or every "
+            f"matching row was already removed as test/duplicate/non-consenting). "
+            f"See {report_path} for details."
+        )
+        sys.exit(1)
+
     log.info(f"Writing {parquet_path}")
     out_df.to_parquet(parquet_path, engine="pyarrow", index=False)
 
@@ -438,7 +514,8 @@ def main(output_dir: Path) -> None:
         f"  Duplicate rows removed      : {len(result.removed_duplicates)}\n"
         f"  Non-consenting rows removed : {len(result.removed_non_consenting)}\n"
         f"  Out-of-scope-country removed: {len(result.removed_out_of_scope)}\n"
-        f"  Output rows                 : {len(out_df):,}\n"
+        + (f"  Outside selected country    : {len(result.removed_unselected_country)}\n" if target_country else "")
+        + f"  Output rows                 : {len(out_df):,}\n"
         f"  Client-ID reuse warnings    : {len(result.id_collisions)} (not removed — see {report_path.name})\n"
         f"  Report                      : {report_path}"
     )
@@ -454,5 +531,11 @@ if __name__ == "__main__":
         "--output-dir", type=Path, required=True,
         help="Run output directory containing survey_clean.parquet (modified in place)",
     )
+    parser.add_argument(
+        "--country", type=str, default=None, metavar="COUNTRY",
+        help="If given, scope this run to a single country (e.g. 'Vietnam') instead of "
+             "the full multi-country portfolio. Case-insensitive match against the "
+             "country column.",
+    )
     args = parser.parse_args()
-    main(args.output_dir)
+    main(args.output_dir, target_country=args.country)

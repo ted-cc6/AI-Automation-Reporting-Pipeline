@@ -5,6 +5,10 @@ export type Provider = "gemini" | "anthropic" | "openai";
 export interface CountryOption {
   value: string;
   label: string;
+  // Respondent count within a specific upload. Only set by
+  // listUploadCountries() (data-driven discovery); the static
+  // listCountries() (config-file-driven) leaves this undefined.
+  count?: number;
 }
 
 export interface CsvUploadResponse {
@@ -151,6 +155,14 @@ export function uploadCsv(file: File): Promise<CsvUploadResponse> {
 
 export function listCountries(): Promise<CountryOption[]> {
   return req("/countries");
+}
+
+// Countries actually present in a specific upload (with respondent counts),
+// discovered from the raw CSV -- lets the country picker reflect this
+// dataset's real population instead of only the statically-configured
+// country_configs/*.yaml options.
+export function listUploadCountries(uploadId: string): Promise<CountryOption[]> {
+  return req(`/csv/${uploadId}/countries`);
 }
 
 export function validateLlmKey(provider: Provider, api_key: string): Promise<LlmValidateResponse> {

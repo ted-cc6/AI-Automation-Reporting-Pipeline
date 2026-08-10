@@ -11,6 +11,7 @@ from docx import Document
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 from docx.shared import Inches, Pt, RGBColor
 
+from analysis_engine.country_config import DEFAULT_COUNTRY
 from utils import format_period_label
 
 log = logging.getLogger(__name__)
@@ -131,7 +132,9 @@ def _add_drivers_table(doc, section: dict):
     headers = drivers_table.get("headers", ["Driver", "ρ (Spearman)", "p-value", "N"])
     rows = []
     for d in drivers_data:
-        if d["suppressed"]:
+        if d.get("not_applicable"):
+            rows.append([d["label"], "NOT APPLICABLE", "NOT APPLICABLE", "NOT APPLICABLE"])
+        elif d["suppressed"]:
             rows.append([d["label"], "SUPPRESSED", "SUPPRESSED", "SUPPRESSED"])
         else:
             rho_str = f"{d['rho']:+.3f}" if d["rho"] is not None else "?"
@@ -533,18 +536,29 @@ def assemble(packages: list, written_texts: dict, run_id: str, output_path: Path
     _set_default_font(doc, "Calibri", 11)
     _apply_brand_heading_color(doc)
 
-    # Cover -- title is derived from run_id/meta rather than hardcoded to a
-    # single country: the underlying survey spans many countries (only a small
-    # crop-insurance subset is Vietnam-specific), so the report is always a
-    # global-portfolio rollup regardless of which country config produced it.
+    # Cover -- title reflects this run's actual scope: the full multi-country
+    # portfolio rollup by default (meta["country"] == DEFAULT_COUNTRY, i.e. no
+    # country filter was applied), or a single country's label when
+    # data_loader_screening.py's country filter scoped this run to one
+    # country. Previously this was unconditionally "Global Portfolio" by
+    # design, since the survey used to always span every country regardless
+    # of which country_configs/*.yaml produced the analysis config -- that's
+    # no longer true now that a run can be filtered to one country.
     meta = _load_analysis_meta(run_id)
     period_label = format_period_label(run_id)
     n_total = meta.get("n_total")
+    country = meta.get("country")
 
     doc.add_heading("VisionFund International", level=0)
-    doc.add_heading(f"Insurance Impact Report — Global Portfolio, {period_label}", level=1)
-    if n_total:
-        doc.add_paragraph(f"Covering {n_total:,} client responses across the VisionFund insurance portfolio.")
+    if country and country != DEFAULT_COUNTRY:
+        country_label = meta.get("country_label") or country.title()
+        doc.add_heading(f"Insurance Impact Report — {country_label}, {period_label}", level=1)
+        if n_total:
+            doc.add_paragraph(f"Covering {n_total:,} client responses from {country_label}.")
+    else:
+        doc.add_heading(f"Insurance Impact Report — Global Portfolio, {period_label}", level=1)
+        if n_total:
+            doc.add_paragraph(f"Covering {n_total:,} client responses across the VisionFund insurance portfolio.")
     doc.add_paragraph(f"Generated: {datetime.now().strftime('%d %B %Y')}")
     doc.add_page_break()
 

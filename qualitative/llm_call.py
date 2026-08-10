@@ -223,6 +223,93 @@ Return ONLY valid JSON. No markdown, no explanation, no extra keys.
 }
 """
 
+# ---------------------------------------------------------------------------
+# Single-country prompt variant
+#
+# SYSTEM_PROMPT above is left completely untouched -- _build_system_prompt()
+# always returns it verbatim for multi-country runs, so the global report's
+# prompt has zero risk of drifting from what it is today. For a single-country
+# run (every response in the payload sharing one country), the country-mix
+# framing sentence and Task 5A's country-diversity instructions are no longer
+# true or satisfiable (there's only one country to diversify across), so this
+# derives a variant by swapping those two exact substrings out of the
+# original text.
+# ---------------------------------------------------------------------------
+
+_MULTI_COUNTRY_FRAMING = (
+    "This survey spans multiple country programmes (mostly\n"
+    "in Africa, plus a Vietnam crop-insurance programme and a small Latin America\n"
+    "sample) analyzed together as one combined client portfolio — it is not a\n"
+    "single-country survey."
+)
+
+_SINGLE_COUNTRY_FRAMING = (
+    "This report is scoped to a single country programme for this run — "
+    "every response below is from that one country."
+)
+
+_MULTI_COUNTRY_DIVERSITY_INTRO = (
+    "  - Diverse: where possible, vary sex, is_claimant, is_caregiver, AND country\n"
+    "  - Do NOT nominate all 3 verbatims for a section from the same country if\n"
+    "    substantive, relevant responses from other countries are available -- this\n"
+    "    survey spans multiple country programmes and the report must reflect that,\n"
+    "    not read as if it were about a single country"
+)
+
+_SINGLE_COUNTRY_DIVERSITY_INTRO = (
+    "  - Diverse: where possible, vary sex, is_claimant, and is_caregiver"
+)
+
+_MULTI_COUNTRY_DIVERSITY_CLOSING = (
+    "\n  - Country diversity is secondary to topical relevance and substance -- never\n"
+    "    swap in a weaker or less relevant response purely to hit a different country"
+)
+
+_SINGLE_COUNTRY_DIVERSITY_CLOSING = ""
+
+# Fail loudly at import time (not silently at prompt-build time) if
+# SYSTEM_PROMPT's wording ever changes without updating the substrings above
+# -- a silent no-op .replace() would leave the single-country prompt quietly
+# carrying stale multi-country wording.
+assert _MULTI_COUNTRY_FRAMING in SYSTEM_PROMPT, \
+    "SYSTEM_PROMPT framing sentence changed -- update _MULTI_COUNTRY_FRAMING to match"
+assert _MULTI_COUNTRY_DIVERSITY_INTRO in SYSTEM_PROMPT, \
+    "SYSTEM_PROMPT diversity intro changed -- update _MULTI_COUNTRY_DIVERSITY_INTRO to match"
+assert _MULTI_COUNTRY_DIVERSITY_CLOSING in SYSTEM_PROMPT, \
+    "SYSTEM_PROMPT diversity closing changed -- update _MULTI_COUNTRY_DIVERSITY_CLOSING to match"
+
+
+def _distinct_payload_countries(payload: dict) -> set:
+    """Every non-null `country` value appearing anywhere in the payload."""
+    countries = set()
+    for group in payload.values():
+        if not isinstance(group, list):
+            continue
+        for rec in group:
+            country = rec.get("country") if isinstance(rec, dict) else None
+            if country:
+                countries.add(country)
+    return countries
+
+
+def _build_system_prompt(payload: dict) -> str:
+    """SYSTEM_PROMPT verbatim for a multi-country (or country-indeterminate)
+    payload; a single-country variant when every response shares one country.
+
+    A payload with zero identifiable countries (empty, or every record's
+    country is null) falls back to the multi-country wording -- the safer
+    default when scope can't be confirmed, and what every run produced before
+    this distinction existed.
+    """
+    countries = _distinct_payload_countries(payload)
+    if len(countries) != 1:
+        return SYSTEM_PROMPT
+
+    prompt = SYSTEM_PROMPT.replace(_MULTI_COUNTRY_FRAMING, _SINGLE_COUNTRY_FRAMING)
+    prompt = prompt.replace(_MULTI_COUNTRY_DIVERSITY_INTRO, _SINGLE_COUNTRY_DIVERSITY_INTRO)
+    prompt = prompt.replace(_MULTI_COUNTRY_DIVERSITY_CLOSING, _SINGLE_COUNTRY_DIVERSITY_CLOSING)
+    return prompt
+
 
 def call_gemini(
     payload: dict,
@@ -263,13 +350,14 @@ def call_gemini(
             )
 
     user_message = json.dumps(payload, ensure_ascii=False)
+    system_prompt = _build_system_prompt(payload)
 
     for attempt in range(max_retries + 1):
         try:
             result_text = call_llm(
                 provider=provider,
                 api_key=api_key,
-                system_prompt=SYSTEM_PROMPT,
+                system_prompt=system_prompt,
                 user_content=user_message,
                 max_output_tokens=65536,
                 temperature=0.2,

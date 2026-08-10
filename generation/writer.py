@@ -10,6 +10,7 @@ import logging
 import time
 from pathlib import Path
 
+from analysis_engine.country_config import DEFAULT_COUNTRY
 from llm_providers import call_llm
 from utils import word_count, truncate_to_limit, format_period_label
 
@@ -18,11 +19,85 @@ log = logging.getLogger(__name__)
 ROOT = Path(__file__).parent.parent
 
 
-def _report_title(run_id: str) -> str:
-    return f"VisionFund International Insurance Impact Report — Global Portfolio, {format_period_label(run_id)}"
+def _load_analysis_meta(run_id: str) -> dict:
+    """Best-effort read of runs/{run_id}/analysis_results.json's meta block --
+    mirrors generation/assembler.py's helper of the same name. Returns {} if
+    the file is missing or unreadable rather than raising, so title/voice
+    fall back to the global-portfolio wording in that case."""
+    path = ROOT / "runs" / run_id / "analysis_results.json"
+    if not path.exists():
+        return {}
+    try:
+        return json.loads(path.read_text(encoding="utf-8")).get("meta", {})
+    except (json.JSONDecodeError, OSError):
+        return {}
 
 
-def _house_voice(report_title: str) -> str:
+def _is_single_country(meta: dict) -> bool:
+    """True when this run was scoped to one country by data_loader_screening.py's
+    country filter -- i.e. meta["country"] is anything other than the
+    DEFAULT_COUNTRY sentinel ("default"), which means no filter was applied."""
+    country = meta.get("country")
+    return bool(country) and country != DEFAULT_COUNTRY
+
+
+def _report_title(run_id: str, meta: "dict | None" = None) -> str:
+    period = format_period_label(run_id)
+    meta = meta or {}
+    if _is_single_country(meta):
+        label = meta.get("country_label") or meta["country"].title()
+        return f"VisionFund International Insurance Impact Report — {label}, {period}"
+    return f"VisionFund International Insurance Impact Report — Global Portfolio, {period}"
+
+
+# ---------------------------------------------------------------------------
+# Single-country SCOPE paragraph variant
+#
+# The multi-country body text below is left completely untouched --
+# _house_voice() always returns it verbatim when single_country=False (the
+# default), so the global report's house-voice prompt has zero risk of
+# drifting from what it is today. For a single-country run, the "it is not a
+# single-country report" framing and the cross-country example are no longer
+# true or useful (there's no larger multi-country pool in the payload to
+# distinguish a subset from), so this swaps in a simplified SCOPE paragraph
+# via an exact substring replace -- same technique as
+# qualitative/llm_call.py's single-country prompt variant.
+# ---------------------------------------------------------------------------
+
+_MULTI_COUNTRY_SCOPE_PARAGRAPH = (
+    "SCOPE: This report covers VisionFund's insurance client portfolio across MULTIPLE\n"
+    "countries in one combined analysis — it is not a single-country report. Some\n"
+    "metrics only apply to a subset of clients (for example, a product that is only\n"
+    "sold in one country, or a question that was only asked to certain product\n"
+    "types). Whenever a metric's data package states a \"population\" for it, use that\n"
+    "population description in your sentence (e.g. \"among health and credit-life\n"
+    "clients\" or \"among Vietnam's crop-insurance clients\") instead of implying the\n"
+    "figure describes all surveyed clients. Never present two metrics as a\n"
+    "before/after or \"however\" contrast unless they describe the same population —\n"
+    "check each metric's stated population before connecting it to another."
+)
+
+_SINGLE_COUNTRY_SCOPE_PARAGRAPH = (
+    "SCOPE: This report covers VisionFund's insurance client portfolio in a single\n"
+    "country programme. Some metrics only apply to a subset of clients within that\n"
+    "country (for example, a product that only some clients hold, or a question that\n"
+    "was only asked to certain product types). Whenever a metric's data package\n"
+    "states a \"population\" for it, use that population description in your sentence\n"
+    "(e.g. \"among health and credit-life clients\") instead of implying the figure\n"
+    "describes all surveyed clients. Never present two metrics as a before/after or\n"
+    "\"however\" contrast unless they describe the same population — check each\n"
+    "metric's stated population before connecting it to another."
+)
+
+
+def _house_voice(report_title: str, single_country: bool = False) -> str:
+    prompt = _house_voice_text(report_title)
+    if single_country:
+        prompt = prompt.replace(_MULTI_COUNTRY_SCOPE_PARAGRAPH, _SINGLE_COUNTRY_SCOPE_PARAGRAPH)
+    return prompt
+
+
+def _house_voice_text(report_title: str) -> str:
     return f"""
 You are writing the {report_title}.
 
@@ -58,6 +133,11 @@ VOICE RULES:
 - Do not use academic jargon (no "statistically significant" — say "the difference is meaningful" or cite the p-value)
 - Every statistic you cite MUST come from the data package. Never invent or round figures beyond what is provided.
 - Suppressed values (marked "SUPPRESSED") must be noted as "data suppressed due to small sample size" — never estimate or interpolate
+- Values marked "NOT APPLICABLE" are a different situation from "SUPPRESSED": this
+  question was never asked of this report's population at all (e.g. a product-specific
+  question that doesn't apply here), not a small sample. Phrase these as "not asked of
+  [population]" or similar — never as "data suppressed," "small sample size," or "missing
+  data"
 - When a note field is present, incorporate its guidance into the narrative
 - For insight blocks: SECTION SUMMARY (theme summary, top drivers, sentiment split) describes the
   pattern across all responses judged relevant to that section — use it for the section's overall
@@ -75,6 +155,15 @@ OUTPUT FORMAT:
 Return ONLY valid JSON with the exact keys listed in the user message.
 No markdown code fences, no explanation text outside the JSON.
 """
+
+
+# Fail loudly at import time (not silently at prompt-build time) if the
+# house-voice text ever changes without updating the SCOPE paragraph
+# constants above -- a silent no-op .replace() would leave the
+# single-country prompt quietly carrying stale multi-country wording.
+assert _MULTI_COUNTRY_SCOPE_PARAGRAPH in _house_voice_text("__ASSERT_PLACEHOLDER__"), \
+    "house_voice SCOPE paragraph changed -- update _MULTI_COUNTRY_SCOPE_PARAGRAPH to match"
+
 
 # Word limits per text block key
 WORD_LIMITS = {
@@ -248,7 +337,9 @@ def _build_sections_text(package: dict) -> str:
             outcome_label = s_data.get("drivers_outcome_label", "child wellbeing")
             lines.append(f"  DRIVERS (Spearman rho with {outcome_label}):")
             for d in drivers_data:
-                if d["suppressed"]:
+                if d.get("not_applicable"):
+                    lines.append(f"    {d['label']}: rho=NOT APPLICABLE")
+                elif d["suppressed"]:
                     lines.append(f"    {d['label']}: rho=SUPPRESSED")
                 else:
                     rho = f"{d['rho']:+.3f}" if d["rho"] is not None else "?"
@@ -367,12 +458,12 @@ def enforce_word_limits(texts: dict) -> dict:
 # ---------------------------------------------------------------------------
 
 def write_part(package: dict, part_key: str, provider: str, api_key: str, model: str | None,
-              report_title: str) -> dict:
+              report_title: str, single_country: bool = False) -> dict:
     user_message = _build_part_prompt(package, part_key, report_title)
     result_text = call_llm(
         provider=provider,
         api_key=api_key,
-        system_prompt=_house_voice(report_title),
+        system_prompt=_house_voice(report_title, single_country=single_country),
         user_content=user_message,
         max_output_tokens=8192,
         temperature=0.3,
@@ -409,7 +500,9 @@ def write_all_parts(packages: list, run_id: str, model: str | None,
             )
 
     run_dir  = ROOT / "runs" / run_id
-    report_title = _report_title(run_id)
+    meta = _load_analysis_meta(run_id)
+    report_title = _report_title(run_id, meta)
+    single_country = _is_single_country(meta)
     all_texts: dict = {}
     failed_parts: list[str] = []
 
@@ -421,7 +514,8 @@ def write_all_parts(packages: list, run_id: str, model: str | None,
         last_error: Exception | None = None
         for attempt in range(max_retries + 1):
             try:
-                raw_result = write_part(package, part_key, provider, api_key, model, report_title)
+                raw_result = write_part(package, part_key, provider, api_key, model, report_title,
+                                        single_country=single_country)
                 break
             except Exception as exc:
                 last_error = exc

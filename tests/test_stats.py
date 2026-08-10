@@ -15,6 +15,7 @@ from analysis_engine.stats import (
     claims_funnel,
     composite_index,
     disaggregate,
+    logistic_regression,
     nps_score,
     nps_scorecard_row,
     ranked_options,
@@ -329,6 +330,78 @@ class TestSpearmanCorrelation:
         result = spearman_correlation(x, y)
         # only indices 10..39 overlap = 30 valid rows
         assert result["n_valid"] == 30
+
+
+# ---------------------------------------------------------------------------
+# not_applicable — distinct from suppressed: "nobody in this population was
+# ever asked" (n_valid == 0 with a non-empty population) vs. "asked, but too
+# few answered" (n_valid below LOW_N_THRESHOLD). Both worth_premium and
+# renewal_intent hit this in a country-scoped run (see report_spec.yaml's
+# population: notes) since each is only asked of a subset of countries.
+# ---------------------------------------------------------------------------
+
+class TestNotApplicable:
+    def test_all_null_column_with_nonempty_population_is_not_applicable(self):
+        # Simulates worth_premium in a Vietnam-only run: the column exists
+        # and the population is real, but nobody was ever asked the question.
+        s = _series([None] * 50, dtype="float64")
+        result = bottom_two_box(s)
+        assert result["n_total"] == 50
+        assert result["n_valid"] == 0
+        assert result["not_applicable"] is True
+        assert result["suppressed"] is True  # still true -- 0 < LOW_N_THRESHOLD
+        assert result["value"] is None
+
+    def test_truly_empty_population_is_not_marked_not_applicable(self):
+        # An empty series (n_total == 0) is a different failure mode entirely
+        # (no population at all) -- must not be conflated with "population
+        # exists but this question wasn't asked of it."
+        result = top_two_box(_series([], dtype="float64"))
+        assert result["n_total"] == 0
+        assert result["n_valid"] == 0
+        assert result["not_applicable"] is False
+
+    def test_normal_answered_metric_is_not_flagged(self):
+        s = _series([1, 2, 3, 4] * 20)  # 80 valid responses
+        result = bottom_two_box(s)
+        assert result["not_applicable"] is False
+        assert result["suppressed"] is False
+
+    def test_low_n_but_nonzero_is_suppressed_not_not_applicable(self):
+        # A handful of real answers below threshold: suppressed (small
+        # sample), but the question clearly WAS asked -- not not_applicable.
+        s = _series([1, 2, 3] * 5)  # 15 valid responses, below LOW_N_THRESHOLD
+        result = bottom_two_box(s)
+        assert result["suppressed"] is True
+        assert result["not_applicable"] is False
+
+    def test_spearman_correlation_all_null_pair_is_not_applicable(self):
+        x = _series([None] * 40, dtype="float64")
+        y = _series([None] * 40, dtype="float64")
+        result = spearman_correlation(x, y)
+        assert result["n_valid"] == 0
+        assert result["not_applicable"] is True
+
+    def test_absent_segment_is_suppressed_but_not_not_applicable(self):
+        # A segment missing from segment_masks (e.g. disabled by a country
+        # config) is a different reason than "population never asked" --
+        # the absent-group fallback must stay not_applicable=False.
+        df = pd.DataFrame({"q_nps_score": [9, 8, 5] * 10}, index=range(30))
+        segment_masks = {"female": pd.Series(True, index=df.index)}  # "male" absent
+        row = nps_scorecard_row(df, segment_masks, "NPS", "female", "male")
+        assert row["male"]["not_applicable"] is False
+        assert row["male"]["suppressed"] is True
+
+    def test_logistic_regression_result_has_not_applicable_key(self):
+        y = _series([0, 1, 1, 0] * 10, dtype="float64")
+        X = pd.DataFrame({"x": [0, 1, 0, 1] * 10})
+        result = logistic_regression(y, X)
+        assert result["not_applicable"] is False
+
+    def test_composite_index_result_has_not_applicable_key(self):
+        dims = {"a": {"value": 0.5, "suppressed": False}, "b": {"value": 0.7, "suppressed": False}}
+        result = composite_index(dims)
+        assert result["not_applicable"] is False
 
 
 # ---------------------------------------------------------------------------

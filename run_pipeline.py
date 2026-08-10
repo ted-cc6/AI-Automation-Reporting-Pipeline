@@ -26,33 +26,37 @@ STEPS = [
     {
         "name": "profiler",
         "script": DATA_LOADER / "data_loader_profiler.py",
-        "args": lambda csv, run_dir: ["--csv", str(csv), "--output-dir", str(run_dir)],
+        "args": lambda csv, run_dir, country: ["--csv", str(csv), "--output-dir", str(run_dir)],
     },
     {
         "name": "transformer",
         "script": DATA_LOADER / "data_loader_transformer.py",
-        "args": lambda csv, run_dir: ["--csv", str(csv), "--output-dir", str(run_dir)],
+        "args": lambda csv, run_dir, country: ["--csv", str(csv), "--output-dir", str(run_dir)],
     },
     {
         "name": "screening",
         "script": DATA_LOADER / "data_loader_screening.py",
-        "args": lambda csv, run_dir: ["--output-dir", str(run_dir)],
+        # The only step that cares about country -- scopes the report to a
+        # single country instead of the full multi-country portfolio.
+        "args": lambda csv, run_dir, country: (
+            ["--output-dir", str(run_dir)] + (["--country", country] if country else [])
+        ),
     },
     {
         "name": "derived",
         "script": DATA_LOADER / "data_loader_derived.py",
-        "args": lambda csv, run_dir: ["--output-dir", str(run_dir)],
+        "args": lambda csv, run_dir, country: ["--output-dir", str(run_dir)],
     },
     {
         "name": "validator",
         "script": DATA_LOADER / "data_loader_validator.py",
-        "args": lambda csv, run_dir: ["--output-dir", str(run_dir)],
+        "args": lambda csv, run_dir, country: ["--output-dir", str(run_dir)],
     },
 ]
 
 
-def run_step(step: dict, csv: Path, run_dir: Path) -> None:
-    cmd = [sys.executable, str(step["script"])] + step["args"](csv, run_dir)
+def run_step(step: dict, csv: Path, run_dir: Path, filter_country: "str | None") -> None:
+    cmd = [sys.executable, str(step["script"])] + step["args"](csv, run_dir, filter_country)
     print(f"\n{'='*60}")
     print(f"  Step: {step['name']}")
     print(f"  Cmd : {' '.join(cmd)}")
@@ -118,10 +122,16 @@ def main() -> None:
     run_dir = PROJECT_ROOT / "runs" / run_id
     run_dir.mkdir(parents=True, exist_ok=True)
 
+    # "default" is the sentinel for "no single country selected" (see
+    # analysis_engine/country_config.py) -- it means "use
+    # country_configs/default.yaml", not an actual country to filter to.
+    filter_country = args.country if args.country and args.country != DEFAULT_COUNTRY else None
+
     run_metadata_path = run_dir / "run_metadata.yaml"
     with open(run_metadata_path, "w", encoding="utf-8") as f:
         yaml.dump(
             {"run_id": run_id, "country": args.country,
+             "country_filter_applied": filter_country is not None,
              "created_at": datetime.now(timezone.utc).isoformat()},
             f, default_flow_style=False, allow_unicode=True,
         )
@@ -132,7 +142,7 @@ def main() -> None:
     print(f"Run dir : {run_dir.resolve()}")
 
     for step in STEPS:
-        run_step(step, args.csv, run_dir)
+        run_step(step, args.csv, run_dir, filter_country)
 
     write_summary(run_dir, args.csv, run_id)
     print(f"\nAll steps passed. Outputs in: {run_dir}")

@@ -23,8 +23,19 @@ def get_nested(d: dict, path: str, default=None):
     return cur if cur is not None else default
 
 
-def format_value(v, fmt: str, suppressed: bool = False) -> str:
-    """Convert raw numbers to display strings."""
+def format_value(v, fmt: str, suppressed: bool = False, not_applicable: bool = False) -> str:
+    """Convert raw numbers to display strings.
+
+    not_applicable is distinct from suppressed: suppressed means "asked, but
+    too few answered to report reliably"; not_applicable means "nobody in
+    this population was ever asked this question at all" (see
+    analysis_engine/stats.py::_base_result()). A not_applicable metric is
+    always suppressed too (0 valid responses), so this check must come
+    first -- otherwise it would fall through to the generic "SUPPRESSED"
+    string and lose the distinction entirely.
+    """
+    if not_applicable:
+        return "NOT APPLICABLE"
     if suppressed or v is None:
         return "SUPPRESSED"
     if fmt == "pct":
