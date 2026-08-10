@@ -282,21 +282,38 @@ def check_4_scope(df: pd.DataFrame) -> tuple[list, list[str]]:
 # Check 5 — Derived variable sanity (structural — no exact counts)
 # ---------------------------------------------------------------------------
 
-def check_5_derived(df: pd.DataFrame) -> tuple[list, list[str]]:
-    """Structural checks that hold for any quarterly dataset."""
+def check_5_derived(df: pd.DataFrame, target_country: "str | None" = None) -> tuple[list, list[str], list[str]]:
+    """Structural checks that hold for any quarterly dataset.
+
+    target_country: the country this run was scoped to (see
+    data_loader_screening.py's country filter), or None for the default
+    multi-country portfolio. Mirrors data_loader_derived.py's own
+    run_assertions() -- this check is intentionally a separate,
+    independent re-verification (not shared code), so it needs the same
+    country-scope awareness applied to it directly rather than inherited.
+    """
     rows: list = []
     errors: list[str] = []
+    warnings: list[str] = []
 
     insured_true = df["q_insured_event_12m"] == True  # noqa: E712
 
     # ── flag_negative_coping ────────────────────────────────────────────────
 
     neg_true = int(df["flag_negative_coping"].sum())
+    n_in_scope = int(insured_true.sum())
     ok_pos = neg_true > 0
     rows.append(("flag_negative_coping — True count", "> 0", str(neg_true),
-                 "PASS ✓" if ok_pos else "FAIL ✗"))
+                 "PASS ✓" if ok_pos else ("WARN ⚠" if target_country else "FAIL ✗")))
     if not ok_pos:
-        errors.append("Check 5: flag_negative_coping has zero True values — likely a coding error")
+        if target_country:
+            warnings.append(
+                f"Check 5: flag_negative_coping has zero True values out of {n_in_scope} "
+                f"insured-event respondents in country-scoped run ({target_country!r}) — "
+                "not treated as an error"
+            )
+        else:
+            errors.append("Check 5: flag_negative_coping has zero True values — likely a coding error")
 
     out_scope_not_na = int(df["flag_negative_coping"][~insured_true].notna().sum())
     ok_scope = out_scope_not_na == 0
@@ -359,7 +376,7 @@ def check_5_derived(df: pd.DataFrame) -> tuple[list, list[str]]:
     if not ok_ins:
         errors.append(f"Check 5: insurance_type has unexpected value(s): {unexpected}")
 
-    return rows, errors
+    return rows, errors, warnings
 
 
 # ---------------------------------------------------------------------------
@@ -438,7 +455,7 @@ def build_report(
     c2_rows, c2_errors,
     c3_rows, c3_errors, c3_warnings,
     c4_rows, c4_errors,
-    c5_rows, c5_errors,
+    c5_rows, c5_errors, c5_warnings,
     c6_rows,
     all_errors: list[str],
     all_warnings: list[str],
@@ -533,7 +550,7 @@ def _log_check(n: str, errors: int, warnings: int) -> None:
     log.info(f"  Check {n}{suffix}")
 
 
-def main(output_dir: Path) -> None:
+def main(output_dir: Path, target_country: "str | None" = None) -> None:
     parquet_path = output_dir / "survey_clean.parquet"
     yaml_path    = PROJECT_ROOT / "insurance-report-spec.yaml"
     schema_path  = PROJECT_ROOT / "insurance-report-spec.schema.json"
@@ -583,9 +600,10 @@ def main(output_dir: Path) -> None:
     _log_check("4", len(c4_errors), 0)
 
     log.info("Check 5: Derived Variable Sanity")
-    c5_rows, c5_errors = check_5_derived(df)
+    c5_rows, c5_errors, c5_warnings = check_5_derived(df, target_country=target_country)
     all_errors.extend(c5_errors)
-    _log_check("5", len(c5_errors), 0)
+    all_warnings.extend(c5_warnings)
+    _log_check("5", len(c5_errors), len(c5_warnings))
 
     log.info("Check 6: Fill Rates (INFO only)")
     c6_rows = check_6_fill_rates(df, spec)
@@ -597,7 +615,7 @@ def main(output_dir: Path) -> None:
         c2_rows, c2_errors,
         c3_rows, c3_errors, c3_warnings,
         c4_rows, c4_errors,
-        c5_rows, c5_errors,
+        c5_rows, c5_errors, c5_warnings,
         c6_rows,
         all_errors, all_warnings,
     )
@@ -624,5 +642,10 @@ if __name__ == "__main__":
         "--output-dir", type=Path, required=True,
         help="Run output directory containing survey_clean.parquet; writes data_quality_report.md here",
     )
+    parser.add_argument(
+        "--country", type=str, default=None, metavar="COUNTRY",
+        help="If this run was scoped to a single country (see data_loader_screening.py "
+             "--country), relaxes Check 5's flag_negative_coping structural assertion.",
+    )
     args = parser.parse_args()
-    main(args.output_dir)
+    main(args.output_dir, target_country=args.country)

@@ -55,7 +55,11 @@ STEPS = [
     {
         "name": "validator",
         "script": DATA_LOADER / "data_loader_validator.py",
-        "args": lambda csv, run_dir, country: ["--output-dir", str(run_dir)],
+        # Same reason as the "derived" step: its own independent
+        # flag_negative_coping check needs the same scope awareness.
+        "args": lambda csv, run_dir, country: (
+            ["--output-dir", str(run_dir)] + (["--country", country] if country else [])
+        ),
     },
 ]
 

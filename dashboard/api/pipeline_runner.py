@@ -103,7 +103,7 @@ def _run_stage1(state, csv_path: Path, run_dir: Path, country: str) -> None:
             csv_path, mapping_path, value_map_path, run_dir)),
         ("screening", lambda: data_loader_screening.main(run_dir, target_country=filter_country)),
         ("derived", lambda: data_loader_derived.main(run_dir, target_country=filter_country)),
-        ("validator", lambda: data_loader_validator.main(run_dir)),
+        ("validator", lambda: data_loader_validator.main(run_dir, target_country=filter_country)),
     ]
     for name, fn in steps:
         state.log(f"  [stage 1] running {name}...")
