@@ -1,6 +1,4 @@
 import { useEffect, useMemo, useState } from "react";
-import { Header } from "./components/common/Header";
-import { Button } from "./components/common/Button";
 import { LlmKeyPanel } from "./components/LlmKeyPanel/LlmKeyPanel";
 import { SetupPanel } from "./components/SetupPanel/SetupPanel";
 import { RunPanel } from "./components/RunPanel/RunPanel";
@@ -15,12 +13,25 @@ import {
   getVisualSlots,
   uploadVisual,
 } from "./api/client";
-import type { CountryOption, CsvUploadResponse, LlmValidateResponse, Provider, VisualSlotInfo } from "./api/client";
+import type {
+  CountryOption,
+  CsvUploadResponse,
+  LlmValidateResponse,
+  Provider,
+  ReportType,
+  VisualSlotInfo,
+} from "./api/client";
 import "./App.css";
 
 const CURRENT_YEAR = new Date().getFullYear();
 
-export function CupboardWeekApp({ onBack }: { onBack: () => void }) {
+export function CupboardWeekApp({
+  reportType,
+  onReportTypeChange,
+}: {
+  reportType: ReportType;
+  onReportTypeChange: (t: ReportType) => void;
+}) {
   const [countries, setCountries] = useState<CountryOption[]>([]);
   const [country, setCountry] = useState("default");
   const [year, setYear] = useState(CURRENT_YEAR);
@@ -127,55 +138,51 @@ export function CupboardWeekApp({ onBack }: { onBack: () => void }) {
   const setupDisabled = runActive || llmValidation?.ok !== true;
 
   return (
-    <div className="app-shell">
-      <Header />
-      <main className="app-main">
-        <Button variant="ghost" onClick={onBack} disabled={runActive} className="back-link">
-          ← Choose a different report
-        </Button>
+    <>
+      <LlmKeyPanel
+        provider={provider}
+        onProviderChange={setProvider}
+        apiKey={apiKey}
+        onApiKeyChange={setApiKey}
+        llmValidation={llmValidation}
+        onValidateKey={handleValidateKey}
+        validating={validating}
+        disabled={runActive}
+      />
 
-        <LlmKeyPanel
-          provider={provider}
-          onProviderChange={setProvider}
-          apiKey={apiKey}
-          onApiKeyChange={setApiKey}
-          llmValidation={llmValidation}
-          onValidateKey={handleValidateKey}
-          validating={validating}
-          disabled={runActive}
-        />
+      <SetupPanel
+        reportType={reportType}
+        onReportTypeChange={onReportTypeChange}
+        reportTypeDisabled={runActive}
+        countries={countries}
+        country={country}
+        onCountryChange={setCountry}
+        year={year}
+        onYearChange={setYear}
+        quarter={quarter}
+        onQuarterChange={setQuarter}
+        runIdOverride={runIdOverride}
+        onRunIdOverrideChange={setRunIdOverride}
+        computedRunId={computedRunId}
+        csvUpload={csvUpload}
+        onCsvSelected={handleCsvSelected}
+        csvUploading={csvUploading}
+        csvError={csvError}
+        provider={provider}
+        apiKey={apiKey}
+        onDatasetResolved={setDatasetReady}
+        powerbiMode={powerbiMode}
+        onPowerbiModeChange={setPowerbiMode}
+        visualSlots={visualSlots}
+        onUploadVisual={handleUploadVisual}
+        disabled={setupDisabled}
+      />
 
-        <SetupPanel
-          countries={countries}
-          country={country}
-          onCountryChange={setCountry}
-          year={year}
-          onYearChange={setYear}
-          quarter={quarter}
-          onQuarterChange={setQuarter}
-          runIdOverride={runIdOverride}
-          onRunIdOverrideChange={setRunIdOverride}
-          computedRunId={computedRunId}
-          csvUpload={csvUpload}
-          onCsvSelected={handleCsvSelected}
-          csvUploading={csvUploading}
-          csvError={csvError}
-          provider={provider}
-          apiKey={apiKey}
-          onDatasetResolved={setDatasetReady}
-          powerbiMode={powerbiMode}
-          onPowerbiModeChange={setPowerbiMode}
-          visualSlots={visualSlots}
-          onUploadVisual={handleUploadVisual}
-          disabled={setupDisabled}
-        />
+      <RunPanel canStart={canStart} starting={starting} onStart={handleStart} snapshot={snapshot} startError={startError} />
 
-        <RunPanel canStart={canStart} starting={starting} onStart={handleStart} snapshot={snapshot} startError={startError} />
+      {runId && <LogPanel lines={logLines} />}
 
-        {runId && <LogPanel lines={logLines} />}
-
-        {snapshot?.docx_ready && <ResultsPanel snapshot={snapshot} />}
-      </main>
-    </div>
+      {snapshot?.docx_ready && <ResultsPanel snapshot={snapshot} />}
+    </>
   );
 }

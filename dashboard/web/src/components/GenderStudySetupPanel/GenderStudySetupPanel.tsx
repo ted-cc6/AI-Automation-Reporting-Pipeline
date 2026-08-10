@@ -2,10 +2,14 @@ import { useRef, useState } from "react";
 import type { ChangeEvent, DragEvent } from "react";
 import { Card } from "../common/Card";
 import { DatasetValidation } from "../DatasetValidation/DatasetValidation";
-import type { CsvUploadResponse, Provider } from "../../api/client";
+import type { CsvUploadResponse, Provider, ReportType } from "../../api/client";
 import "./GenderStudySetupPanel.css";
 
 export function GenderStudySetupPanel(props: {
+  reportType: ReportType;
+  onReportTypeChange: (v: ReportType) => void;
+  reportTypeDisabled: boolean;
+
   csvUpload: CsvUploadResponse | null;
   onCsvSelected: (file: File) => void;
   csvUploading: boolean;
@@ -85,9 +89,20 @@ export function GenderStudySetupPanel(props: {
       </Card>
 
       <Card
-        title="2. Report label"
-        subtitle="Used to name this run. Leave blank to have one generated automatically."
+        title="2. Report type & label"
+        subtitle="Choose which report to generate, then label this run. Leave the label blank to have one generated automatically."
       >
+        <label className="field field--grow">
+          <span>Report type</span>
+          <select
+            value={props.reportType}
+            disabled={props.reportTypeDisabled}
+            onChange={(e) => props.onReportTypeChange(e.target.value as ReportType)}
+          >
+            <option value="cupboard_week">Insurance Cupboard Week Report</option>
+            <option value="gender_study">Insurance Gender Study Report</option>
+          </select>
+        </label>
         <label className="field field--grow">
           <span>Run label (optional)</span>
           <input
