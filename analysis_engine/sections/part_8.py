@@ -1,4 +1,16 @@
-"""analysis_engine/sections/part_8.py — Part 8: Kling Index — Product Outcomes."""
+"""analysis_engine/sections/part_8.py — Part 8: Kling Index — Product Outcomes.
+
+DASHBOARD-ONLY BY DESIGN, not a gap: this section's composite score is computed
+and stored in analysis_results.json (and shown in the dashboard UI) for every
+run, Africa/Vietnam and LARCO alike, but it has never had -- and currently has
+no -- corresponding entry in generation/report_spec.yaml, so it never appears
+in the generated .docx (see report_spec.yaml's top-of-file note, run_analysis.py's
+SECTIONS list, and generation/assembler.py's `builders` dict, each of which
+notes this explicitly at the point a future reader would otherwise read the
+absence as an oversight). Confirmed as a deliberate, reviewed decision (not
+something LARCO's addition broke) rather than silently "fixing" it by adding
+a Part 8 write-up nobody asked for.
+"""
 import logging
 
 import pandas as pd
@@ -43,7 +55,7 @@ def _dim_product_understanding(df: pd.DataFrame) -> dict:
             sub_scores[key] = {"value": None, "suppressed": True, "n_valid": 0,
                                "suppress_reason": f"column '{col}' missing"}
             continue
-        r = bottom_two_box(df[col])
+        r = bottom_two_box(df[col], scale_min=1)
         sub_scores[key] = r
         if not r["suppressed"] and r["value"] is not None:
             available_values.append(r["value"])
@@ -63,18 +75,25 @@ def _dim_product_understanding(df: pd.DataFrame) -> dict:
 
 
 def _dim_claims_experience(df: pd.DataFrame) -> dict:
-    """Proportion of claimants whose claim was paid. Score: 0–1."""
-    funnel      = claims_funnel(df)
-    n_claimants = funnel["claim_paid"]["n_total"]   # = n who submitted claims
-    n_paid      = funnel["claim_paid"]["n"]
-    suppressed  = n_claimants < LOW_N_THRESHOLD
+    """Proportion of claimants whose claim was paid. Score: 0–1.
+
+    not_applicable when this schema doesn't collect claim outcomes at all
+    (see claims_funnel()'s claim_paid.not_applicable) -- distinct from
+    ordinary low-n suppression, since claimants may well be plentiful (LARCO
+    has 230) but the outcome was simply never asked."""
+    funnel         = claims_funnel(df)
+    not_applicable = bool(funnel["claim_paid"].get("not_applicable", False))
+    n_claimants    = funnel["claim_paid"]["n_total"]   # = n who submitted claims
+    n_paid         = funnel["claim_paid"]["n"]
+    suppressed     = not_applicable or n_claimants < LOW_N_THRESHOLD
 
     return {
         "value":          funnel["claim_paid"]["pct_of_claimants"] if not suppressed else None,
         "suppressed":     suppressed,
         "n_valid":        n_claimants,
         "suppress_reason": (
-            f"n_valid={n_claimants} below threshold={LOW_N_THRESHOLD}" if suppressed else None
+            "claim outcome not collected in this dataset's schema" if not_applicable else
+            (f"n_valid={n_claimants} below threshold={LOW_N_THRESHOLD}" if suppressed else None)
         ),
         "n_paid":         n_paid,
     }
@@ -87,7 +106,7 @@ def _dim_trust(df: pd.DataFrame) -> dict:
     available_ns:     list = []
 
     if COL_CONFIDENCE_PAY in df.columns:
-        cp = bottom_two_box(df[COL_CONFIDENCE_PAY])
+        cp = bottom_two_box(df[COL_CONFIDENCE_PAY], scale_min=1)
         sub_scores["confidence_pay"] = cp
         if not cp["suppressed"] and cp["value"] is not None:
             available_values.append(cp["value"])

@@ -53,6 +53,18 @@ def format_value(v, fmt: str, suppressed: bool = False, not_applicable: bool = F
     return str(v)
 
 
+def format_p_value(p: "float | None") -> str:
+    """Format a p-value for display, flooring anything below 0.0001 to
+    "<0.0001" instead of truncating it to "0.0000" -- a highly significant
+    result (e.g. p=2.3e-38, seen in real Part 5 driver correlations) must
+    never print as indistinguishable from p=0 by fixed-width truncation."""
+    if p is None:
+        return "?"
+    if p < 0.0001:
+        return "<0.0001"
+    return f"{p:.4f}"
+
+
 def word_count(text: str) -> int:
     return len(text.split())
 

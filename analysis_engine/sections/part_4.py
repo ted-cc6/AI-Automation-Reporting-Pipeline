@@ -53,7 +53,20 @@ def _dist(series: pd.Series) -> list:
 
 def _missing_col(col: str) -> dict:
     return {"value": None, "n_valid": 0, "n_total": 0, "suppressed": True,
-            "suppress_reason": f"column missing: {col}"}
+            "suppress_reason": f"column missing: {col}", "not_applicable": True}
+
+
+def _missing_driver(col: str, n_total: int) -> dict:
+    """Placeholder matching spearman_correlation()'s return shape for a driver
+    whose column doesn't exist in this dataset's schema -- so the key is still
+    present in the JSON (not silently absent) and orchestrator.py's
+    get_nested() doesn't fall through to a "?" in the rendered table."""
+    return {
+        "value": None, "n_valid": 0, "n_total": n_total, "suppressed": True,
+        "suppress_reason": f"column missing: {col}", "not_applicable": True,
+        "p_value": None, "significant": False, "ci_lower": None, "ci_upper": None,
+        "ci_level": 0.95,
+    }
 
 
 def calculate(ds, segment_masks: dict) -> dict:
@@ -73,7 +86,7 @@ def calculate(ds, segment_masks: dict) -> dict:
     if COL_CHILD_WELLBEING not in ds.child_wellbeing_base.columns:
         log.warning(f"Part 4: column '{COL_CHILD_WELLBEING}' missing")
         cwb_headline = _missing_col(COL_CHILD_WELLBEING)
-        cwb_segments: dict = {}
+        cwb_segments: dict = {seg: _missing_col(COL_CHILD_WELLBEING) for seg in segment_masks}
     else:
         cwb_headline = share_selecting(
             ds.child_wellbeing_base[COL_CHILD_WELLBEING], values=["Yes"]
@@ -129,11 +142,14 @@ def calculate(ds, segment_masks: dict) -> dict:
     satisfaction_drivers: dict = {}
     if COL_NPS_SCORE not in ds.df.columns:
         log.warning(f"Part 4: outcome column '{COL_NPS_SCORE}' missing — cannot compute satisfaction drivers")
+        for key, col in _SATISFACTION_DRIVERS:
+            satisfaction_drivers[key] = _missing_driver(col, 0)
     else:
         nps_outcome = ds.df[COL_NPS_SCORE]
         for key, col in _SATISFACTION_DRIVERS:
             if col not in ds.df.columns:
-                log.warning(f"Part 4: column '{col}' missing — skipping satisfaction driver '{key}'")
+                log.warning(f"Part 4: column '{col}' missing — driver '{key}' not applicable to this dataset")
+                satisfaction_drivers[key] = _missing_driver(col, len(ds.df))
                 continue
             satisfaction_drivers[key] = spearman_correlation(nps_outcome, ds.df[col])
 

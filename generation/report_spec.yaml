@@ -1,5 +1,10 @@
 # generation/report_spec.yaml
 # Maps each report section to analysis data paths and generation parameters.
+#
+# part_8 (Kling Index — Product Outcomes) has NO entry below -- this is
+# intentional, not a gap. It's computed and stored in analysis_results.json
+# for the dashboard UI only; it has never had a written-report section. See
+# analysis_engine/sections/part_8.py's module docstring for the full rationale.
 
 schema_version: "1.0"
 run_id_default: "2026_Q2"
@@ -43,6 +48,37 @@ parts:
             path: "parts.part_1.metrics.coverage_understanding.segments.non_claimant.value"
             fmt: "pct"
             suppressed_path: "parts.part_1.metrics.coverage_understanding.segments.non_claimant.suppressed"
+          product_understanding:
+            path: "parts.part_1.metrics.product_understanding.headline.value"
+            fmt: "pct"
+            n_path: "parts.part_1.metrics.product_understanding.headline.n_valid"
+            suppressed_path: "parts.part_1.metrics.product_understanding.headline.suppressed"
+          product_understanding_female:
+            path: "parts.part_1.metrics.product_understanding.segments.female.value"
+            fmt: "pct"
+            suppressed_path: "parts.part_1.metrics.product_understanding.segments.female.suppressed"
+          product_understanding_male:
+            path: "parts.part_1.metrics.product_understanding.segments.male.value"
+            fmt: "pct"
+            suppressed_path: "parts.part_1.metrics.product_understanding.segments.male.suppressed"
+          product_understanding_claimant:
+            path: "parts.part_1.metrics.product_understanding.segments.claimant.value"
+            fmt: "pct"
+            suppressed_path: "parts.part_1.metrics.product_understanding.segments.claimant.suppressed"
+          product_understanding_non_claimant:
+            path: "parts.part_1.metrics.product_understanding.segments.non_claimant.value"
+            fmt: "pct"
+            suppressed_path: "parts.part_1.metrics.product_understanding.segments.non_claimant.suppressed"
+        note: >
+          coverage_understanding and product_understanding are two DIFFERENT survey
+          instruments used in different country programmes, never both populated in the
+          same run -- exactly one of the two will have real data (n_valid > 0) and the
+          other will be NOT APPLICABLE (that survey never asked the question). Write about
+          whichever one is populated; do not mention the other, do not describe its
+          absence, and do not treat this as a missing-data problem. product_understanding
+          is defined as the single most positive response option only ("I know everything"),
+          a stricter bar than a typical top-2-box -- do not describe it as "top-2-box" or
+          imply a broader definition if it is the one you are writing about.
 
       s1_2:
         label: "Claim Process Understanding"
@@ -69,6 +105,15 @@ parts:
             path: "parts.part_1.metrics.claim_process_understanding.segments.non_claimant.value"
             fmt: "pct"
             suppressed_path: "parts.part_1.metrics.claim_process_understanding.segments.non_claimant.suppressed"
+        note: >
+          If claim_process_understanding shows NOT APPLICABLE (this survey instrument has
+          no separate claim-process-understanding question -- its client understanding is
+          captured by the single combined measure already described in the previous
+          section), write ONLY a brief 20-30 word acknowledgment of that -- e.g. "This
+          programme measures product understanding through a single combined question
+          rather than separately for coverage and claims process; see the prior section."
+          Do not invent a number, do not repeat the previous section's figure, and do not
+          pad this section with generic commentary to reach the word limit.
 
       s1_2b:
         label: "Preferred Claims Channel"
@@ -134,9 +179,11 @@ parts:
           n_experienced_event:
             path: "parts.part_2.claims_funnel.experienced_event.n"
             fmt: "count"
+            suppressed_path: "parts.part_2.claims_funnel.experienced_event.suppressed"
           pct_experienced_event:
             path: "parts.part_2.claims_funnel.experienced_event.pct_of_total"
             fmt: "pct"
+            suppressed_path: "parts.part_2.claims_funnel.experienced_event.suppressed"
           n_filed_claim:
             path: "parts.part_2.claims_funnel.filed_claim.n"
             fmt: "count"
@@ -149,9 +196,11 @@ parts:
           n_claim_paid:
             path: "parts.part_2.claims_funnel.claim_paid.n"
             fmt: "count"
+            suppressed_path: "parts.part_2.claims_funnel.claim_paid.suppressed"
           pct_claim_paid:
             path: "parts.part_2.claims_funnel.claim_paid.pct_of_claimants"
             fmt: "pct"
+            suppressed_path: "parts.part_2.claims_funnel.claim_paid.suppressed"
         funnel_table:
           headers: ["Stage", "N", "Rate"]
           rows:
@@ -164,6 +213,19 @@ parts:
             - label: "Claim paid"
               n_key: "n_claim_paid"
               rate_key: "pct_claim_paid"
+        note: >
+          Some VisionFund country programmes' survey instruments gate "filed a claim" behind
+          a separate "did you experience an insured event" question (rate expressed as % of
+          that event base); others (e.g. LARCO) ask about filed claims directly with no such
+          gate, in which case the rate is expressed as % of ALL surveyed clients instead --
+          the data package's "pct_filed_of_event" label always matches whichever base was
+          actually used; do not assume it is always the event base. If n_experienced_event
+          / pct_experienced_event are absent from this data package, this programme's survey
+          has no such gate -- write about "filed a claim" directly without mentioning an
+          insured-event step at all. If n_claim_paid / pct_claim_paid are absent, this
+          programme's survey does not collect claim OUTCOME data (paid vs. not) at all -- do
+          not say claims were "not paid" or imply a 0% payment rate; state plainly that claim
+          outcomes are not tracked in this dataset.
 
       s2_2:
         label: "Reasons for Not Claiming"
@@ -400,23 +462,10 @@ parts:
             direction: "Raw code: 1=very confident (best) to 5=not confident at all (worst); NPS runs 0=worst to 10=best. A negative rho here means higher confidence correlates with a higher NPS — a positive real-world relationship, despite the negative sign."
         drivers_table:
           headers: ["Driver", "ρ (Spearman)", "p-value", "N"]
-          scale_note: >
-            Note: ρ (rho) is the Spearman rank correlation coefficient, a value from -1 to +1
-            showing how strongly two things move together -- values near +1 or -1 indicate a
-            strong relationship, values near 0 indicate little to none. Spearman correlation is
-            calculated on the rank order of responses rather than their raw values, which makes
-            it well suited to Likert-scale survey questions like these. p (the p-value) shows how
-            likely a correlation this strong could appear by chance alone if no real relationship
-            existed; p<0.05 is the conventional threshold for statistical significance. N is the
-            number of respondents included in each specific calculation -- it varies by driver
-            because not every question was asked of every client (for example, Renewal Intent was
-            asked only of Vietnam's crop-insurance clients). Financial Stress, Coverage
-            Understanding, Claim Process Understanding, Worth Premium, Renewal Intent, and
-            Confidence in Payout are all scored so that a LOWER number is the more positive
-            response (e.g. 1 = "Definitely would renew"), while NPS runs the opposite way (0=worst,
-            10=best). A negative correlation with NPS for any of these drivers therefore reflects a
-            POSITIVE real-world relationship (e.g. stronger renewal intent aligns with a higher
-            NPS), not a negative one.
+          # Full ρ/p-value/N methodology explanation lives once in
+          # generation/assembler.py's _add_methodology_appendix() (rendered as
+          # a document appendix) rather than duplicated here -- this section's
+          # table is followed by a one-line pointer to it instead.
         drivers_outcome_label: "client satisfaction (NPS)"
         note: >
           All correlations are Spearman rank correlations computed directly on q_nps_score
@@ -519,25 +568,8 @@ parts:
             direction: "Raw score: 0=worst to 10=best (NOT reverse-coded, unlike the other drivers here). A positive rho here means higher NPS correlates with better child wellbeing — the sign and the real-world relationship point the same direction."
         drivers_table:
           headers: ["Driver", "ρ (Spearman)", "p-value", "N"]
-          scale_note: >
-            Note: ρ (rho) is the Spearman rank correlation coefficient, a value from -1 to +1
-            showing how strongly two things move together -- values near +1 or -1 indicate a
-            strong relationship, values near 0 indicate little to none. Spearman correlation is
-            calculated on the rank order of responses rather than their raw values, which makes
-            it well suited to Likert-scale survey questions like these. p (the p-value) shows how
-            likely a correlation this strong could appear by chance alone if no real relationship
-            existed; p<0.05 is the conventional threshold for statistical significance, and the
-            very small p-values shown below mean these relationships are highly unlikely to be
-            due to chance. N is the number of respondents included in each specific calculation --
-            it varies by driver because not every question was asked of every client (for
-            example, Renewal Intent was asked only of Vietnam's crop-insurance clients).
-            Financial Stress, Coverage Understanding, Claim Process Understanding, Worth
-            Premium, Renewal Intent, and Confidence in Payout are all scored so that a LOWER
-            number is the more positive response (e.g. 1 = "Definitely would renew"). A negative
-            correlation with child wellbeing for any of these therefore reflects a POSITIVE
-            real-world relationship (e.g. stronger renewal intent aligns with better wellbeing),
-            not a negative one. NPS Score runs the opposite way (0=worst, 10=best), so a positive
-            correlation there likewise reflects a positive relationship.
+          # See Part 4's identical comment -- full methodology text lives once
+          # in the document's Methodology Notes appendix, not duplicated here.
         note: >
           All correlations are Spearman rank correlations computed directly on each question's
           raw ordinal code (Likert 1-5/1-4, or NPS 0-10) — no top_two_box/bottom_two_box
@@ -798,11 +830,17 @@ parts:
           face-to-face consultations, discounted/free medicines, lab tests, health events)
           -- distinct from the claims-payout benefits covered elsewhere in this report.
           The distribution is measured on the FULL surveyed population, not just clients
-          who used a service -- most respondents showing "None" or no response is the
-          expected finding for this question, not a data-quality problem, and must not be
-          described as low engagement or a concern. If the distribution is empty, state
-          plainly that this module wasn't part of this dataset's survey rather than
-          speculating about service usage or inventing a reason for zero data.
+          who used a service -- explicitly state this denominator in your sentence (e.g.
+          "among all N surveyed clients," using services_used_base) rather than leaving it
+          implied, since a reader could otherwise assume the percentages are out of service
+          users only. Report the actual distribution shown in the data without
+          characterizing whether the level of "None"/no-response is high, low, expected,
+          or concerning -- that judgment belongs to the reader, not this narrative. If the
+          distribution is empty, state plainly that this module wasn't part of this
+          dataset's survey rather than speculating about service usage or inventing a
+          reason for zero data. A coded theme summary of any "Other, please specify"
+          responses to this question is not yet available in this dataset -- do not
+          reference or speculate about "Other" responses for this section.
 
       s9_2:
         label: "Service Helpfulness"
@@ -816,8 +854,10 @@ parts:
             population: "Only clients who used at least one additional service (see Services Used above) -- this question was not asked of clients who used none"
         note: >
           services_helped is the share who found the service(s) they used helpful as
-          wanted, among only the (typically small) group who used at least one -- never
-          imply this figure describes the full survey population.
+          wanted, among only the (typically small) group who used at least one -- explicitly
+          state this denominator in your sentence (e.g. "among the N clients who used at
+          least one service," using this metric's own n) rather than leaving it implied, and
+          never imply this figure describes the full survey population.
 
       insight:
         word_limit: 120
@@ -869,7 +909,16 @@ parts:
           definition. Significance threshold: p < 0.05 = statistically significant, mark
           with *; the NPS row has no significance test (see the table note) since NPS
           isn't a proportion -- do not describe an NPS row as "significant" or "not
-          significant" using the same framing as the other four rows.
+          significant" using the same framing as the other four rows. This comparison is
+          between two INDEPENDENT cross-sectional survey waves -- each wave is its own
+          fresh random sample of clients, not the same individuals tracked over time --
+          so never describe the change as something that happened "to" clients or use
+          language implying a panel/longitudinal study (e.g. not "clients' understanding
+          improved" but "understanding was higher among this wave's respondents"). If any
+          row's table note says "DEFINITION MISMATCH," state plainly that this specific
+          indicator's comparison may not be apples-to-apples between waves (a changed
+          question, scale, or population base) and do not draw a conclusion from its
+          delta -- this caveat does not apply to rows without that note.
       insight:
         word_limit: 120
         verbatim_section: "part10"

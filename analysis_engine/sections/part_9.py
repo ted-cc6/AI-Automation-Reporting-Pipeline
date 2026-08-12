@@ -53,7 +53,7 @@ _HELPFUL_VALUES = ["Very helpful", "Somewhat helpful"]
 
 def _missing_col(col: str) -> dict:
     return {"value": None, "n_valid": 0, "n_total": 0, "suppressed": True,
-            "suppress_reason": f"column missing: {col}"}
+            "suppress_reason": f"column missing: {col}", "not_applicable": True}
 
 
 def _used_any_service_mask(df):
@@ -84,7 +84,8 @@ def calculate(ds, segment_masks: dict) -> dict:
         log.warning(f"Part 9: column '{COL_SERVICES_USED}' missing — section not applicable to this dataset")
         services_used = {
             "base": "all_respondents", "n_base": len(ds.df),
-            "headline": _missing_col(COL_SERVICES_USED), "segments": {},
+            "headline": _missing_col(COL_SERVICES_USED),
+            "segments": {seg: _missing_col(COL_SERVICES_USED) for seg in segment_masks},
         }
     else:
         services_used = {
@@ -98,7 +99,8 @@ def calculate(ds, segment_masks: dict) -> dict:
         log.warning(f"Part 9: column '{COL_SERVICES_HELPED}' missing — section not applicable to this dataset")
         services_helped = {
             "base": "used_any_service", "n_base": 0,
-            "headline": _missing_col(COL_SERVICES_HELPED), "segments": {},
+            "headline": _missing_col(COL_SERVICES_HELPED),
+            "segments": {seg: _missing_col(COL_SERVICES_HELPED) for seg in segment_masks},
         }
     else:
         used_mask = _used_any_service_mask(ds.df)

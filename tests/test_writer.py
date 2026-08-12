@@ -16,6 +16,7 @@ from generation.writer import (
     _build_sections_text,
     _house_voice,
     _house_voice_text,
+    _is_larco_rollup,
     _is_single_country,
     _load_analysis_meta,
     _report_title,
@@ -91,6 +92,42 @@ class TestReportTitle:
     def test_scoped_country_without_label_falls_back_to_titlecase(self):
         title = _report_title("2026_Q2", {"country": "kenya"})
         assert "Kenya" in title
+
+    def test_larco_rollup_uses_larco_regional_title_not_global(self):
+        title = _report_title("2026_Q2", {"country": "default", "dataset_schema": "larco"})
+        assert "LARCO Regional Portfolio" in title
+        assert "Global Portfolio" not in title
+
+    def test_larco_single_country_still_uses_country_label(self):
+        title = _report_title(
+            "2026_Q2", {"country": "ecuador", "country_label": "Ecuador", "dataset_schema": "larco"}
+        )
+        assert title == f"VisionFund International Insurance Impact Report — Ecuador, {writer.format_period_label('2026_Q2')}"
+        assert "LARCO" not in title
+
+    def test_missing_dataset_schema_key_defaults_to_global(self):
+        # analysis_results.json files written before dataset_schema was added
+        # to meta must still resolve to the original global-portfolio title.
+        title = _report_title("2026_Q2", {"country": "default"})
+        assert "Global Portfolio" in title
+
+
+# ---------------------------------------------------------------------------
+# _is_larco_rollup
+# ---------------------------------------------------------------------------
+
+class TestIsLarcoRollup:
+    def test_empty_meta_is_not_larco_rollup(self):
+        assert _is_larco_rollup({}) is False
+
+    def test_africa_vietnam_schema_is_not_larco_rollup(self):
+        assert _is_larco_rollup({"country": "default", "dataset_schema": "africa_vietnam"}) is False
+
+    def test_larco_schema_with_default_country_is_rollup(self):
+        assert _is_larco_rollup({"country": "default", "dataset_schema": "larco"}) is True
+
+    def test_larco_schema_with_single_country_is_not_rollup(self):
+        assert _is_larco_rollup({"country": "ecuador", "dataset_schema": "larco"}) is False
 
 
 # ---------------------------------------------------------------------------

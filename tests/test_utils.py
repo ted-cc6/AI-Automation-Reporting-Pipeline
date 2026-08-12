@@ -7,7 +7,7 @@ Run: pytest tests/test_utils.py -v
 """
 from __future__ import annotations
 
-from utils import format_period_label, format_value, get_nested
+from utils import format_period_label, format_p_value, format_value, get_nested
 
 
 # ---------------------------------------------------------------------------
@@ -46,6 +46,29 @@ class TestFormatValue:
         # Every pre-existing call site omits not_applicable -- confirms the
         # new parameter is additive and doesn't change default behavior.
         assert format_value(0.5, "pct") == format_value(0.5, "pct", not_applicable=False)
+
+
+# ---------------------------------------------------------------------------
+# format_p_value
+# ---------------------------------------------------------------------------
+
+class TestFormatPValue:
+    def test_floors_below_0001_instead_of_truncating_to_zero(self):
+        # Real Part 5 driver correlation: p=2.28e-38 must never render as the
+        # indistinguishable-from-p=0 "0.0000" a fixed .4f truncation produces.
+        assert format_p_value(2.2797940250585584e-38) == "<0.0001"
+
+    def test_boundary_just_below_threshold_floors(self):
+        assert format_p_value(0.00009) == "<0.0001"
+
+    def test_boundary_at_threshold_formats_normally(self):
+        assert format_p_value(0.0001) == "0.0001"
+
+    def test_ordinary_value_formats_to_four_decimals(self):
+        assert format_p_value(0.0234) == "0.0234"
+
+    def test_none_returns_placeholder(self):
+        assert format_p_value(None) == "?"
 
 
 # ---------------------------------------------------------------------------

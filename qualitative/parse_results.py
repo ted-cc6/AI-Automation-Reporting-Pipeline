@@ -17,7 +17,7 @@ log = logging.getLogger(__name__)
 REQUIRED_TOP_KEYS = {
     "nps_tags", "claims_other_tagged", "not_worth_it_themes",
     "other_subthemes", "section_verbatims", "protection_flags",
-    "executive_summary",
+    "executive_summary", "top_findings", "top_actions",
 }
 
 REQUIRED_SECTION_KEYS = {
@@ -231,6 +231,12 @@ def parse_and_save(
         "section_insights": section_insights,
         "protection_flags": enriched_flags,
         "executive_summary": raw_gemini.get("executive_summary", ""),
+        # Ranked-first lists, nominally 3 items each -- not strictly enforced
+        # here (matches executive_summary's own lenient .get() pattern above);
+        # generation/assembler.py's executive-summary renderer defensively
+        # slices to the top 3 if the model ever returns more or fewer.
+        "top_findings": raw_gemini.get("top_findings", []),
+        "top_actions": raw_gemini.get("top_actions", []),
     }
 
     out_path = Path("runs") / run_id / "qualitative_results.json"

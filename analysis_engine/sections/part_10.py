@@ -52,10 +52,44 @@ _INDICATORS = [
     ("product_understanding", "Product Understanding"),
 ]
 
+# Definition fingerprint per indicator (column/rule/base) -- stored alongside
+# every wave's snapshot and diffed wave-over-wave in _compare_indicator(), so
+# a definition change between waves (a different column, a different top-box
+# rule, a different population base -- e.g. this codebase's own logic
+# changing, or the underlying survey question being reworded) surfaces as an
+# explicit flagged mismatch instead of a silent, possibly apples-to-oranges
+# comparison. A prior wave generated before this fingerprint existed has no
+# "definition" key at all, which _compare_indicator() treats as "unknown",
+# not "mismatch" -- there's no false positive against older runs.
+_INDICATOR_DEFINITIONS = {
+    "first_time_access": {
+        "column": "q_prior_access", "rule": "share_true(NOT prior_access)",
+        "base": "all_respondents",
+    },
+    "access_to_alternatives": {
+        "column": "q_alternative_access",
+        "rule": f"share_selecting(values={_ALTERNATIVE_ACCESS_DIFFICULT!r})",
+        "base": "all_respondents",
+    },
+    "child_wellbeing_improvement": {
+        "column": "q_child_wellbeing", "rule": "share_selecting(values=['Yes'])",
+        "base": "child_wellbeing_base",
+    },
+    "client_satisfaction_nps": {
+        "column": "q_nps_score", "rule": "nps_score: (promoters - detractors) / n_valid * 100",
+        "base": "all_respondents",
+    },
+    "product_understanding": {
+        "column": "q_product_understanding_combined",
+        "rule": f"share_selecting(values={_PRODUCT_UNDERSTANDING_GOOD!r})",
+        "base": "all_respondents",
+    },
+}
+
 
 def _missing_col(col: str) -> dict:
     return {"value": None, "n_valid": 0, "n_total": 0, "suppressed": True,
-            "suppress_reason": f"column missing: {col}"}
+            "suppress_reason": f"column missing: {col}", "not_applicable": True}
 
 
 def _current_snapshot(ds) -> dict:
@@ -92,6 +126,12 @@ def _current_snapshot(ds) -> dict:
             ds.df[COL_PRODUCT_UNDERSTANDING], values=_PRODUCT_UNDERSTANDING_GOOD
         )
 
+    # Attach each indicator's definition fingerprint uniformly (even when the
+    # column was missing -- that's still useful to know what WOULD have been
+    # computed) rather than repeating it in each of the 5 branches above.
+    for key in snapshot:
+        snapshot[key]["definition"] = _INDICATOR_DEFINITIONS[key]
+
     return snapshot
 
 
@@ -121,6 +161,17 @@ def _load_prior_snapshot(prior_run_id: "str | None", runs_dir: Path) -> "dict | 
 
 def _compare_indicator(key: str, label: str, current: dict, prior: dict) -> dict:
     row = {"label": label, "current": current, "prior": prior}
+
+    # Definition-match check: None (unknown) when either side lacks a
+    # fingerprint (e.g. prior wave predates this feature) -- never treated as
+    # a mismatch just because it can't be verified. False only when both
+    # sides HAVE a fingerprint and they genuinely differ.
+    current_def = current.get("definition")
+    prior_def = prior.get("definition")
+    if current_def is not None and prior_def is not None:
+        row["definition_match"] = (current_def == prior_def)
+    else:
+        row["definition_match"] = None
 
     if key == "client_satisfaction_nps":
         # NPS is a -100..+100 index, not a proportion -- no two-proportion

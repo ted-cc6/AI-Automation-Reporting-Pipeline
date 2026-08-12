@@ -106,8 +106,22 @@ def _fisher_z_ci(r: float, n_valid: int, confidence: float = 0.95) -> tuple:
 
 # --- Single-series stat functions ---
 
-def top_two_box(series: pd.Series, top_n: int = 2) -> dict:
-    """Proportion of valid respondents scoring in the top top_n values (nullable Int8 Likert)."""
+def top_two_box(series: pd.Series, top_n: int = 2, scale_max: "int | None" = None) -> dict:
+    """Proportion of valid respondents scoring in the top top_n values (nullable Int8 Likert).
+
+    scale_max: the question's true fixed scale maximum (4 for a Likert-4
+    question, 5 for a Likert-5 one) -- ALWAYS pass this explicitly. Without
+    it, the "top N" threshold is derived from valid.max() of whatever subset
+    was passed in, which silently produces a WRONG, DIFFERENT threshold for
+    any scoped call (a segment, a country) whose responses happen not to
+    include the true top value -- confirmed in production: a caregiver
+    segment that never reported the worst financial-stress value ("5") had
+    its "top 2" silently redefined as {3,4} instead of {4,5}, reporting 48.6%
+    where the correct figure (using the survey's real scale) was ~1.4%. The
+    auto-detect fallback below exists only so this function never crashes on
+    a legacy call site that hasn't been updated yet -- it logs a warning so
+    any such site is easy to find, not a silent, intentional behavior.
+    """
     n_total = len(series)
     valid   = series.dropna()
     n_valid = len(valid)
@@ -118,7 +132,15 @@ def top_two_box(series: pd.Series, top_n: int = 2) -> dict:
         result["scale_max"]  = None
         return result
 
-    max_val   = int(valid.max())
+    if scale_max is None:
+        max_val = int(valid.max())
+        log.warning(
+            "top_two_box: scale_max not passed -- falling back to this subset's own "
+            f"observed max ({max_val}), which is WRONG whenever the subset doesn't "
+            "include the survey's true top value. Pass scale_max explicitly."
+        )
+    else:
+        max_val = scale_max
     threshold = max_val - top_n + 1
     result["top_values"] = list(range(threshold, max_val + 1))
     result["scale_max"]  = max_val
@@ -131,12 +153,22 @@ def top_two_box(series: pd.Series, top_n: int = 2) -> dict:
     return result
 
 
-def bottom_two_box(series: pd.Series, bottom_n: int = 2) -> dict:
+def bottom_two_box(series: pd.Series, bottom_n: int = 2, scale_min: "int | None" = None) -> dict:
     """Proportion of valid respondents in the LOWEST bottom_n values.
 
     For inverted Likert scales where 1 = best (e.g., 1='Very good', 4='Very poor'),
     this counts the positive responses correctly.  Mirrors top_two_box but anchors
     to the minimum observed value instead of the maximum.
+
+    scale_min: the question's true fixed scale minimum -- in every Likert
+    question in this codebase that's 1, since the coding convention is
+    always a=1..d=4 or a=1..e=5 (never a different starting point), but pass
+    it explicitly rather than assuming for the same reason top_two_box's
+    scale_max must be explicit -- see that function's docstring for the
+    confirmed production bug this guards against. bottom_two_box is
+    theoretically less exposed (a subset failing to include the true MINIMUM
+    observed value, i.e. no one picking "1", is rarer than failing to include
+    the true maximum), but the auto-detect fallback is exactly as unsafe.
     """
     n_total = len(series)
     valid   = series.dropna()
@@ -148,7 +180,15 @@ def bottom_two_box(series: pd.Series, bottom_n: int = 2) -> dict:
         result["scale_min"]     = None
         return result
 
-    min_val   = int(valid.min())
+    if scale_min is None:
+        min_val = int(valid.min())
+        log.warning(
+            "bottom_two_box: scale_min not passed -- falling back to this subset's own "
+            f"observed min ({min_val}), which is WRONG whenever the subset doesn't "
+            "include the survey's true bottom value. Pass scale_min explicitly."
+        )
+    else:
+        min_val = scale_min
     threshold = min_val + bottom_n - 1
     result["bottom_values"] = list(range(min_val, threshold + 1))
     result["scale_min"]     = min_val
@@ -226,38 +266,67 @@ def ranked_options(series: pd.Series, top_n: "int | None" = None) -> dict:
 # --- DataFrame-level stat functions ---
 
 def claims_funnel(df: pd.DataFrame) -> dict:
-    """Four-step claims funnel (Part 2.1). All required columns checked; missing ones warned."""
+    """Claims funnel (Part 2.1). Schema-aware: Africa/Vietnam gates "filed a
+    claim" behind an "experienced insured event" step; LARCO's survey has no
+    such gate at all (data_loader_larco/column_mapping.csv has no
+    q_insured_event_12m row) -- claims are filed independent of any "did an
+    insured event happen" question, so when that column is absent, filed_claim
+    is counted directly against the full population instead of a nonexistent
+    event base. Confirmed in production: without this, LARCO's funnel silently
+    showed 0/0/0 (n_event=0, so pct_claim=0/0) despite q_claim_submitted
+    having 230 real claimants -- the SAME report's claim-result distribution
+    (which reads q_claim_submitted directly, bypassing this funnel) correctly
+    showed 230, exposing the gate as the sole culprit.
+
+    LARCO also has no claim OUTCOME data at all (no flag_paid_claimant, no
+    q_payout_cost_coverage -- it asks a subjective claim EXPERIENCE rating
+    instead, q_claim_experience_rating, a different construct entirely). Those
+    steps are marked not_applicable rather than a misleading "0% paid".
+    """
     for col in (_COL_INSURED_EVENT, _COL_CLAIM_SUBMITTED, _COL_PAID_CLAIMANT, _COL_PAYOUT_COVERAGE):
         if col not in df.columns:
             log.warning(f"claims_funnel: required column '{col}' missing from DataFrame")
 
     n_all = len(df)
+    has_event_gate       = _COL_INSURED_EVENT in df.columns
+    has_claim_submitted  = _COL_CLAIM_SUBMITTED in df.columns
+    has_paid_flag        = _COL_PAID_CLAIMANT in df.columns
+    has_payout_col       = _COL_PAYOUT_COVERAGE in df.columns
 
-    # Step 1: experienced insured event
-    if _COL_INSURED_EVENT in df.columns:
+    # Step 1: experienced insured event — not_applicable (not zero) when this
+    # schema never asks the question at all.
+    if has_event_gate:
         n_event = int((df[_COL_INSURED_EVENT] == True).sum())  # noqa: E712
     else:
-        n_event = 0
+        n_event = None
 
-    # Step 2: filed claim — denominator is the insured-event base
-    if _COL_CLAIM_SUBMITTED in df.columns and _COL_INSURED_EVENT in df.columns:
-        event_base   = df[df[_COL_INSURED_EVENT] == True]       # noqa: E712
-        n_claimants  = int((event_base[_COL_CLAIM_SUBMITTED] == True).sum())  # noqa: E712
+    # Step 2: filed claim — denominator is the insured-event base when this
+    # schema has one, otherwise the full population.
+    if has_claim_submitted:
+        if has_event_gate:
+            event_base  = df[df[_COL_INSURED_EVENT] == True]  # noqa: E712
+            n_claimants = int((event_base[_COL_CLAIM_SUBMITTED] == True).sum())  # noqa: E712
+        else:
+            n_claimants = int((df[_COL_CLAIM_SUBMITTED] == True).sum())  # noqa: E712
     else:
         n_claimants = 0
+    filed_claim_base_n = n_event if has_event_gate else n_all
 
-    # Step 3: claim paid — denominator is the claimant base
-    if _COL_PAID_CLAIMANT in df.columns and _COL_CLAIM_SUBMITTED in df.columns:
-        claimant_base = df[df[_COL_CLAIM_SUBMITTED] == True]    # noqa: E712
+    # Step 3: claim paid — requires flag_paid_claimant; not_applicable (not
+    # "0% paid") when this schema doesn't collect claim outcomes at all.
+    claim_paid_not_applicable = not has_paid_flag
+    if has_paid_flag and has_claim_submitted:
+        claimant_base = df[df[_COL_CLAIM_SUBMITTED] == True]  # noqa: E712
         n_paid        = int((claimant_base[_COL_PAID_CLAIMANT] == True).sum())  # noqa: E712
     else:
-        n_paid = 0
+        n_paid = None if claim_paid_not_applicable else 0
 
-    # Step 4: payout adequacy distribution — denominator is paid claimants
+    # Step 4: payout adequacy distribution — same not_applicable reasoning as step 3.
+    payout_not_applicable = not (has_paid_flag and has_payout_col)
     n_payout_valid = 0
     payout_dist: list = []
-    if _COL_PAID_CLAIMANT in df.columns and _COL_PAYOUT_COVERAGE in df.columns:
-        paid_base = df[df[_COL_PAID_CLAIMANT] == True]          # noqa: E712
+    if has_paid_flag and has_payout_col:
+        paid_base = df[df[_COL_PAID_CLAIMANT] == True]  # noqa: E712
         cov       = paid_base[_COL_PAYOUT_COVERAGE]
         valid_cov = cov[cov.notna() & (cov != SCOPE_SENTINEL)]
         n_payout_valid = len(valid_cov)
@@ -268,31 +337,40 @@ def claims_funnel(df: pd.DataFrame) -> dict:
                 for v, c in vc.items()
             ]
 
-    pct_event = n_event     / n_all       if n_all       > 0 else 0.0
-    pct_claim = n_claimants / n_event     if n_event     > 0 else 0.0
-    pct_paid  = n_paid      / n_claimants if n_claimants > 0 else 0.0
+    pct_event = (n_event / n_all) if (has_event_gate and n_all > 0) else None
+    pct_claim = (n_claimants / filed_claim_base_n) if filed_claim_base_n > 0 else 0.0
+    pct_paid  = (n_paid / n_claimants) if (not claim_paid_not_applicable and n_claimants > 0) else None
 
     return {
         "experienced_event": {
-            "n":            n_event,
-            "n_total":      n_all,
-            "pct_of_total": pct_event,
+            "n":              n_event,
+            "n_total":        n_all,
+            "pct_of_total":   pct_event,
+            "not_applicable": not has_event_gate,
+            "suppressed":     not has_event_gate,
         },
         "filed_claim": {
             "n":                 n_claimants,
-            "n_total":           n_event,
+            "n_total":           filed_claim_base_n,
             "pct_of_event_base": pct_claim,
-            "leakage":           1 - pct_claim,
+            "leakage":           (1 - pct_claim) if filed_claim_base_n > 0 else None,
+            "base":              "insured_event_base" if has_event_gate else "all_respondents",
+            "not_applicable":    False,
+            "suppressed":        False,
         },
         "claim_paid": {
             "n":                n_paid,
             "n_total":          n_claimants,
             "pct_of_claimants": pct_paid,
+            "not_applicable":   claim_paid_not_applicable,
+            "suppressed":       claim_paid_not_applicable,
         },
         "payout_adequacy": {
-            "n_valid":      n_payout_valid,
-            "n_total":      n_paid,
-            "distribution": payout_dist,
+            "n_valid":        n_payout_valid,
+            "n_total":        n_paid or 0,
+            "distribution":   payout_dist,
+            "not_applicable": payout_not_applicable,
+            "suppressed":     payout_not_applicable,
         },
     }
 

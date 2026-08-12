@@ -12,7 +12,7 @@ from pathlib import Path
 
 from analysis_engine.country_config import DEFAULT_COUNTRY
 from llm_providers import call_llm
-from utils import word_count, truncate_to_limit, format_period_label
+from utils import word_count, truncate_to_limit, format_period_label, format_p_value
 
 log = logging.getLogger(__name__)
 
@@ -41,12 +41,24 @@ def _is_single_country(meta: dict) -> bool:
     return bool(country) and country != DEFAULT_COUNTRY
 
 
+def _is_larco_rollup(meta: dict) -> bool:
+    """True when this run combines every LARCO country into one analysis --
+    dataset_schema == "larco" (see run_analysis.py's meta block) with no
+    single-country filter applied. Distinct from the true Africa+Vietnam
+    global portfolio, which uses dataset_schema == "africa_vietnam" (the
+    default when the key is absent, e.g. for analysis_results.json files
+    written before dataset_schema was added to meta)."""
+    return meta.get("dataset_schema") == "larco" and not _is_single_country(meta)
+
+
 def _report_title(run_id: str, meta: "dict | None" = None) -> str:
     period = format_period_label(run_id)
     meta = meta or {}
     if _is_single_country(meta):
         label = meta.get("country_label") or meta["country"].title()
         return f"VisionFund International Insurance Impact Report — {label}, {period}"
+    if _is_larco_rollup(meta):
+        return f"VisionFund International Insurance Impact Report — LARCO Regional Portfolio, {period}"
     return f"VisionFund International Insurance Impact Report — Global Portfolio, {period}"
 
 
@@ -144,6 +156,18 @@ VOICE RULES:
   characterization. Use the quoted VERBATIM(s) to illustrate that pattern with a specific client
   voice, not as evidence of the pattern itself — never imply that 1-3 quotes represent the full
   client base's sentiment when a SENTIMENT SPLIT is available and shows a different balance.
+- Whenever you describe a SENTIMENT SPLIT in prose, state EVERY category as "n (pct%)" together
+  (e.g. "18 positive (60%), 9 negative (30%), 3 neutral (10%)") — never a bare count and never a
+  bare percentage on its own. Compute each percentage yourself as that category's count divided by
+  the SENTIMENT SPLIT line's own total (do not use any percentage from elsewhere in the data
+  package). The percentages across all categories you mention must sum to approximately 100%
+  (allow ±1% for rounding only) — if they do not, you have made an arithmetic error; recompute
+  directly from the given counts before writing the sentence.
+- If a quoted VERBATIM is not already in English (e.g. a Spanish response from a LARCO client),
+  give a brief English gloss of its meaning FIRST, then the original-language text in parentheses
+  immediately after — e.g. "the process was very slow" ("el proceso fue muy lento") — every time
+  you quote it, not just the first time. Never quote non-English text without an English gloss,
+  and never silently translate without showing the original.
 
 WORD LIMITS (strictly enforced):
 - If a section specifies word_limit: 90, write AT MOST 90 words. Aim for 85-90.
@@ -347,7 +371,7 @@ def _build_sections_text(package: dict) -> str:
                     lines.append(f"    {d['label']}: rho=SUPPRESSED")
                 else:
                     rho = f"{d['rho']:+.3f}" if d["rho"] is not None else "?"
-                    p   = f"{d['p_value']:.4f}" if d["p_value"] is not None else "?"
+                    p   = format_p_value(d["p_value"])
                     n   = d["n_valid"] or "?"
                     lines.append(f"    {d['label']}: rho={rho}, p={p}, n={n}")
                 if d.get("population"):
@@ -370,7 +394,7 @@ def _build_scorecard_text(scorecard: list, group_a: str, group_b: str) -> str:
     lines.append("  " + "-" * 80)
     for row in scorecard:
         sig_mark = "*" if row["significant"] else ""
-        p_note   = f"(p={row['sig_p']:.4f})" if row["sig_p"] is not None else ""
+        p_note   = f"(p={format_p_value(row['sig_p'])})" if row["sig_p"] is not None else ""
         lines.append(
             f"  {row['label']:<40} {row['group_a_value']:<18} {row['group_b_value']:<18} {sig_mark} {p_note}"
         )

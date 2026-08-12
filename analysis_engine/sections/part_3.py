@@ -17,7 +17,7 @@ _ALTERNATIVE_ACCESS_DIFFICULT = ["Very difficult", "Slightly difficult"]
 
 def _missing_col(col: str) -> dict:
     return {"value": None, "n_valid": 0, "n_total": 0, "suppressed": True,
-            "suppress_reason": f"column missing: {col}"}
+            "suppress_reason": f"column missing: {col}", "not_applicable": True}
 
 
 def calculate(ds, segment_masks: dict) -> dict:
@@ -38,7 +38,7 @@ def calculate(ds, segment_masks: dict) -> dict:
         log.warning(f"Part 3: column '{col}' missing — skipping 'negative_coping'")
         metrics["negative_coping"] = {
             "base": "insured_event_base", "n_base": len(ds.insured_event_base),
-            "headline": _missing_col(col), "segments": {},
+            "headline": _missing_col(col), "segments": {seg: _missing_col(col) for seg in segment_masks},
         }
     else:
         metrics["negative_coping"] = {
@@ -59,14 +59,14 @@ def calculate(ds, segment_masks: dict) -> dict:
         log.warning(f"Part 3: column '{col}' missing — skipping 'financial_stress_high'")
         metrics["financial_stress_high"] = {
             "base": "all_respondents", "n_base": len(ds.df),
-            "headline": _missing_col(col), "segments": {},
+            "headline": _missing_col(col), "segments": {seg: _missing_col(col) for seg in segment_masks},
         }
     else:
         metrics["financial_stress_high"] = {
             "base": "all_respondents",
             "n_base": len(ds.df),
-            "headline": top_two_box(ds.df[col]),
-            "segments": disaggregate(ds.df, col, top_two_box, segment_masks),
+            "headline": top_two_box(ds.df[col], scale_max=5),
+            "segments": disaggregate(ds.df, col, top_two_box, segment_masks, scale_max=5),
         }
 
     # alternative_access_difficult — base: all_respondents
@@ -75,7 +75,7 @@ def calculate(ds, segment_masks: dict) -> dict:
         log.warning(f"Part 3: column '{col}' missing — skipping 'alternative_access_difficult'")
         metrics["alternative_access_difficult"] = {
             "base": "all_respondents", "n_base": len(ds.df),
-            "headline": _missing_col(col), "segments": {},
+            "headline": _missing_col(col), "segments": {seg: _missing_col(col) for seg in segment_masks},
         }
     else:
         metrics["alternative_access_difficult"] = {
@@ -96,14 +96,14 @@ def calculate(ds, segment_masks: dict) -> dict:
         log.warning(f"Part 3: column '{col}' missing — skipping 'confidence_pay'")
         metrics["confidence_pay"] = {
             "base": "all_respondents", "n_base": len(ds.df),
-            "headline": _missing_col(col), "segments": {},
+            "headline": _missing_col(col), "segments": {seg: _missing_col(col) for seg in segment_masks},
         }
     else:
         metrics["confidence_pay"] = {
             "base": "all_respondents",
             "n_base": len(ds.df),
-            "headline": bottom_two_box(ds.df[col]),
-            "segments": disaggregate(ds.df, col, bottom_two_box, segment_masks),
+            "headline": bottom_two_box(ds.df[col], scale_min=1),
+            "segments": disaggregate(ds.df, col, bottom_two_box, segment_masks, scale_min=1),
         }
 
     # no_prior_access ("first-time access to insurance") — base: all_respondents.
@@ -116,7 +116,7 @@ def calculate(ds, segment_masks: dict) -> dict:
         log.warning(f"Part 3: column '{col}' missing — skipping 'no_prior_access'")
         metrics["no_prior_access"] = {
             "base": "all_respondents", "n_base": len(ds.df),
-            "headline": _missing_col(col), "segments": {},
+            "headline": _missing_col(col), "segments": {seg: _missing_col(col) for seg in segment_masks},
         }
     else:
         no_prior_access = ~ds.df[col]

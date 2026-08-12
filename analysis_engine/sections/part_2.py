@@ -68,6 +68,7 @@ def calculate(ds, segment_masks: dict) -> dict:
         challenges_ranked = {
             "value": None, "n_valid": 0, "n_total": 0, "suppressed": True,
             "suppress_reason": f"column missing: {COL_CLAIM_CHALLENGES}", "ranked": [],
+            "not_applicable": True,
         }
 
     # 2.5 Claim result — base: all claimants

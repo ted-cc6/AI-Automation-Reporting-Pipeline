@@ -8,7 +8,7 @@ from pathlib import Path
 
 import yaml
 
-from utils import get_nested, format_value
+from utils import get_nested, format_value, format_p_value
 
 log = logging.getLogger(__name__)
 
@@ -46,6 +46,55 @@ _DRIVER_LABELS = {
 # Preflight
 # ---------------------------------------------------------------------------
 
+
+# Coverage below this share of a metric's own declared population, on a
+# metric that is NOT marked not_applicable, is far more likely a column-
+# mapping bug (a question silently reading the wrong/empty/misrouted column
+# for this dataset's schema) than genuine small-sample suppression --
+# analysis_engine/stats.py's LOW_N_THRESHOLD (30 respondents) already handles
+# ordinary small-segment suppression separately, and that's expected, not an
+# error. Confirmed threshold choice: LARCO's insurance_type field, sourced
+# from a claim-history question rather than product enrollment, fills at
+# ~11% -- well above this 3% floor -- so this check catches something more
+# broken than that near-miss, not every population-scoped edge case.
+_LOW_COVERAGE_THRESHOLD = 0.03
+_LOW_COVERAGE_MIN_POPULATION = 30
+
+
+def _check_metric_coverage(analysis: dict, spec: dict) -> list:
+    """Flag every report_spec.yaml metric whose answer coverage (n_valid /
+    n_total, both siblings of `value` in every analysis_engine/stats.py
+    _base_result()-shaped result) is suspiciously low relative to its own
+    declared population, so a broken mapping is caught here -- loudly,
+    before generation -- instead of the LLM quietly writing "data suppressed
+    due to small sample size" prose about what is actually a pipeline bug.
+    """
+    problems = []
+    for part_key, part_spec in spec.get("parts", {}).items():
+        for s_key, s_spec in part_spec.get("sections", {}).items():
+            for m_key, m_cfg in s_spec.get("metrics", {}).items():
+                path = m_cfg.get("path", "")
+                if not path.endswith(".value"):
+                    continue
+                base = path[: -len(".value")]
+                not_app = bool(get_nested(analysis, base + ".not_applicable", default=False))
+                if not_app:
+                    continue
+                n_valid = get_nested(analysis, base + ".n_valid")
+                n_total = get_nested(analysis, base + ".n_total")
+                if not isinstance(n_valid, int) or not isinstance(n_total, int) or n_total < _LOW_COVERAGE_MIN_POPULATION:
+                    continue
+                coverage = n_valid / n_total
+                log.info(f"coverage: {part_key}.{s_key}.{m_key} = {n_valid}/{n_total} ({coverage:.1%})")
+                if coverage < _LOW_COVERAGE_THRESHOLD:
+                    problems.append(
+                        f"{part_key}.{s_key}.{m_key}: only {n_valid}/{n_total} respondents "
+                        f"({coverage:.1%}) answered, and it is not marked not_applicable — "
+                        "check for a column-mapping issue before generating this report"
+                    )
+    return problems
+
+
 def preflight_check(run_id: str) -> dict:
     errors, warnings = [], []
     run_dir = ROOT / "runs" / run_id
@@ -63,6 +112,14 @@ def preflight_check(run_id: str) -> dict:
             vpath = run_dir / "visuals" / v["file"]
             if not vpath.exists():
                 warnings.append(f"Visual missing: visuals/{v['file']}")
+
+    analysis_path = run_dir / "analysis_results.json"
+    if analysis_path.exists():
+        try:
+            analysis = json.loads(analysis_path.read_text(encoding="utf-8"))
+            errors.extend(_check_metric_coverage(analysis, spec))
+        except json.JSONDecodeError as exc:
+            errors.append(f"{analysis_path} could not be parsed for coverage check: {exc}")
 
     ok = len(errors) == 0
     for e in errors:
@@ -109,6 +166,15 @@ def extract_metrics(analysis: dict, section_spec: dict) -> dict:
         sup_path = m_cfg.get("suppressed_path", "")
         sup  = bool(get_nested(analysis, sup_path, default=False))
         not_app = bool(get_nested(analysis, _not_applicable_path(sup_path), default=False))
+        if not_app:
+            # This question was never asked of this dataset's population at all (a
+            # different survey schema, e.g. LARCO vs Africa/Vietnam, or a country-
+            # exclusive question outside a single-country run's own country) --
+            # omit it entirely rather than sending "NOT APPLICABLE" into the
+            # prompt/table. A section with a schema-conditional counterpart metric
+            # (e.g. Part 1's coverage_understanding vs product_understanding) relies
+            # on exactly one of the pair surviving this drop per run.
+            continue
         result[m_key] = format_value(v, m_cfg["fmt"], suppressed=sup, not_applicable=not_app)
 
         n_path = m_cfg.get("n_path")
@@ -130,7 +196,7 @@ def extract_metrics(analysis: dict, section_spec: dict) -> dict:
         n_val = get_nested(analysis, d_cfg["n_path"])
         marker = "NOT APPLICABLE" if not_app else "SUPPRESSED"
         result[d_key + "_rho"] = format_value(rho, "rho", suppressed=sup, not_applicable=not_app)
-        result[d_key + "_p"]   = f"{p_val:.4f}" if (p_val is not None and not sup) else marker
+        result[d_key + "_p"]   = format_p_value(p_val) if (p_val is not None and not sup) else marker
         result[d_key + "_n"]   = format_value(n_val, "count") if (n_val is not None and not sup) else marker
 
     return result
@@ -177,6 +243,11 @@ def _build_drivers_data(analysis: dict, drivers_spec: dict) -> list:
         sup_path = d_cfg.get("suppressed_path", "")
         sup   = bool(get_nested(analysis, sup_path, default=False))
         not_app = bool(get_nested(analysis, _not_applicable_path(sup_path), default=False))
+        if not_app:
+            # This driver's column doesn't exist in this dataset's schema at all --
+            # omit the row entirely rather than a dead "NOT APPLICABLE" table row
+            # (see extract_metrics()'s identical drop for the same reasoning).
+            continue
         rho   = get_nested(analysis, d_cfg["rho_path"])
         p_val = get_nested(analysis, d_cfg["p_path"])
         n_val = get_nested(analysis, d_cfg["n_path"])
@@ -207,6 +278,10 @@ def _build_scorecard_6(analysis: dict, scorecard_spec: list) -> list:
         sup_b = bool(get_nested(analysis, m["non_claimant_sup"], default=False))
         not_app_a = bool(get_nested(analysis, _not_applicable_path(m["claimant_sup"]), default=False))
         not_app_b = bool(get_nested(analysis, _not_applicable_path(m["non_claimant_sup"]), default=False))
+        if not_app_a and not_app_b:
+            # Neither group was ever asked this question -- drop the row rather
+            # than a table line reading "NOT APPLICABLE" on both sides.
+            continue
         val_a = format_value(get_nested(analysis, m["claimant_path"]), m["fmt"], suppressed=sup_a, not_applicable=not_app_a)
         val_b = format_value(get_nested(analysis, m["non_claimant_path"]), m["fmt"], suppressed=sup_b, not_applicable=not_app_b)
         p_val = get_nested(analysis, m["sig_path"])
@@ -232,6 +307,8 @@ def _build_scorecard_7(analysis: dict, scorecard_spec: list) -> list:
         sup_b = bool(get_nested(analysis, m["male_sup"], default=False))
         not_app_a = bool(get_nested(analysis, _not_applicable_path(m["female_sup"]), default=False))
         not_app_b = bool(get_nested(analysis, _not_applicable_path(m["male_sup"]), default=False))
+        if not_app_a and not_app_b:
+            continue
         val_a = format_value(get_nested(analysis, m["female_path"]), m["fmt"], suppressed=sup_a, not_applicable=not_app_a)
         val_b = format_value(get_nested(analysis, m["male_path"]), m["fmt"], suppressed=sup_b, not_applicable=not_app_b)
         p_val = get_nested(analysis, m["sig_path"])
@@ -294,6 +371,18 @@ def _build_trend_data(analysis: dict, trend_spec: list) -> list:
             if key == "client_satisfaction_nps":
                 sig_note = sig.get("test")
 
+            # Definition-match mismatch (see analysis_engine/sections/
+            # part_10.py's _compare_indicator()) overrides/extends whatever
+            # sig_note already says -- a changed question/scale/base between
+            # waves needs to be flagged prominently, not compared silently.
+            if comp.get("definition_match") is False:
+                mismatch = (
+                    "DEFINITION MISMATCH: this indicator's underlying question, scale, "
+                    "or population base differs between the current and prior wave -- "
+                    "the comparison above may not be measuring the same thing both times."
+                )
+                sig_note = f"{sig_note} {mismatch}" if sig_note else mismatch
+
         rows.append({
             "label":         label,
             "group_a_label": "Current Wave",
@@ -316,6 +405,8 @@ def _build_scorecard_5(analysis: dict, scorecard_spec: list) -> list:
         sup_b = bool(get_nested(analysis, m["non_caregiver_sup"], default=False))
         not_app_a = bool(get_nested(analysis, _not_applicable_path(m["caregiver_sup"]), default=False))
         not_app_b = bool(get_nested(analysis, _not_applicable_path(m["non_caregiver_sup"]), default=False))
+        if not_app_a and not_app_b:
+            continue
         val_a = format_value(get_nested(analysis, m["caregiver_path"]), m["fmt"], suppressed=sup_a, not_applicable=not_app_a)
         val_b = format_value(get_nested(analysis, m["non_caregiver_path"]), m["fmt"], suppressed=sup_b, not_applicable=not_app_b)
         p_val = get_nested(analysis, m["sig_path"])

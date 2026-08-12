@@ -24,7 +24,9 @@ import functools
 from data_loader.data_loader_api import load_survey_data
 from analysis_engine.country_config import load_country_config, DEFAULT_COUNTRY
 from analysis_engine.segments import describe_segments, get_all_segment_masks
-from analysis_engine.sections import part_1, part_2, part_3, part_4, part_5, part_6, part_7, part_8, part_9, part_10
+from analysis_engine.sections import (
+    about_survey, part_1, part_2, part_3, part_4, part_5, part_6, part_7, part_8, part_9, part_10,
+)
 from analysis_engine.stats import LOW_N_THRESHOLD
 
 PROJECT_ROOT = Path(__file__).parent
@@ -40,6 +42,7 @@ SCHEMA_VERSION = "1.5"   # was "1.4" — inverted Likert scale corrected:
 # either (Part 9's source columns are ~0.4% filled there; Part 10's trend
 # indicators have no second wave to compare against).
 SECTIONS = [
+    ("about_survey", "About This Survey",                 about_survey),
     ("part_1", "Client Understanding & Value Perception", part_1),
     ("part_2", "Claims Experience",                       part_2),
     ("part_3", "Financial Resilience",                    part_3),
@@ -47,6 +50,10 @@ SECTIONS = [
     ("part_5", "CWB Drivers",                            part_5),
     ("part_6", "Claimant vs Non-Claimant Scorecard",     part_6),
     ("part_7", "Female vs Male Scorecard",               part_7),
+    # part_8 (Kling Index) computes and stores its composite score here for the
+    # dashboard UI, but is intentionally dashboard-only -- it has no entry in
+    # generation/report_spec.yaml and never appears in the generated .docx (see
+    # part_8.py's module docstring for the full rationale).
     ("part_8", "Kling Index — Product Outcomes",         part_8),
 ]
 
@@ -227,6 +234,7 @@ def main() -> int:
             "country":                country_config.country,
             "country_label":          country_config.label,
             "report_context":         country_config.report_context,
+            "dataset_schema":         dataset_schema,
             "metric_notes": {
                 name: {
                     "note":                note.note,

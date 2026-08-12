@@ -75,7 +75,13 @@ For EACH of the 7 report sections below, do two things:
 
 **A. Nominate exactly 3 row IDs (verbatim quotes).**
 Selection criteria:
-  - Text must be substantive (> 20 words, not generic praise)
+  - Text must be substantive: it names a specific reason, detail, or experience --
+    not just a generic sentiment word or phrase ("good service", "no comment", and
+    "muy bueno" are NOT substantive; "the agent explained the claim process clearly"
+    and "el pago llegó en una semana" ARE). Typical response length varies a lot
+    across countries and survey instruments -- do NOT use a word-count minimum as
+    your bar. A short response with one specific concrete detail is MORE
+    substantive than a longer but generic one, and must be preferred over it.
   - Clearly relevant to the section topic
   - Diverse: where possible, vary sex, is_claimant, is_caregiver, AND country
   - Do NOT nominate all 3 verbatims for a section from the same country if
@@ -128,12 +134,47 @@ Report EVERY instance, even one. These are surfaced as signals, not quantified.
 Include: id, column (e.g. "nps_detractors"), flag_type, severity ("high"|"medium"|"low"),
 reason (1 sentence quoting or paraphrasing the key phrase).
 
+SEVERITY RUBRIC (apply these impact criteria to the specific case FIRST — do
+not just default to a flag_type's typical tier below when the actual
+described impact points elsewhere):
+  high:   direct financial loss to the client (claim wrongly denied, premium
+          taken without consent and not refunded, payout withheld) OR a
+          consent/rights violation (coercion into purchase, personal data
+          misused without consent) OR the response describes a pattern of
+          repeated/systemic conduct rather than one isolated incident.
+  medium: misrepresentation or false information was given but the client
+          caught it or it was corrected before causing financial harm, OR a
+          notable service failure (unresponsive or negligent staff) delayed
+          a legitimate outcome without ultimately denying it.
+  low:    minor friction or dissatisfaction with staff interaction or
+          communication style, with no financial harm or rights violation
+          implied, and the client does not describe it as materially
+          affecting their outcome.
+Typical tier by flag_type, when the case has no distinguishing detail beyond
+the flag_type itself: unfair_claim_denial, coercion, premium_without_consent,
+and data_privacy default to high; mis_selling and false_information default
+to medium; staff_misconduct defaults to medium but should be downgraded to
+low for pure communication friction with no suggestion of harm.
+
 ### TASK 7 — Executive Summary
 Write 3-5 sentences covering:
   1. What do promoters most value?
   2. What are detractors' main pain points?
   3. Any notable client protection signals?
   4. One forward-looking recommendation.
+
+Also produce, separately from the prose above:
+  top_findings: exactly 3 short (1 sentence each) qualitative findings, ranked
+    most important first -- the biggest patterns across ALL groups and
+    sections you reviewed (not just NPS), e.g. a recurring driver of
+    dissatisfaction, a strong positive theme, or a notable gap in
+    understanding. Each must be a specific, evidence-grounded observation
+    from the responses you actually read, not a generic statement.
+  top_actions: exactly 3 short (1 sentence each) recommended actions for
+    VisionFund, ranked most important first, each one clearly traceable to
+    one of your top_findings or a protection flag you raised -- concrete and
+    operational (e.g. "Retrain branch staff on X"), not vague aspirations
+    (e.g. not "improve communication").
 
 ## THEME TAXONOMY (use ONLY these codes)
 
@@ -219,7 +260,9 @@ Return ONLY valid JSON. No markdown, no explanation, no extra keys.
       "reason": "one sentence"
     }
   ],
-  "executive_summary": "3-5 sentences"
+  "executive_summary": "3-5 sentences",
+  "top_findings": ["finding 1", "finding 2", "finding 3"],
+  "top_actions": ["action 1", "action 2", "action 3"]
 }
 """
 

@@ -12,7 +12,9 @@ from docx.enum.text import WD_ALIGN_PARAGRAPH
 from docx.shared import Inches, Pt, RGBColor
 
 from analysis_engine.country_config import DEFAULT_COUNTRY
-from utils import format_period_label
+from generation.executive_summary import data_availability_caveats, headline_numbers
+from generation.writer import _is_larco_rollup
+from utils import format_period_label, format_p_value
 
 log = logging.getLogger(__name__)
 
@@ -43,17 +45,52 @@ def _apply_brand_heading_color(doc):
             pass
 
 
+def _load_json(path: Path) -> "dict | None":
+    """Best-effort JSON read. Returns None if the file is missing or
+    unreadable rather than raising."""
+    if not path.exists():
+        return None
+    try:
+        return json.loads(path.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError):
+        return None
+
+
 def _load_analysis_meta(run_id: str) -> dict:
     """Best-effort read of runs/{run_id}/analysis_results.json's meta block, for
     the cover page. Returns {} if the file is missing or unreadable rather than
     raising -- the cover page falls back to a plain title in that case."""
-    path = ROOT / "runs" / run_id / "analysis_results.json"
-    if not path.exists():
-        return {}
-    try:
-        return json.loads(path.read_text(encoding="utf-8")).get("meta", {})
-    except (json.JSONDecodeError, OSError):
-        return {}
+    data = _load_json(ROOT / "runs" / run_id / "analysis_results.json")
+    return (data or {}).get("meta", {})
+
+
+def _load_full_analysis(run_id: str) -> dict:
+    """Best-effort read of the full analysis_results.json -- used for
+    sections that read across multiple parts (e.g. the executive summary's
+    headline numbers, see generation/executive_summary.py) rather than one
+    part_key. Returns {} if missing/unreadable."""
+    return _load_json(ROOT / "runs" / run_id / "analysis_results.json") or {}
+
+
+def _load_analysis_part(run_id: str, part_key: str) -> "dict | None":
+    """Best-effort read of one parts.{part_key} block from analysis_results.json
+    -- used for sections rendered directly from analysis data with no LLM call
+    involved (e.g. About This Survey), so they don't need an orchestrator.py
+    package or a report_spec.yaml entry at all. Returns None if the file, the
+    part, or the JSON itself is missing/unreadable."""
+    data = _load_json(ROOT / "runs" / run_id / "analysis_results.json")
+    if data is None:
+        return None
+    return (data.get("parts") or {}).get(part_key)
+
+
+def _load_qualitative_results(run_id: str) -> dict:
+    """Best-effort read of runs/{run_id}/qualitative_results.json -- used for
+    the executive summary's top_findings/top_actions/executive_summary prose
+    (see qualitative/llm_call.py's Task 7). Returns {} if missing/unreadable
+    (e.g. this run has no qualitative pass), so the executive summary falls
+    back to headline numbers + caveat box only."""
+    return _load_json(ROOT / "runs" / run_id / "qualitative_results.json") or {}
 
 
 def _format_profile(profile: dict) -> str:
@@ -138,13 +175,14 @@ def _add_drivers_table(doc, section: dict):
             rows.append([d["label"], "SUPPRESSED", "SUPPRESSED", "SUPPRESSED"])
         else:
             rho_str = f"{d['rho']:+.3f}" if d["rho"] is not None else "?"
-            p_str   = f"{d['p_value']:.4f}" if d["p_value"] is not None else "?"
+            p_str   = format_p_value(d["p_value"])
             n_str   = str(d["n_valid"]) if d["n_valid"] is not None else "?"
             rows.append([d["label"], rho_str, p_str, n_str])
     _add_table(doc, headers, rows)
-    scale_note = drivers_table.get("scale_note")
-    if scale_note:
-        _add_paragraph(doc, scale_note.strip())
+    # Full ρ/p-value/N methodology explanation lives once in the Methodology
+    # Notes appendix (see _add_methodology_appendix()) rather than repeated
+    # verbatim under both Part 4's and Part 5's drivers tables.
+    _add_paragraph(doc, "See \"Appendix: Methodology Notes\" for how to read ρ (rho), p-value, and N in this table.")
 
 
 def _add_image_or_placeholder(doc, visual_info: dict):
@@ -196,11 +234,42 @@ def _protection_flag_ref(row_id: str) -> str:
         return row_id
 
 
-def _add_protection_signals(doc, protection_flags: list) -> None:
-    """Render client-protection flags as grouped, readable sentences instead
-    of raw [SEVERITY] tag lines -- keeps the per-case client reference for
-    follow-up traceability without looking like a debug/audit dump."""
+def _add_protection_signals_summary(doc, protection_flags: list) -> None:
+    """Short in-body summary (counts by severity) inline in Part 2 -- the
+    full itemized list with per-case reason text and client references for
+    follow-up moves to "Appendix: Client Protection Signals" instead (see
+    _add_protection_signals_annex()), so a run with many flags doesn't let a
+    long itemized list dominate Part 2's narrative flow."""
+    if not protection_flags:
+        return
     _add_heading(doc, "Client Protection Signals", level=4)
+
+    by_severity: dict[str, int] = {}
+    for flag in protection_flags:
+        sev = (flag.get("severity") or "unspecified").lower()
+        by_severity[sev] = by_severity.get(sev, 0) + 1
+    ordered_keys = [s for s in _SEVERITY_ORDER if s in by_severity]
+    ordered_keys += [s for s in by_severity if s not in _SEVERITY_ORDER]
+    counts_text = ", ".join(f"{by_severity[s]} {s}" for s in ordered_keys)
+
+    n_total = len(protection_flags)
+    _add_paragraph(
+        doc,
+        f"{n_total} client-reported protection concern{'s' if n_total != 1 else ''} "
+        f"{'were' if n_total != 1 else 'was'} identified during this survey ({counts_text} "
+        "severity). See \"Appendix: Client Protection Signals\" for the full itemized list "
+        "with client references for follow-up by the client protection team."
+    )
+
+
+def _add_protection_signals_annex(doc, protection_flags: list) -> None:
+    """Full itemized client-protection flag list (reason text + client
+    reference per case), grouped by severity -- rendered once as a document
+    appendix instead of inline in Part 2 (see _add_protection_signals_summary()
+    for the short in-body version Part 2 shows instead)."""
+    if not protection_flags:
+        return
+    doc.add_heading("Appendix: Client Protection Signals", level=1)
     _add_paragraph(
         doc,
         "The following client-reported concerns were identified for follow-up "
@@ -222,6 +291,143 @@ def _add_protection_signals(doc, protection_flags: list) -> None:
             reason = (flag.get("reason") or "").strip()
             ref = _protection_flag_ref(flag.get("id", ""))
             _add_paragraph(doc, f"{label}: {reason} ({ref})", style="List Bullet")
+
+
+_SPEARMAN_METHODOLOGY_NOTE = (
+    "ρ (rho) is the Spearman rank correlation coefficient, a value from -1 to +1 showing "
+    "how strongly two things move together — values near +1 or -1 indicate a strong "
+    "relationship, values near 0 indicate little to none. Spearman correlation is "
+    "calculated on the rank order of responses rather than their raw values, which makes "
+    "it well suited to Likert-scale survey questions like the ones in Parts 4 and 5. p "
+    "(the p-value) shows how likely a correlation this strong could appear by chance alone "
+    "if no real relationship existed; p<0.05 is the conventional threshold for statistical "
+    "significance. N is the number of respondents included in each specific calculation — "
+    "it varies by driver because not every question was asked of every client (for example, "
+    "in the Africa/Vietnam portfolio, Renewal Intent was asked only of Vietnam's "
+    "crop-insurance clients).\n\n"
+    "Financial Stress, Coverage Understanding, Claim Process Understanding, Worth Premium, "
+    "Renewal Intent, and Confidence in Payout are all scored so that a LOWER number is the "
+    "more positive response (e.g. 1 = \"Definitely would renew\"). A negative correlation "
+    "with the outcome variable — client satisfaction (NPS) in Part 4, child wellbeing in "
+    "Part 5 — for any of these drivers therefore reflects a POSITIVE real-world "
+    "relationship (e.g. stronger renewal intent aligning with a better outcome), not a "
+    "negative one. NPS itself runs the opposite way (0=worst, 10=best): when NPS appears as "
+    "the outcome (Part 4), a negative correlation with it is what reflects the positive "
+    "relationship described above; when NPS appears as a DRIVER of child wellbeing (Part 5 "
+    "only), a positive correlation there likewise reflects a positive relationship."
+)
+
+
+def _add_methodology_appendix(doc):
+    """Single shared explanation of the Spearman ρ/p-value/N methodology used
+    by both Part 4's satisfaction drivers table and Part 5's child wellbeing
+    drivers table -- previously duplicated verbatim (~200 words) under each
+    table; both now print a one-line pointer to this appendix instead (see
+    _add_drivers_table())."""
+    doc.add_heading("Appendix: Methodology Notes", level=1)
+    _add_heading(doc, "Spearman Rank Correlation (Parts 4 & 5 Drivers Tables)", level=2)
+    for para in _SPEARMAN_METHODOLOGY_NOTE.split("\n\n"):
+        _add_paragraph(doc, para)
+
+
+def _add_executive_summary(doc, analysis: dict, qual: dict):
+    """Renders the Executive Summary: headline numbers (deterministic, from
+    generation/executive_summary.py) + top findings/actions and a short
+    narrative (from the qualitative pipeline's Task 7, qualitative_results.json
+    -- see qualitative/llm_call.py) + a consolidated data-availability caveat
+    box. No LLM call happens here directly -- the narrative/findings/actions
+    were already generated by the qualitative pass; this only merges and
+    renders what already exists, so a run with no qualitative_results.json
+    still gets a useful headline-numbers-only executive summary rather than
+    nothing at all."""
+    _add_heading(doc, "Executive Summary", level=1)
+
+    rows = headline_numbers(analysis)
+    if rows:
+        _add_table(
+            doc, ["Metric", "Value", "N"],
+            [[r["label"], r["value"], r["n"] if r["n"] is not None else ""] for r in rows],
+        )
+
+    exec_prose = (qual or {}).get("executive_summary", "")
+    if exec_prose:
+        _add_paragraph(doc, exec_prose)
+
+    top_findings = (qual or {}).get("top_findings", [])[:3]
+    if top_findings:
+        _add_heading(doc, "Top Findings", level=3)
+        for finding in top_findings:
+            _add_paragraph(doc, finding, style="List Number")
+
+    top_actions = (qual or {}).get("top_actions", [])[:3]
+    if top_actions:
+        _add_heading(doc, "Recommended Actions", level=3)
+        for action in top_actions:
+            _add_paragraph(doc, action, style="List Number")
+
+    caveats = data_availability_caveats(analysis)
+    if caveats:
+        _add_heading(doc, "Data Availability", level=3)
+        _add_paragraph(
+            doc,
+            "This report's survey instrument does not collect the following, so they do "
+            "not appear elsewhere in this report: " + "; ".join(caveats) + "."
+        )
+
+
+def _add_about_survey_section(doc, about: dict):
+    """Renders analysis_engine/sections/about_survey.py's output directly --
+    no LLM call, no report_spec.yaml entry, no orchestrator.py package. Pure
+    descriptive statistics (country/product/age/sex/fieldwork dates), so
+    there is nothing here for a model to get wrong or need word-limited."""
+    _add_heading(doc, "About This Survey", level=1)
+
+    n_total = about.get("n_total", 0)
+    fieldwork = about.get("fieldwork", {})
+    if fieldwork.get("available"):
+        _add_paragraph(
+            doc,
+            f"This report is based on {n_total:,} client responses collected between "
+            f"{fieldwork['start_date']} and {fieldwork['end_date']}."
+        )
+    else:
+        _add_paragraph(doc, f"This report is based on {n_total:,} client responses.")
+
+    by_country = about.get("by_country", [])
+    if by_country:
+        _add_heading(doc, "Respondents by Country", level=3)
+        _add_table(
+            doc, ["Country", "N", "%"],
+            [[row["country"], row["n"], f"{row['pct'] * 100:.1f}%"] for row in by_country],
+        )
+
+    product_mix = about.get("product_mix", {})
+    if product_mix.get("available"):
+        _add_heading(doc, "Respondents by Product", level=3)
+        _add_table(
+            doc, ["Product", "N", "%"],
+            [[row["product"].replace("_", " ").title(), row["n"], f"{row['pct'] * 100:.1f}%"]
+             for row in product_mix.get("distribution", [])],
+        )
+    elif product_mix.get("reason"):
+        log.info(f"About This Survey: product mix omitted — {product_mix['reason']}")
+
+    age = about.get("age", {})
+    if age.get("n_valid"):
+        _add_heading(doc, "Age", level=3)
+        _add_paragraph(
+            doc,
+            f"Mean age {age['mean']:.1f} years (range {age['min']}–{age['max']}), "
+            f"based on {age['n_valid']:,} respondents with a recorded age."
+        )
+
+    by_sex = about.get("by_sex", [])
+    if by_sex:
+        _add_heading(doc, "Respondents by Sex", level=3)
+        _add_table(
+            doc, ["Sex", "N", "%"],
+            [[row["sex"], row["n"], f"{row['pct'] * 100:.1f}%"] for row in by_sex],
+        )
 
 
 def _add_generation_failure_notice(doc, error: str):
@@ -301,7 +507,14 @@ def build_part_2(doc, package: dict, texts: dict):
         headers = ft.get("headers", ["Stage", "N", "Rate"])
         rows    = []
         for row_spec in ft.get("rows", []):
-            n_val   = metrics.get(row_spec.get("n_key", ""), "")
+            n_key = row_spec.get("n_key", "")
+            if n_key not in metrics:
+                # orchestrator.py's extract_metrics() omits not_applicable metrics
+                # entirely (e.g. LARCO has no "experienced insured event" gate, no
+                # claim-paid outcome data) -- drop the row rather than a stage
+                # label with blank N/Rate cells.
+                continue
+            n_val    = metrics.get(n_key, "")
             rate_val = metrics.get(row_spec.get("rate_key", ""), "")
             rows.append([row_spec.get("label", ""), n_val, rate_val])
         if rows:
@@ -325,8 +538,7 @@ def build_part_2(doc, package: dict, texts: dict):
         _add_image_or_placeholder(doc, visuals[2])
 
     prot_flags = s2_3.get("qualitative", {}).get("protection_flags", [])
-    if prot_flags:
-        _add_protection_signals(doc, prot_flags)
+    _add_protection_signals_summary(doc, prot_flags)
 
     # 2.4 — Payout outcomes
     s2_4 = sections.get("s2_4", {})
@@ -602,14 +814,15 @@ def assemble(packages: list, written_texts: dict, run_id: str, output_path: Path
     _set_default_font(doc, "Calibri", 11)
     _apply_brand_heading_color(doc)
 
-    # Cover -- title reflects this run's actual scope: the full multi-country
-    # portfolio rollup by default (meta["country"] == DEFAULT_COUNTRY, i.e. no
-    # country filter was applied), or a single country's label when
-    # data_loader_screening.py's country filter scoped this run to one
-    # country. Previously this was unconditionally "Global Portfolio" by
-    # design, since the survey used to always span every country regardless
-    # of which country_configs/*.yaml produced the analysis config -- that's
-    # no longer true now that a run can be filtered to one country.
+    # Cover -- title reflects this run's actual scope, a 3-way split:
+    #   1. Single country (meta["country"] != DEFAULT_COUNTRY): that country's label.
+    #   2. LARCO regional rollup (dataset_schema == "larco", no country filter):
+    #      all LARCO countries combined, but NOT the true global portfolio.
+    #   3. True Africa+Vietnam global portfolio (dataset_schema == "africa_vietnam",
+    #      no country filter) -- the original, still-default behavior.
+    # Previously this was unconditionally "Global Portfolio" whenever no country
+    # filter was applied, which was wrong for a LARCO rollup run once LARCO
+    # datasets could combine multiple countries in one analysis.
     meta = _load_analysis_meta(run_id)
     period_label = format_period_label(run_id)
     n_total = meta.get("n_total")
@@ -621,6 +834,10 @@ def assemble(packages: list, written_texts: dict, run_id: str, output_path: Path
         doc.add_heading(f"Insurance Impact Report — {country_label}, {period_label}", level=1)
         if n_total:
             doc.add_paragraph(f"Covering {n_total:,} client responses from {country_label}.")
+    elif _is_larco_rollup(meta):
+        doc.add_heading(f"Insurance Impact Report — LARCO Regional Portfolio, {period_label}", level=1)
+        if n_total:
+            doc.add_paragraph(f"Covering {n_total:,} client responses across VisionFund's LARCO (Latin America and Caribbean) insurance portfolio.")
     else:
         doc.add_heading(f"Insurance Impact Report — Global Portfolio, {period_label}", level=1)
         if n_total:
@@ -628,6 +845,19 @@ def assemble(packages: list, written_texts: dict, run_id: str, output_path: Path
     doc.add_paragraph(f"Generated: {datetime.now().strftime('%d %B %Y')}")
     doc.add_page_break()
 
+    full_analysis = _load_full_analysis(run_id)
+    if full_analysis.get("parts"):
+        qual = _load_qualitative_results(run_id)
+        _add_executive_summary(doc, full_analysis, qual)
+        doc.add_page_break()
+
+    about_survey = _load_analysis_part(run_id, "about_survey")
+    if about_survey:
+        _add_about_survey_section(doc, about_survey)
+        doc.add_page_break()
+
+    # part_8 (Kling Index) has no builder -- intentionally dashboard-only, never
+    # part of the written report. See part_8.py's module docstring.
     builders = {
         "part_1": build_part_1,
         "part_2": build_part_2,
@@ -640,7 +870,15 @@ def assemble(packages: list, written_texts: dict, run_id: str, output_path: Path
         "part_10": build_part_10,
     }
 
-    for package in packages:
+    # Part 10 (Trend Comparison, LARCO only) moves to the front of the
+    # findings sections -- right after About This Survey, ahead of Part 1 --
+    # instead of sitting last after Parts 1-9. It's the headline wave-over-
+    # wave result and belongs near the executive summary/about-survey front
+    # matter, not buried at the end. sorted() is stable, so every other part
+    # keeps its original relative order; only part_10 moves.
+    ordered_packages = sorted(packages, key=lambda p: 0 if p["part"] != "part_10" else -1)
+
+    for package in ordered_packages:
         part_key = package["part"]
         texts    = written_texts.get(part_key, {})
         builder  = builders.get(part_key)
@@ -652,6 +890,18 @@ def assemble(packages: list, written_texts: dict, run_id: str, output_path: Path
             doc.add_page_break()
         else:
             log.warning(f"No builder for {part_key} — skipping")
+
+    part_2_package = next((p for p in packages if p["part"] == "part_2"), None)
+    if part_2_package:
+        prot_flags = (
+            part_2_package.get("sections", {}).get("s2_3", {})
+            .get("qualitative", {}).get("protection_flags", [])
+        )
+        _add_protection_signals_annex(doc, prot_flags)
+
+    included_parts = {package["part"] for package in packages}
+    if "part_4" in included_parts or "part_5" in included_parts:
+        _add_methodology_appendix(doc)
 
     doc.save(str(output_path))
     log.info(f"Report saved: {output_path}")

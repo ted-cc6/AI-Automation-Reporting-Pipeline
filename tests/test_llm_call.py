@@ -109,7 +109,7 @@ class TestBuildSystemPrompt:
             "### TASK 6 — Protection Flags",
             "## THEME TAXONOMY (use ONLY these codes)",
             "## OUTPUT SCHEMA",
-            '  "executive_summary": "3-5 sentences"',
+            '  "executive_summary": "3-5 sentences",',
         ]
         for anchor in anchors:
             assert anchor in multi_lines

@@ -28,7 +28,7 @@ def _scorecard_row(scoped_df, col_or_series, stat_fn, segment_masks, label, **st
 
 def _missing_scorecard_row(label: str, col: str, segment_masks: dict) -> dict:
     missing = {"value": None, "n_valid": 0, "n_total": 0, "suppressed": True,
-               "suppress_reason": f"column missing: {col}"}
+               "suppress_reason": f"column missing: {col}", "not_applicable": True}
     row = {"label": label, **{seg: dict(missing) for seg in segment_masks}}
     row["significance"] = None
     return row
@@ -55,19 +55,19 @@ def calculate(ds, segment_masks: dict) -> dict:
     metrics = {
         "coverage_understanding": _scorecard_row_safe(
             ds.df, COL_COVERAGE_UNDERSTANDING, bottom_two_box, segment_masks,
-            "Coverage Understanding",
+            "Coverage Understanding", scale_min=1,
         ),
         "claim_process_understanding": _scorecard_row_safe(
             ds.df, COL_CLAIM_PROCESS_UNDERSTANDING, bottom_two_box, segment_masks,
-            "Claim Process Understanding",
+            "Claim Process Understanding", scale_min=1,
         ),
         "worth_premium": _scorecard_row_safe(
             ds.df, COL_WORTH_PREMIUM, bottom_two_box, segment_masks,
-            "Worth Premium",
+            "Worth Premium", scale_min=1,
         ),
         "renewal_intent": _scorecard_row_safe(
             ds.df, COL_RENEWAL_INTENT, bottom_two_box, segment_masks,
-            "Renewal Intent",
+            "Renewal Intent", scale_min=1,
         ),
         # insured_event_base scope: claimant ∩ base = all claimants; non_claimant ∩ base = leakage
         "negative_coping": _scorecard_row_safe(
@@ -76,11 +76,11 @@ def calculate(ds, segment_masks: dict) -> dict:
         ),
         "financial_stress_high": _scorecard_row_safe(
             ds.insured_event_base, COL_FINANCIAL_STRESS, top_two_box, segment_masks,
-            "Financial Stress (High)",
+            "Financial Stress (High)", scale_max=5,
         ),
         "confidence_pay": _scorecard_row_safe(
             ds.df, COL_CONFIDENCE_PAY, bottom_two_box, segment_masks,
-            "Confidence in Pay-out",
+            "Confidence in Pay-out", scale_min=1,
         ),
         # NPS isn't a proportion -- nps_scorecard_row() uses a Mann-Whitney U test
         # instead of the two-proportion z-test every other row here uses.

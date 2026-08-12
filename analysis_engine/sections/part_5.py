@@ -68,6 +68,19 @@ _REGRESSION_REFERENCE_NOTE = (
 )
 
 
+def _missing_driver(col: str, n_total: int) -> dict:
+    """Placeholder matching spearman_correlation()'s return shape for a driver
+    whose column doesn't exist in this dataset's schema -- so the key is still
+    present in the JSON (not silently absent) and orchestrator.py's
+    get_nested() doesn't fall through to a "?" in the rendered table."""
+    return {
+        "value": None, "n_valid": 0, "n_total": n_total, "suppressed": True,
+        "suppress_reason": f"column missing: {col}", "not_applicable": True,
+        "p_value": None, "significant": False, "ci_lower": None, "ci_upper": None,
+        "ci_level": 0.95,
+    }
+
+
 def _build_regression_predictors(cwb_base: "pd.DataFrame", segment_masks: dict) -> "pd.DataFrame":
     """Build the product-uptake predictor frame for logistic_regression().
 
@@ -104,6 +117,7 @@ def _build_caregiver_comparison(ds, segment_masks: dict) -> dict:
         metrics["financial_stress_high"] = scorecard_row(
             ds.df, COL_FINANCIAL_STRESS, top_two_box, segment_masks,
             "High Financial Stress", "caregiver", "non_caregiver",
+            scale_max=5,
         )
     else:
         log.warning(f"Part 5: column '{COL_FINANCIAL_STRESS}' missing — skipping caregiver comparison row 'financial_stress_high'")
@@ -141,7 +155,7 @@ def calculate(ds, segment_masks: dict) -> dict:
             "n_base": len(cwb_base),
             "outcome_variable": "q_child_wellbeing (Yes=1, No=0)",
             "method": "Spearman rank correlation",
-            "drivers": {},
+            "drivers": {key: _missing_driver(col, len(cwb_base)) for key, col, _ in _DRIVERS},
             "regression": {"error": "outcome column missing", "coefficients": {}},
             "caregiver_comparison": caregiver_comparison,
         }
@@ -152,7 +166,8 @@ def calculate(ds, segment_masks: dict) -> dict:
     correlations: dict = {}
     for key, col, encoding in _DRIVERS:
         if col not in cwb_base.columns:
-            log.warning(f"Part 5: column '{col}' missing — skipping driver '{key}'")
+            log.warning(f"Part 5: column '{col}' missing — driver '{key}' not applicable to this dataset")
+            correlations[key] = _missing_driver(col, len(cwb_base))
             continue
         y = cwb_base[col].copy()
         if encoding == "boolean_to_int":

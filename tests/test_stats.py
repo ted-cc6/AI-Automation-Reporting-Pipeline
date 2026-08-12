@@ -96,6 +96,59 @@ class TestBottomTwoBox:
 
 
 # ---------------------------------------------------------------------------
+# Regression: scale_max/scale_min must come from the question's fixed scale,
+# never from the scoped subset's own observed max/min.
+#
+# Confirmed production bug: a caregiver segment (n=1,037) on q_financial_stress
+# (1-5 scale) never reported the worst value ("5"). Without an explicit
+# scale_max, top_two_box silently redefined "top two" as {3,4} instead of
+# {4,5}, reporting 48.6% ("high financial stress") where the correct figure
+# was ~1.4%. Every call site in analysis_engine/sections/*.py must pass
+# scale_max/scale_min explicitly -- these tests pin both the correct
+# behavior (explicit scale) and the old buggy fallback behavior (so the
+# fallback path stays intentional, not an accidental regression).
+# ---------------------------------------------------------------------------
+
+class TestScaleRangeRegression:
+    # 1,037 respondents on a 1-5 scale; nobody reports the true max ("5").
+    _CAREGIVER_LIKE_VALUES = [3] * 489 + [4] * 15 + [1] * 300 + [2] * 233
+
+    def test_top_two_box_explicit_scale_max_ignores_subset_ceiling(self):
+        s = _series(self._CAREGIVER_LIKE_VALUES)  # spans 1-4 only, n=1037
+        result = top_two_box(s, top_n=2, scale_max=5)
+        assert result["n_valid"] == 1037
+        assert result["scale_max"] == 5
+        assert result["top_values"] == [4, 5]
+        assert result["value"] == pytest.approx(15 / 1037)
+
+    def test_top_two_box_without_scale_max_reproduces_old_bug(self):
+        # Documents why the fallback is dangerous: omitting scale_max derives
+        # the threshold from this subset's own max (4), not the survey's (5).
+        s = _series(self._CAREGIVER_LIKE_VALUES)
+        result = top_two_box(s, top_n=2)
+        assert result["scale_max"] == 4
+        assert result["top_values"] == [3, 4]
+        assert result["value"] == pytest.approx(504 / 1037)
+
+    def test_bottom_two_box_explicit_scale_min_ignores_subset_floor(self):
+        # Mirror case: a subset that never reports the true minimum ("1").
+        values = [2] * 300 + [3] * 15 + [4] * 489 + [5] * 233  # spans 2-5 only
+        s = _series(values)
+        result = bottom_two_box(s, bottom_n=2, scale_min=1)
+        assert result["scale_min"] == 1
+        assert result["bottom_values"] == [1, 2]
+        assert result["value"] == pytest.approx(300 / 1037)
+
+    def test_bottom_two_box_without_scale_min_reproduces_old_bug(self):
+        values = [2] * 300 + [3] * 15 + [4] * 489 + [5] * 233
+        s = _series(values)
+        result = bottom_two_box(s, bottom_n=2)
+        assert result["scale_min"] == 2
+        assert result["bottom_values"] == [2, 3]
+        assert result["value"] == pytest.approx(315 / 1037)
+
+
+# ---------------------------------------------------------------------------
 # share_selecting / share_true
 # ---------------------------------------------------------------------------
 
@@ -180,18 +233,60 @@ class TestClaimsFunnel:
         result = claims_funnel(self._df())
         assert result["experienced_event"]["n"] == 4
         assert result["experienced_event"]["n_total"] == 5
+        assert result["experienced_event"]["not_applicable"] is False
         assert result["filed_claim"]["n"] == 2
         assert result["filed_claim"]["n_total"] == 4         # denom = insured-event base
+        assert result["filed_claim"]["base"] == "insured_event_base"
         assert result["claim_paid"]["n"] == 1
         assert result["claim_paid"]["n_total"] == 2           # denom = claimant base
+        assert result["claim_paid"]["not_applicable"] is False
         assert result["payout_adequacy"]["n_valid"] == 1
+        assert result["payout_adequacy"]["not_applicable"] is False
 
     def test_missing_columns_degrade_gracefully(self):
         result = claims_funnel(pd.DataFrame({"unrelated": [1, 2, 3]}))
-        assert result["experienced_event"]["n"] == 0
+        assert result["experienced_event"]["n"] is None
+        assert result["experienced_event"]["not_applicable"] is True
         assert result["filed_claim"]["n"] == 0
-        assert result["claim_paid"]["n"] == 0
+        assert result["claim_paid"]["n"] is None
+        assert result["claim_paid"]["not_applicable"] is True
         assert result["payout_adequacy"]["distribution"] == []
+        assert result["payout_adequacy"]["not_applicable"] is True
+
+    def test_larco_schema_filed_claim_counted_against_full_population(self):
+        # LARCO has no q_insured_event_12m gate at all -- filed_claim must be
+        # counted directly against every respondent, not a nonexistent event
+        # base (which would otherwise silently produce 0/0 despite real
+        # claimants existing -- the confirmed production bug).
+        df = pd.DataFrame({
+            "q_claim_submitted": pd.array([True, True, False, False, False], dtype="boolean"),
+        })
+        result = claims_funnel(df)
+        assert result["experienced_event"]["n"] is None
+        assert result["experienced_event"]["not_applicable"] is True
+        assert result["filed_claim"]["n"] == 2
+        assert result["filed_claim"]["n_total"] == 5          # denom = full population
+        assert result["filed_claim"]["base"] == "all_respondents"
+        assert result["filed_claim"]["pct_of_event_base"] == pytest.approx(0.4)
+        assert result["filed_claim"]["not_applicable"] is False
+        # No claim-outcome columns at all in this schema -- not_applicable, not 0.
+        assert result["claim_paid"]["n"] is None
+        assert result["claim_paid"]["not_applicable"] is True
+        assert result["payout_adequacy"]["not_applicable"] is True
+
+    def test_larco_schema_claim_paid_present_without_event_gate(self):
+        # Defensive case: a schema with claim-outcome columns but no event
+        # gate should still compute claim_paid normally against the claimant
+        # base -- claim_paid's logic never depended on the event gate.
+        df = pd.DataFrame({
+            "q_claim_submitted":     pd.array([True, True, False], dtype="boolean"),
+            "flag_paid_claimant":    pd.array([True, False, False], dtype="boolean"),
+            "q_payout_cost_coverage": ["Fully covered", None, None],
+        })
+        result = claims_funnel(df)
+        assert result["claim_paid"]["n"] == 1
+        assert result["claim_paid"]["n_total"] == 2
+        assert result["claim_paid"]["not_applicable"] is False
 
 
 # ---------------------------------------------------------------------------
