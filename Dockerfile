@@ -18,6 +18,7 @@ COPY pyproject.toml ./
 COPY run_pipeline.py run_analysis.py utils.py coverage_report.py inspect_spec.py generate_visuals.py llm_providers.py ./
 COPY analysis_engine ./analysis_engine
 COPY data_loader ./data_loader
+COPY data_loader_larco ./data_loader_larco
 COPY generation ./generation
 COPY qualitative ./qualitative
 COPY report_spec ./report_spec
