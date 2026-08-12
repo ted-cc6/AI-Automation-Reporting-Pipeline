@@ -28,6 +28,27 @@ log = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 # Derived variable functions
 # ---------------------------------------------------------------------------
+# REQUIRED_COLS is the single source of truth for what each flag needs, used
+# by main() to pre-check availability before calling the compute_* function
+# below (mirrors analysis_engine/segments.py's SEGMENT_REGISTRY
+# required_columns pattern) -- a source schema that doesn't ask the
+# underlying question (e.g. LARCO has no q_insured_event_12m/
+# q_coping_mechanisms or q_claim_result) legitimately skips that flag
+# instead of crashing. The compute_* functions themselves keep raising
+# KeyError on a missing required column -- that stays the right behavior
+# for a genuine coding regression against a schema that's supposed to have
+# the column (e.g. Africa/Vietnam); main() is what decides whether to call
+# them at all for a given dataset.
+REQUIRED_COLS = {
+    "flag_negative_coping": [
+        "q_insured_event_12m", "q_coping_mechanisms__c",
+        "q_coping_mechanisms__d", "q_coping_mechanisms__e", "q_coping_mechanisms__f",
+    ],
+    "flag_promoter": ["q_nps_score"],
+    "flag_paid_claimant": ["q_claim_result"],
+    "flag_child_wellbeing_denominator": ["q_child_wellbeing"],
+}
+
 
 def compute_flag_negative_coping(df: pd.DataFrame) -> pd.array:
     """True if respondent used a severe coping strategy after an insured event.
@@ -103,7 +124,13 @@ def compute_flag_child_wellbeing_denominator(df: pd.DataFrame) -> pd.array:
 # Structural assertions (data-independent — valid for any quarterly CSV)
 # ---------------------------------------------------------------------------
 
-def run_assertions(df: pd.DataFrame, target_country: "str | None" = None) -> bool:
+DEFAULT_VALID_INSURANCE_SLUGS = frozenset({"health", "crop", "credit_life"})
+LARCO_VALID_INSURANCE_SLUGS = DEFAULT_VALID_INSURANCE_SLUGS | {"personal_accident"}
+
+
+def run_assertions(df: pd.DataFrame, target_country: "str | None" = None,
+                    skipped_flags: frozenset = frozenset(),
+                    valid_insurance_slugs: frozenset = DEFAULT_VALID_INSURANCE_SLUGS) -> bool:
     """Verify structural correctness of derived flags. No exact counts.
 
     target_country: the country this run was scoped to (see
@@ -115,10 +142,18 @@ def run_assertions(df: pd.DataFrame, target_country: "str | None" = None) -> boo
     insurance payout is automatic and triggered for every policyholder, so
     its in-scope population can be close to its full respondent count, not
     reliably small).
+
+    skipped_flags: flags main() deliberately did not compute because this
+    dataset's schema doesn't have the source column(s) they need (see
+    REQUIRED_COLS) -- e.g. LARCO has no q_insured_event_12m/
+    q_coping_mechanisms, so flag_negative_coping is legitimately absent
+    rather than a coding bug. Every other check below still runs normally
+    for any flag that WAS computed.
     """
     failures = []
 
-    # All flag columns must be present and typed as boolean
+    # All flag columns must be present and typed as boolean, unless main()
+    # already logged them as a deliberate schema-driven skip.
     flag_cols = [
         "flag_negative_coping",
         "flag_promoter",
@@ -127,7 +162,8 @@ def run_assertions(df: pd.DataFrame, target_country: "str | None" = None) -> boo
     ]
     for col in flag_cols:
         if col not in df.columns:
-            failures.append(f"{col}: column missing")
+            if col not in skipped_flags:
+                failures.append(f"{col}: column missing")
             continue
         if str(df[col].dtype) != "boolean":
             failures.append(f"{col}: expected dtype 'boolean', got '{df[col].dtype}'")
@@ -177,9 +213,8 @@ def run_assertions(df: pd.DataFrame, target_country: "str | None" = None) -> boo
 
     # insurance_type must contain only valid slugs
     if "insurance_type" in df.columns:
-        valid_slugs = {"health", "crop", "credit_life"}
         actual_slugs = set(df["insurance_type"].dropna().unique())
-        unexpected = actual_slugs - valid_slugs
+        unexpected = actual_slugs - valid_insurance_slugs
         if unexpected:
             failures.append(f"insurance_type: unexpected slug(s) {unexpected}")
 
@@ -194,7 +229,16 @@ def run_assertions(df: pd.DataFrame, target_country: "str | None" = None) -> boo
 # Main
 # ---------------------------------------------------------------------------
 
-def main(output_dir: Path, target_country: "str | None" = None) -> None:
+FLAG_COMPUTE_FNS = {
+    "flag_negative_coping": compute_flag_negative_coping,
+    "flag_promoter": compute_flag_promoter,
+    "flag_paid_claimant": compute_flag_paid_claimant,
+    "flag_child_wellbeing_denominator": compute_flag_child_wellbeing_denominator,
+}
+
+
+def main(output_dir: Path, target_country: "str | None" = None,
+         dataset_schema: str = "africa_vietnam") -> None:
     parquet_path = output_dir / "survey_clean.parquet"
     if not parquet_path.exists():
         log.error(f"Parquet not found: {parquet_path}")
@@ -210,13 +254,25 @@ def main(output_dir: Path, target_country: "str | None" = None) -> None:
     log.info("insurance_type distribution:\n" + df["insurance_type"].value_counts().to_string())
 
     log.info("Computing derived variables...")
-    df["flag_negative_coping"] = compute_flag_negative_coping(df)
-    df["flag_promoter"] = compute_flag_promoter(df)
-    df["flag_paid_claimant"] = compute_flag_paid_claimant(df)
-    df["flag_child_wellbeing_denominator"] = compute_flag_child_wellbeing_denominator(df)
+    skipped_flags = set()
+    for flag_name, compute_fn in FLAG_COMPUTE_FNS.items():
+        missing = [c for c in REQUIRED_COLS[flag_name] if c not in df.columns]
+        if missing:
+            log.warning(
+                f"{flag_name}: skipped -- missing required column(s) {missing} "
+                f"(not asked in this dataset's source schema)"
+            )
+            skipped_flags.add(flag_name)
+            continue
+        df[flag_name] = compute_fn(df)
+
+    valid_insurance_slugs = (
+        LARCO_VALID_INSURANCE_SLUGS if dataset_schema == "larco" else DEFAULT_VALID_INSURANCE_SLUGS
+    )
 
     log.info("Running structural assertions...")
-    if not run_assertions(df, target_country=target_country):
+    if not run_assertions(df, target_country=target_country, skipped_flags=frozenset(skipped_flags),
+                           valid_insurance_slugs=valid_insurance_slugs):
         log.error("Assertions failed — output NOT written")
         sys.exit(1)
     log.info("All assertions passed.")
@@ -224,16 +280,29 @@ def main(output_dir: Path, target_country: "str | None" = None) -> None:
     log.info(f"Writing {parquet_path}")
     df.to_parquet(parquet_path, engine="pyarrow", index=False)
 
-    insured_n = int((df["q_insured_event_12m"] == True).sum())  # noqa: E712
-    nps_n = int(df["q_nps_score"].notna().sum())
-    print(
-        f"\nDerived variables complete.\n"
-        f"  flag_negative_coping      : {int(df['flag_negative_coping'].sum())} True of {insured_n} in-scope rows\n"
-        f"  flag_promoter             : {int(df['flag_promoter'].sum())} True of {nps_n} scored rows\n"
-        f"  flag_paid_claimant        : {int(df['flag_paid_claimant'].sum())} True of {len(df):,} rows\n"
-        f"  flag_child_wellbeing_denom: {int(df['flag_child_wellbeing_denominator'].sum())} True of {len(df):,} rows\n"
-        f"  Output: {parquet_path} ({len(df.columns)} columns)"
-    )
+    summary_lines = ["", "Derived variables complete."]
+    if "flag_negative_coping" in df.columns:
+        insured_n = int((df["q_insured_event_12m"] == True).sum())  # noqa: E712
+        summary_lines.append(
+            f"  flag_negative_coping      : {int(df['flag_negative_coping'].sum())} True of {insured_n} in-scope rows"
+        )
+    if "flag_promoter" in df.columns:
+        nps_n = int(df["q_nps_score"].notna().sum())
+        summary_lines.append(
+            f"  flag_promoter             : {int(df['flag_promoter'].sum())} True of {nps_n} scored rows"
+        )
+    if "flag_paid_claimant" in df.columns:
+        summary_lines.append(
+            f"  flag_paid_claimant        : {int(df['flag_paid_claimant'].sum())} True of {len(df):,} rows"
+        )
+    if "flag_child_wellbeing_denominator" in df.columns:
+        summary_lines.append(
+            f"  flag_child_wellbeing_denom: {int(df['flag_child_wellbeing_denominator'].sum())} True of {len(df):,} rows"
+        )
+    if skipped_flags:
+        summary_lines.append(f"  Skipped (schema doesn't ask): {sorted(skipped_flags)}")
+    summary_lines.append(f"  Output: {parquet_path} ({len(df.columns)} columns)")
+    print("\n".join(summary_lines))
 
 
 # ---------------------------------------------------------------------------
@@ -251,5 +320,11 @@ if __name__ == "__main__":
         help="If this run was scoped to a single country (see data_loader_screening.py "
              "--country), relaxes the flag_negative_coping structural assertion.",
     )
+    parser.add_argument(
+        "--dataset-schema", type=str, default="africa_vietnam",
+        choices=("africa_vietnam", "larco"), metavar="SCHEMA",
+        help="Which source-survey schema this parquet came from -- controls the "
+             "insurance_type valid-slug allow-list. Default: 'africa_vietnam'.",
+    )
     args = parser.parse_args()
-    main(args.output_dir, target_country=args.country)
+    main(args.output_dir, target_country=args.country, dataset_schema=args.dataset_schema)

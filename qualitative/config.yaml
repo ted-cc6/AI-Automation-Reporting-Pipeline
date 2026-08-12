@@ -32,6 +32,19 @@ columns:
     question_context: "Why did you give this NPS score? (Detractors, score 0-6)"
     low_volume: false
 
+  # LARCO asks one always-on NPS follow-up instead of Africa's three
+  # score-gated columns above (see data_loader_larco/column_mapping.csv's
+  # notes on raw col 60) -- nps_group: by_score tells
+  # qualitative/prepare_payload.py to bucket each response into promoter/
+  # passive/detractor from that respondent's own q_nps_score at payload-build
+  # time (using nps_thresholds above), instead of trusting which column it
+  # came from.
+  - key: q_nps_followup
+    group: nps
+    nps_group: by_score
+    question_context: "Why did you give this NPS score?"
+    low_volume: false
+
   - key: q_no_claim_reason__other_text
     group: claims_other
     question_context: "Other reason why the client did not file a claim despite having an insured event"
@@ -78,6 +91,25 @@ columns:
     low_volume: true
 
   # q_bundled_services_used__other_text is excluded (0 non-null responses)
+
+  # --- LARCO-only open-ended columns (data_loader_larco/column_mapping.csv) ---
+  # No Africa/Vietnam equivalent constructs for these three -- see that
+  # file's per-row notes.
+
+  - key: q_quality_of_life_text
+    group: sparse_other
+    question_context: "How the insurance has impacted the client's overall quality of life"
+    low_volume: false
+
+  - key: q_claim_experience_rating__other_text
+    group: sparse_other
+    question_context: "Explanation of the client's claim-experience rating (filed a claim)"
+    low_volume: true
+
+  - key: q_financial_security_belief__other_text
+    group: sparse_other
+    question_context: "How the insurance helped manage financial hardships in the past 12 months"
+    low_volume: true
 
 # Theme taxonomy — Gemini must only use these codes
 themes:

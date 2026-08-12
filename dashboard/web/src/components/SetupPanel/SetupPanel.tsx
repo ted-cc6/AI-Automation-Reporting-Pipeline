@@ -3,8 +3,22 @@ import type { ChangeEvent, DragEvent } from "react";
 import { Card } from "../common/Card";
 import { Button } from "../common/Button";
 import { DatasetValidation } from "../DatasetValidation/DatasetValidation";
-import type { CountryOption, CsvUploadResponse, Provider, ReportType, VisualSlotInfo } from "../../api/client";
+import type {
+  CountryOption,
+  CsvUploadResponse,
+  DatasetSchema,
+  PriorRunCandidate,
+  Provider,
+  ReportType,
+  VisualSlotInfo,
+} from "../../api/client";
 import "./SetupPanel.css";
+
+const SCHEMA_LABELS: Record<DatasetSchema, string> = {
+  africa_vietnam: "Africa / Vietnam",
+  larco: "LARCO",
+  unknown: "Unrecognized",
+};
 
 function slotLabel(filename: string): string {
   return filename
@@ -37,6 +51,20 @@ export function SetupPanel(props: {
   provider: Provider;
   apiKey: string;
   onDatasetResolved: (ready: boolean) => void;
+
+  // Schema detection (see dashboard/api/schema_detection.py). schemaOverride
+  // is only used when detection comes back "unknown" -- the user picks one
+  // manually, which also determines which reconcile endpoint validates
+  // against and what dataset_schema is eventually sent to /api/runs.
+  schemaOverride: DatasetSchema | null;
+  onSchemaOverrideChange: (v: DatasetSchema | null) => void;
+  reconcileEndpointBase: string;
+
+  // LARCO only -- Part 10's optional trend-comparison baseline.
+  showPriorRunPicker: boolean;
+  priorRunOptions: PriorRunCandidate[];
+  priorRunId: string;
+  onPriorRunIdChange: (v: string) => void;
 
   powerbiMode: "manual" | "api";
   onPowerbiModeChange: (m: "manual" | "api") => void;
@@ -98,15 +126,47 @@ export function SetupPanel(props: {
         {props.csvError && <p className="field-error">{props.csvError}</p>}
 
         {props.csvUpload && (
-          <DatasetValidation
-            key={props.csvUpload.upload_id}
-            endpointBase="/reconcile"
-            uploadId={props.csvUpload.upload_id}
-            provider={props.provider}
-            apiKey={props.apiKey}
-            disabled={props.disabled}
-            onResolved={props.onDatasetResolved}
-          />
+          <>
+            <p className="schema-detection">
+              Detected dataset:{" "}
+              <span
+                className={`badge ${
+                  props.csvUpload.detected_schema === "unknown" ? "badge--warning" : "badge--success"
+                }`}
+              >
+                {SCHEMA_LABELS[props.schemaOverride ?? props.csvUpload.detected_schema]}
+                {props.schemaOverride ? " (manual)" : ""}
+              </span>
+            </p>
+            {props.csvUpload.detected_schema === "unknown" && !props.schemaOverride && (
+              <div className="schema-override">
+                <p className="field-error">
+                  This file didn't clearly match a known schema. Confirm which one it actually is before
+                  validating:
+                </p>
+                <div className="schema-override__choices">
+                  <Button variant="secondary" onClick={() => props.onSchemaOverrideChange("africa_vietnam")}>
+                    It's Africa / Vietnam
+                  </Button>
+                  <Button variant="secondary" onClick={() => props.onSchemaOverrideChange("larco")}>
+                    It's LARCO
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            {(props.csvUpload.detected_schema !== "unknown" || props.schemaOverride) && (
+              <DatasetValidation
+                key={`${props.csvUpload.upload_id}:${props.reconcileEndpointBase}`}
+                endpointBase={props.reconcileEndpointBase}
+                uploadId={props.csvUpload.upload_id}
+                provider={props.provider}
+                apiKey={props.apiKey}
+                disabled={props.disabled}
+                onResolved={props.onDatasetResolved}
+              />
+            )}
+          </>
         )}
       </Card>
 
@@ -178,6 +238,25 @@ export function SetupPanel(props: {
         <p className="run-id-preview">
           Run ID: <span className="mono">{props.computedRunId}</span>
         </p>
+
+        {props.showPriorRunPicker && (
+          <label className="field field--grow">
+            <span>Prior run for trend comparison (optional)</span>
+            <select
+              value={props.priorRunId}
+              disabled={props.disabled}
+              onChange={(e) => props.onPriorRunIdChange(e.target.value)}
+            >
+              <option value="">None — this is the first comparable wave</option>
+              {props.priorRunOptions.map((r) => (
+                <option key={r.run_id} value={r.run_id}>
+                  {r.run_id}
+                  {r.country ? ` (${r.country})` : ""}
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
       </Card>
 
       <Card title="3. Report visuals" subtitle="Power BI API access is pending approval — upload screenshots manually for now.">

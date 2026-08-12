@@ -18,8 +18,26 @@ def load_config() -> dict:
     return yaml.safe_load(CONFIG_PATH.read_text(encoding="utf-8"))
 
 
+def _nps_bucket_for_score(score: "int | None", thresholds: dict) -> "str | None":
+    """Resolve a respondent's promoter/passive/detractor bucket from their
+    own q_nps_score, using the same thresholds Africa's three separate
+    conditional columns implicitly encode via which column got filled.
+    Needed for a schema like LARCO's, which asks one always-on NPS
+    follow-up instead of three score-gated ones (see column_cfg's
+    nps_group == "by_score" below) -- the raw column alone can't tell you
+    which bucket a response belongs to, only the respondent's score can.
+    """
+    if score is None:
+        return None
+    if score >= thresholds["promoter_min"]:
+        return "promoter"
+    if score >= thresholds["passive_min"]:
+        return "passive"
+    return "detractor"  # <= detractor_max by construction (contiguous thresholds)
+
+
 def _build_response_record(row_id: str, text: str, row: pd.Series,
-                            col_cfg: dict) -> dict:
+                            group: str, nps_group: "str | None") -> dict:
     """Build enriched response dict for one respondent's answer."""
     rec = {
         "id": row_id,
@@ -39,10 +57,14 @@ def _build_response_record(row_id: str, text: str, row: pd.Series,
         "is_female": (str(row.get("q_sex", "")) == "Female"),
     }
     # NPS-specific enrichment
-    if col_cfg["group"] == "nps":
-        rec["nps_group"] = col_cfg["nps_group"]
+    if group == "nps":
+        rec["nps_group"] = nps_group
         rec["nps_score"] = (None if pd.isna(row.get("q_nps_score"))
                             else int(row["q_nps_score"]))
+        # worth_premium doesn't exist for every schema (e.g. LARCO -- see
+        # data_loader_larco/column_mapping.csv) -- row.get() already
+        # returns None for a missing column via pd.Series.get(), so this
+        # degrades to "not worth it = False / unknown" rather than raising.
         rec["worth_premium_value"] = (
             None if pd.isna(row.get("q_worth_premium"))
             else int(row["q_worth_premium"]))
@@ -73,6 +95,11 @@ def build_payload(df: pd.DataFrame, config: dict,
             continue
 
         group = col_cfg["group"]
+        # "by_score" (LARCO's single always-on NPS follow-up column) is
+        # resolved per-row below via q_nps_score; a fixed value (Africa's
+        # three score-gated columns) is the same for every row in this column.
+        fixed_nps_group = col_cfg.get("nps_group") if group == "nps" else None
+        by_score = fixed_nps_group == "by_score"
 
         for idx in df.index:
             raw = df.at[idx, key]
@@ -82,11 +109,18 @@ def build_payload(df: pd.DataFrame, config: dict,
             if len(text) < min_len:
                 continue
 
+            row = df.loc[idx]
+            nps_grp = fixed_nps_group
+            if group == "nps" and by_score:
+                score = None if pd.isna(row.get("q_nps_score")) else int(row["q_nps_score"])
+                nps_grp = _nps_bucket_for_score(score, config["nps_thresholds"])
+                if nps_grp is None:
+                    continue  # no score to bucket this response by -- skip rather than guess
+
             row_id = f"row_{idx:04d}"
-            rec = _build_response_record(row_id, text, df.loc[idx], col_cfg)
+            rec = _build_response_record(row_id, text, row, group, nps_grp)
 
             if group == "nps":
-                nps_grp = col_cfg["nps_group"]
                 if nps_grp == "promoter":
                     payload["nps_promoters"].append(rec)
                 elif nps_grp == "passive":

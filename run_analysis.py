@@ -19,10 +19,12 @@ import numpy as np
 import pandas as pd
 import yaml
 
+import functools
+
 from data_loader.data_loader_api import load_survey_data
 from analysis_engine.country_config import load_country_config, DEFAULT_COUNTRY
 from analysis_engine.segments import describe_segments, get_all_segment_masks
-from analysis_engine.sections import part_1, part_2, part_3, part_4, part_5, part_6, part_7, part_8
+from analysis_engine.sections import part_1, part_2, part_3, part_4, part_5, part_6, part_7, part_8, part_9, part_10
 from analysis_engine.stats import LOW_N_THRESHOLD
 
 PROJECT_ROOT = Path(__file__).parent
@@ -32,7 +34,11 @@ SCHEMA_VERSION = "1.5"   # was "1.4" — inverted Likert scale corrected:
                           # bottom_two_box replaces top_two_box for all
                           # positive-outcome Likert metrics (Track D scale fix)
 
-# Registry of section calculators — add a new section here only; nothing else changes.
+# Registry of section calculators shared by every dataset schema — add a new
+# section here only; nothing else changes. Parts 9/10 are LARCO-only (see
+# build_sections() below) since Africa/Vietnam has no meaningful data for
+# either (Part 9's source columns are ~0.4% filled there; Part 10's trend
+# indicators have no second wave to compare against).
 SECTIONS = [
     ("part_1", "Client Understanding & Value Perception", part_1),
     ("part_2", "Claims Experience",                       part_2),
@@ -43,6 +49,31 @@ SECTIONS = [
     ("part_7", "Female vs Male Scorecard",               part_7),
     ("part_8", "Kling Index — Product Outcomes",         part_8),
 ]
+
+LARCO_ONLY_SECTIONS = [
+    ("part_9",  "Additional Services",  part_9),
+    ("part_10", "Trend Comparison",     part_10),
+]
+
+
+def build_sections(dataset_schema: str = "africa_vietnam", prior_run_id: "str | None" = None) -> list:
+    """Return [(key, label, calculate_fn), ...] for this dataset_schema.
+
+    calculate_fn always has signature (ds, segment_masks) -> dict -- Part
+    10 additionally needs prior_run_id, bound here via functools.partial so
+    every caller's loop (this module's main(), dashboard/api/
+    pipeline_runner.py's _run_stage2()) can stay a uniform
+    `calculate_fn(ds, segment_masks)` regardless of which sections are
+    active, rather than special-casing part_10 in the loop itself.
+    """
+    sections = [(key, label, module.calculate) for key, label, module in SECTIONS]
+    if dataset_schema == "larco":
+        sections.append(("part_9", "Additional Services", part_9.calculate))
+        sections.append((
+            "part_10", "Trend Comparison",
+            functools.partial(part_10.calculate, prior_run_id=prior_run_id),
+        ))
+    return sections
 
 
 # ---------------------------------------------------------------------------
@@ -112,6 +143,11 @@ def main() -> int:
     parser.add_argument(
         "--quiet", action="store_true", help="Suppress INFO logging; show only summary"
     )
+    parser.add_argument(
+        "--prior-run-id", default=None,
+        help="LARCO only: a prior run's run_id to trend-compare Part 10 against "
+             "(reads that run's own analysis_results.json). Ignored for non-LARCO runs.",
+    )
     args = parser.parse_args()
 
     logging.basicConfig(
@@ -130,15 +166,21 @@ def main() -> int:
     run_dir     = PROJECT_ROOT / "runs" / run_id
     output_path = run_dir / "analysis_results.json"
 
-    # 2. Read run metadata to determine country config
+    # 2. Read run metadata to determine country config + dataset schema
     metadata_path = run_dir / "run_metadata.yaml"
     if metadata_path.exists():
         with open(metadata_path, encoding="utf-8") as f:
             run_metadata = yaml.safe_load(f) or {}
         country = run_metadata.get("country", DEFAULT_COUNTRY)
+        dataset_schema = run_metadata.get("dataset_schema", "africa_vietnam")
     else:
         log.warning("run_metadata.yaml not found — using default country config")
         country = DEFAULT_COUNTRY
+        dataset_schema = "africa_vietnam"
+
+    sections = build_sections(dataset_schema, prior_run_id=args.prior_run_id)
+    if dataset_schema == "larco":
+        log.info(f"dataset_schema='larco' — added {[k for k, _, _ in LARCO_ONLY_SECTIONS]}")
 
     country_config = load_country_config(country)
     if country_config.segment_overrides:
@@ -162,11 +204,11 @@ def main() -> int:
     section_errors: dict  = {}
     section_timing: dict  = {}
 
-    log.info(f"Running {len(SECTIONS)} section(s) for run '{run_id}'…")
-    for key, label, module in SECTIONS:
+    log.info(f"Running {len(sections)} section(s) for run '{run_id}'…")
+    for key, label, calculate_fn in sections:
         t0 = time.perf_counter()
         try:
-            parts[key] = module.calculate(ds, segment_masks)
+            parts[key] = calculate_fn(ds, segment_masks)
         except Exception as exc:
             log.error(f"  [{key}] FAILED: {type(exc).__name__}: {exc}")
             section_errors[key] = {"error": str(exc), "type": type(exc).__name__}
@@ -252,7 +294,7 @@ def main() -> int:
     print(f"Segments skipped  : {', '.join(segments_skipped) if segments_skipped else '(none)'}")
     print()
     print("Section results:")
-    for key, label, _ in SECTIONS:
+    for key, label, _ in sections:
         timing  = section_timing.get(key, 0.0)
         status  = "FAILED" if key in section_errors else "OK"
         print(f"  {key:<8}  {label:<50}  {status:<6}  {timing:.2f}s")

@@ -24,6 +24,26 @@ def _scorecard_row(scoped_df, col_or_series, stat_fn, segment_masks, label, **st
     return _scorecard_row_base(scoped_df, col_or_series, stat_fn, segment_masks, label, _A, _B, **stat_kwargs)
 
 
+def _missing_scorecard_row(label: str, col: str, segment_masks: dict) -> dict:
+    missing = {"value": None, "n_valid": 0, "n_total": 0, "suppressed": True,
+               "suppress_reason": f"column missing: {col}"}
+    row = {"label": label, **{seg: dict(missing) for seg in segment_masks}}
+    row["significance"] = None
+    return row
+
+
+def _scorecard_row_safe(scoped_df, col: str, stat_fn, segment_masks, label, **stat_kwargs) -> dict:
+    """Like _scorecard_row(), but degrades to a clean "column missing" row
+    instead of crashing when col isn't in this dataset's schema (e.g. LARCO
+    has no q_coverage_understanding/q_worth_premium/etc. -- see
+    data_loader_larco/column_mapping.csv's notes). disaggregate() itself
+    would otherwise raise KeyError on scoped_df[col] unconditionally."""
+    if col not in scoped_df.columns:
+        log.warning(f"Part 7: column '{col}' missing — '{label}' not applicable to this dataset")
+        return _missing_scorecard_row(label, col, segment_masks)
+    return _scorecard_row(scoped_df, col, stat_fn, segment_masks, label, **stat_kwargs)
+
+
 def calculate(ds, segment_masks: dict) -> dict:
     """Part 7: Female vs Male Scorecard."""
     n_a = int(segment_masks[_A].sum()) if _A in segment_masks else 0
@@ -31,31 +51,31 @@ def calculate(ds, segment_masks: dict) -> dict:
     log.info(f"Part 7: calculating scorecard (n_female={n_a}, n_male={n_b})")
 
     metrics = {
-        "coverage_understanding": _scorecard_row(
+        "coverage_understanding": _scorecard_row_safe(
             ds.df, COL_COVERAGE_UNDERSTANDING, bottom_two_box, segment_masks,
             "Coverage Understanding",
         ),
-        "claim_process_understanding": _scorecard_row(
+        "claim_process_understanding": _scorecard_row_safe(
             ds.df, COL_CLAIM_PROCESS_UNDERSTANDING, bottom_two_box, segment_masks,
             "Claim Process Understanding",
         ),
-        "worth_premium": _scorecard_row(
+        "worth_premium": _scorecard_row_safe(
             ds.df, COL_WORTH_PREMIUM, bottom_two_box, segment_masks,
             "Worth Premium",
         ),
-        "renewal_intent": _scorecard_row(
+        "renewal_intent": _scorecard_row_safe(
             ds.df, COL_RENEWAL_INTENT, bottom_two_box, segment_masks,
             "Renewal Intent",
         ),
-        "negative_coping": _scorecard_row(
+        "negative_coping": _scorecard_row_safe(
             ds.insured_event_base, COL_NEGATIVE_COPING, share_true, segment_masks,
             "Negative Coping",
         ),
-        "child_wellbeing": _scorecard_row(
+        "child_wellbeing": _scorecard_row_safe(
             ds.child_wellbeing_base, COL_CHILD_WELLBEING, share_selecting, segment_masks,
             "Child Wellbeing", values=["Yes"],
         ),
-        "confidence_pay": _scorecard_row(
+        "confidence_pay": _scorecard_row_safe(
             ds.df, COL_CONFIDENCE_PAY, bottom_two_box, segment_masks,
             "Confidence in Pay-out",
         ),

@@ -55,8 +55,25 @@ DATA_LOADER_DIR = PROJECT_ROOT / "data_loader"
 COLUMN_MAPPING_PATH = DATA_LOADER_DIR / "column_mapping.csv"
 VALUE_CODING_MAP_PATH = DATA_LOADER_DIR / "value_coding_map.yaml"
 
+DATA_LOADER_LARCO_DIR = PROJECT_ROOT / "data_loader_larco"
+LARCO_COLUMN_MAPPING_PATH = DATA_LOADER_LARCO_DIR / "column_mapping.csv"
+LARCO_VALUE_CODING_MAP_PATH = DATA_LOADER_LARCO_DIR / "value_coding_map.yaml"
 
-def _run_stage1(state, csv_path: Path, run_dir: Path, country: str) -> None:
+# Which canonical column_mapping.csv/value_coding_map.yaml pair to start
+# from, keyed by the same dataset_schema strings used throughout the
+# pipeline (data_loader_screening.py's SCOPE_COUNTRIES, run_pipeline.py's
+# DATASET_SCHEMA_PATHS, run_metadata.yaml's "dataset_schema" field). A
+# per-upload reconciled mapping (see below) still overrides this base pair
+# when one exists, regardless of schema.
+DATASET_SCHEMA_PATHS = {
+    "africa_vietnam": (COLUMN_MAPPING_PATH, VALUE_CODING_MAP_PATH),
+    "larco":          (LARCO_COLUMN_MAPPING_PATH, LARCO_VALUE_CODING_MAP_PATH),
+}
+DEFAULT_DATASET_SCHEMA = "africa_vietnam"
+
+
+def _run_stage1(state, csv_path: Path, run_dir: Path, country: str,
+                 dataset_schema: str = DEFAULT_DATASET_SCHEMA) -> None:
     state.current_stage = 1
     state.stage1 = {"status": "running"}
     state.log("Stage 1/4 -- Loading and cleaning survey data...")
@@ -74,6 +91,7 @@ def _run_stage1(state, csv_path: Path, run_dir: Path, country: str) -> None:
         yaml.dump(
             {"run_id": state.run_id, "country": country,
              "country_filter_applied": filter_country is not None,
+             "dataset_schema": dataset_schema,
              "created_at": datetime.now(timezone.utc).isoformat()},
             f, default_flow_style=False, allow_unicode=True,
         )
@@ -81,16 +99,17 @@ def _run_stage1(state, csv_path: Path, run_dir: Path, country: str) -> None:
     # Uploads are always saved as UPLOADS_DIR/{upload_id}.csv (see csv_routes.py),
     # so the upload_id is recoverable from the path alone -- no signature change
     # needed to thread it through from the /api/runs route. If the dataset
-    # reconciliation flow (dashboard/api/reconciliation.py) produced and
-    # validator-passed a per-upload mapping, use it instead of canonical; either
-    # way, copy whichever pair was actually used into run_dir as this run's own
-    # audit artifact.
+    # reconciliation flow (dashboard/api/reconciliation.py, or its LARCO
+    # counterpart) produced and validator-passed a per-upload mapping, use it
+    # instead of the schema's canonical pair; either way, copy whichever pair
+    # was actually used into run_dir as this run's own audit artifact.
+    canonical_mapping_path, canonical_value_map_path = DATASET_SCHEMA_PATHS[dataset_schema]
     upload_id = csv_path.stem
     reconciled_mapping = UPLOADS_DIR / f"{upload_id}_column_mapping.csv"
     reconciled_value_map = UPLOADS_DIR / f"{upload_id}_value_coding_map.yaml"
 
-    mapping_path = reconciled_mapping if reconciled_mapping.exists() else COLUMN_MAPPING_PATH
-    value_map_path = reconciled_value_map if reconciled_value_map.exists() else VALUE_CODING_MAP_PATH
+    mapping_path = reconciled_mapping if reconciled_mapping.exists() else canonical_mapping_path
+    value_map_path = reconciled_value_map if reconciled_value_map.exists() else canonical_value_map_path
     if mapping_path == reconciled_mapping:
         state.log(f"  [stage 1] using reconciled column mapping for upload {upload_id}")
 
@@ -101,9 +120,12 @@ def _run_stage1(state, csv_path: Path, run_dir: Path, country: str) -> None:
         ("profiler", lambda: data_loader_profiler.main(csv_path, mapping_path, run_dir)),
         ("transformer", lambda: data_loader_transformer.main(
             csv_path, mapping_path, value_map_path, run_dir)),
-        ("screening", lambda: data_loader_screening.main(run_dir, target_country=filter_country)),
-        ("derived", lambda: data_loader_derived.main(run_dir, target_country=filter_country)),
-        ("validator", lambda: data_loader_validator.main(run_dir, target_country=filter_country)),
+        ("screening", lambda: data_loader_screening.main(
+            run_dir, target_country=filter_country, dataset_schema=dataset_schema)),
+        ("derived", lambda: data_loader_derived.main(
+            run_dir, target_country=filter_country, dataset_schema=dataset_schema)),
+        ("validator", lambda: data_loader_validator.main(
+            run_dir, target_country=filter_country, dataset_schema=dataset_schema)),
     ]
     for name, fn in steps:
         state.log(f"  [stage 1] running {name}...")
@@ -121,7 +143,8 @@ def _run_stage1(state, csv_path: Path, run_dir: Path, country: str) -> None:
     state.log("Stage 1/4 complete.")
 
 
-def _run_stage2(state, run_dir: Path, country: str) -> None:
+def _run_stage2(state, run_dir: Path, country: str, dataset_schema: str = DEFAULT_DATASET_SCHEMA,
+                 prior_run_id: "str | None" = None) -> None:
     state.current_stage = 2
     state.stage2 = {"status": "running", "section_timing": {}, "section_errors": {}}
     state.log("Stage 2/4 -- Running analysis engine...")
@@ -138,10 +161,11 @@ def _run_stage2(state, run_dir: Path, country: str) -> None:
     section_errors: dict = {}
     section_timing: dict = {}
 
-    for key, label, module in ra.SECTIONS:
+    sections = ra.build_sections(dataset_schema, prior_run_id=prior_run_id)
+    for key, label, calculate_fn in sections:
         t0 = time.perf_counter()
         try:
-            parts[key] = module.calculate(ds, segment_masks)
+            parts[key] = calculate_fn(ds, segment_masks)
             state.log(f"  [stage 2] {key} ({label}) OK")
         except Exception as exc:
             section_errors[key] = {"error": str(exc), "type": type(exc).__name__}
@@ -233,7 +257,23 @@ def _run_stage4(state, run_dir: Path, llm: LlmConfig, dry_run: bool) -> None:
     if not preflight["ok"]:
         raise RuntimeError("Preflight failed: " + "; ".join(preflight["errors"]))
 
-    packages = orchestrate(state.run_id)
+    # report_spec.yaml lists Parts 9/10 (LARCO-only, see run_analysis.py's
+    # build_sections()) alongside the shared Parts 1-8 -- without this
+    # filter, a non-LARCO run would still render those two sections, just
+    # with every metric showing SUPPRESSED (analysis_results.json simply
+    # has no parts.part_9/part_10 key for that schema), which is confusing
+    # rather than a crash. Read the same run_metadata.yaml field stage 1/2
+    # already write/read.
+    run_metadata_path = run_dir / "run_metadata.yaml"
+    dataset_schema = DEFAULT_DATASET_SCHEMA
+    if run_metadata_path.exists():
+        with open(run_metadata_path, encoding="utf-8") as f:
+            dataset_schema = (yaml.safe_load(f) or {}).get("dataset_schema", DEFAULT_DATASET_SCHEMA)
+    parts_filter = None if dataset_schema == "larco" else [
+        k for k in spec.get("parts", {}) if k not in ("part_9", "part_10")
+    ]
+
+    packages = orchestrate(state.run_id, parts_filter=parts_filter)
 
     if dry_run:
         out = run_dir / "dry_run_packages.json"
@@ -268,14 +308,20 @@ def _run_stage4(state, run_dir: Path, llm: LlmConfig, dry_run: bool) -> None:
     state.log(f"Stage 4/4 complete -- report at {output_path.name}{note}")
 
 
-def execute(run_id: str, csv_path: Path, country: str, llm: LlmConfig, dry_run: bool = False) -> None:
-    """Entry point run via asyncio.to_thread() from the /api/runs route."""
+def execute(run_id: str, csv_path: Path, country: str, llm: LlmConfig, dry_run: bool = False,
+            dataset_schema: str = DEFAULT_DATASET_SCHEMA, prior_run_id: "str | None" = None) -> None:
+    """Entry point run via asyncio.to_thread() from the /api/runs route.
+
+    prior_run_id: LARCO only -- a prior run_id for Part 10's trend
+    comparison (see analysis_engine/sections/part_10.py). Ignored for
+    non-LARCO runs.
+    """
     state = RUNS[run_id]
     run_dir = RUNS_DIR / run_id
     state.status = "running"
 
     try:
-        _run_stage1(state, csv_path, run_dir, country)
+        _run_stage1(state, csv_path, run_dir, country, dataset_schema=dataset_schema)
     except Exception as exc:
         state.stage1 = {"status": "failed", "error": str(exc)}
         state.status = "failed"
@@ -284,7 +330,7 @@ def execute(run_id: str, csv_path: Path, country: str, llm: LlmConfig, dry_run: 
         return
 
     try:
-        _run_stage2(state, run_dir, country)
+        _run_stage2(state, run_dir, country, dataset_schema=dataset_schema, prior_run_id=prior_run_id)
     except Exception as exc:
         state.stage2 = {"status": "failed", "error": str(exc)}
         state.status = "failed"

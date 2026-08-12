@@ -46,13 +46,27 @@ def parse_args():
 def main():
     args     = parse_args()
     run_id   = args.run_id
-    parts_filter = (
-        [f"part_{p.strip()}" for p in args.parts.split(",")]
-        if args.parts else None
-    )
 
     spec_path = ROOT / "generation" / "report_spec.yaml"
     spec      = yaml.safe_load(spec_path.read_text(encoding="utf-8"))
+
+    if args.parts:
+        parts_filter = [f"part_{p.strip()}" for p in args.parts.split(",")]
+    else:
+        # report_spec.yaml lists Parts 9/10 (LARCO-only, see run_analysis.py's
+        # build_sections()) alongside the shared Parts 1-8 -- default to
+        # excluding them unless this run's own metadata says dataset_schema
+        # is "larco", so a plain `--run-id ... ` (no --parts) on Africa/
+        # Vietnam data doesn't render two all-SUPPRESSED sections. An
+        # explicit --parts always wins over this default.
+        run_metadata_path = ROOT / "runs" / run_id / "run_metadata.yaml"
+        dataset_schema = "africa_vietnam"
+        if run_metadata_path.exists():
+            with open(run_metadata_path, encoding="utf-8") as f:
+                dataset_schema = (yaml.safe_load(f) or {}).get("dataset_schema", "africa_vietnam")
+        parts_filter = None if dataset_schema == "larco" else [
+            k for k in spec.get("parts", {}) if k not in ("part_9", "part_10")
+        ]
 
     log.info(f"Generation Pipeline | run_id={run_id}")
 

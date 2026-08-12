@@ -4,12 +4,21 @@ from typing import Literal, Optional
 from pydantic import BaseModel
 
 
+DatasetSchema = Literal["africa_vietnam", "larco", "unknown"]
+
+
 class CsvUploadResponse(BaseModel):
     upload_id: str
     filename: str
     size_bytes: int
     row_count_preview: int
     columns_detected: int
+    # Best-guess source-survey schema, from diffing the header row against
+    # each known schema's canonical column_mapping.csv (see
+    # dashboard/api/schema_detection.py). "unknown" means neither known
+    # schema matched well enough to trust -- the frontend should ask the
+    # user to pick one explicitly rather than silently default.
+    detected_schema: DatasetSchema = "africa_vietnam"
 
 
 class CountryOption(BaseModel):
@@ -62,6 +71,15 @@ class StartRunRequest(BaseModel):
     year: Optional[int] = None
     quarter: Optional[int] = None
     powerbi: PowerBiConfigRequest = PowerBiConfigRequest()
+    # Cupboard Week only, optional -- if unset, run_routes.py resolves it
+    # from the upload's own detected_schema (see
+    # dashboard/api/schema_detection.py). Explicit override exists for the
+    # case where detection came back "unknown" and a human picked one.
+    dataset_schema: Optional[DatasetSchema] = None
+    # LARCO only, optional -- a prior completed run_id for Part 10's trend
+    # comparison (see analysis_engine/sections/part_10.py). Ignored for
+    # non-LARCO runs and for gender_study.
+    prior_run_id: Optional[str] = None
 
 
 class StartRunResponse(BaseModel):
@@ -73,6 +91,20 @@ class RunSummary(BaseModel):
     run_id: str
     pipeline: ReportType = "cupboard_week"
     status: str
+    created_at: Optional[str] = None
+
+
+class PriorRunCandidate(BaseModel):
+    """A completed LARCO run usable as Part 10's --prior-run-id (see
+    analysis_engine/sections/part_10.py). Discovered by scanning runs/ on
+    disk (run_metadata.yaml + analysis_results.json), not the in-memory
+    RUNS job registry -- that registry is cleared on every dashboard
+    restart, but a prior wave's actual output survives on disk indefinitely,
+    which is exactly the case this picker needs to keep working across
+    restarts and even across VisionFund's typical months-later next-wave
+    timeline."""
+    run_id: str
+    country: Optional[str] = None
     created_at: Optional[str] = None
 
 

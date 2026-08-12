@@ -7,6 +7,7 @@ from fastapi import APIRouter, HTTPException, UploadFile
 from data_loader import data_loader_transformer
 from dashboard.api.config import PROJECT_ROOT, UPLOADS_DIR
 from dashboard.api.models import CountryOption, CsvUploadResponse
+from dashboard.api.schema_detection import SCHEMA_MAPPING_PATHS, detect_dataset_schema
 
 router = APIRouter(prefix="/api/csv", tags=["csv"])
 
@@ -30,12 +31,15 @@ async def upload_csv(file: UploadFile) -> CsvUploadResponse:
         dest.unlink(missing_ok=True)
         raise HTTPException(400, f"Could not parse CSV as semicolon-delimited UTF-8: {exc}") from exc
 
+    detected_schema = detect_dataset_schema(dest)
+
     return CsvUploadResponse(
         upload_id=upload_id,
         filename=file.filename,
         size_bytes=len(contents),
         row_count_preview=len(preview),
         columns_detected=len(preview.columns),
+        detected_schema=detected_schema,
     )
 
 
@@ -54,9 +58,17 @@ async def list_upload_countries(upload_id: str) -> list[CountryOption]:
 
     # Mirrors dashboard/api/pipeline_runner.py's stage-1 mapping resolution:
     # prefer a reconciled per-upload mapping if the dataset validation flow
-    # produced one, else fall back to the canonical mapping.
+    # produced one, else fall back to the canonical mapping for this
+    # upload's detected schema (not always Africa/Vietnam's -- a LARCO
+    # upload with no reconciliation run yet still needs its own mapping to
+    # resolve "country" against, even though both schemas happen to share
+    # identical raw header text for that specific column today).
     reconciled_mapping = UPLOADS_DIR / f"{upload_id}_column_mapping.csv"
-    mapping_path = reconciled_mapping if reconciled_mapping.exists() else CANONICAL_COLUMN_MAPPING_PATH
+    if reconciled_mapping.exists():
+        mapping_path = reconciled_mapping
+    else:
+        detected_schema = detect_dataset_schema(csv_path)
+        mapping_path = SCHEMA_MAPPING_PATHS.get(detected_schema, CANONICAL_COLUMN_MAPPING_PATH)
 
     mapping = data_loader_transformer.load_mapping(mapping_path)
     country_rows = mapping[mapping["output_name"] == "country"]

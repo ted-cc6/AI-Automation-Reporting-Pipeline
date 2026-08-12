@@ -56,54 +56,71 @@ class CleanDataset:
     def n(self) -> int:
         return len(self._df)
 
+    # ── Internal helper ─────────────────────────────────────────────────────
+
+    def _filtered(self, col: str, predicate) -> pd.DataFrame:
+        """Rows where predicate(self._df[col]) is True, or an empty (0-row,
+        same-columns) DataFrame if col isn't in this dataset's schema at all
+        (e.g. q_insured_event_12m/flag_paid_claimant don't exist for LARCO --
+        see data_loader_larco/column_mapping.csv's notes). An empty base
+        flows correctly into every downstream stat function (len()==0,
+        disaggregate()/share_true() etc. all handle a 0-row frame as
+        suppressed, not a crash) -- the alternative, raising here, would
+        take down every section calculator that touches this property
+        (Parts 2, 3, 6, 7 all do) rather than just the one metric that
+        actually needed the missing column.
+        """
+        if col not in self._df.columns:
+            return self._df.iloc[0:0]
+        return self._df[predicate(self._df[col])]
+
     # ── Insurance-type splits ────────────────────────────────────────────────
 
     @property
     def health(self) -> pd.DataFrame:
-        return self._df[self._df["is_health"] == True]  # noqa: E712
+        return self._filtered("is_health", lambda s: s == True)  # noqa: E712
 
     @property
     def crop(self) -> pd.DataFrame:
-        return self._df[self._df["is_crop"] == True]  # noqa: E712
+        return self._filtered("is_crop", lambda s: s == True)  # noqa: E712
 
     @property
     def credit_life(self) -> pd.DataFrame:
-        return self._df[self._df["is_credit_life"] == True]  # noqa: E712
+        return self._filtered("is_credit_life", lambda s: s == True)  # noqa: E712
 
     # ── NPS segments ────────────────────────────────────────────────────────
 
     @property
     def promoters(self) -> pd.DataFrame:
-        return self._df[self._df["q_nps_score"] >= 9]
+        return self._filtered("q_nps_score", lambda s: s >= 9)
 
     @property
     def passives(self) -> pd.DataFrame:
-        s = self._df["q_nps_score"]
-        return self._df[(s >= 7) & (s <= 8)]
+        return self._filtered("q_nps_score", lambda s: (s >= 7) & (s <= 8))
 
     @property
     def detractors(self) -> pd.DataFrame:
-        return self._df[self._df["q_nps_score"] <= 6]
+        return self._filtered("q_nps_score", lambda s: s <= 6)
 
     # ── Claims analysis ──────────────────────────────────────────────────────
 
     @property
     def claimants(self) -> pd.DataFrame:
-        return self._df[self._df["q_claim_submitted"] == True]  # noqa: E712
+        return self._filtered("q_claim_submitted", lambda s: s == True)  # noqa: E712
 
     @property
     def paid_claimants(self) -> pd.DataFrame:
-        return self._df[self._df["flag_paid_claimant"] == True]  # noqa: E712
+        return self._filtered("flag_paid_claimant", lambda s: s == True)  # noqa: E712
 
     # ── Analysis bases ───────────────────────────────────────────────────────
 
     @property
     def insured_event_base(self) -> pd.DataFrame:
-        return self._df[self._df["q_insured_event_12m"] == True]  # noqa: E712
+        return self._filtered("q_insured_event_12m", lambda s: s == True)  # noqa: E712
 
     @property
     def child_wellbeing_base(self) -> pd.DataFrame:
-        return self._df[self._df["flag_child_wellbeing_denominator"] == True]  # noqa: E712
+        return self._filtered("flag_child_wellbeing_denominator", lambda s: s == True)  # noqa: E712
 
 
 # ---------------------------------------------------------------------------

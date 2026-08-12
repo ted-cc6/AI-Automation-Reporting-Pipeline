@@ -172,6 +172,7 @@ WORD_LIMITS = {
     "s3_0": 70, "s3_1": 80, "s3_2": 70,
     "s4_1": 90, "s4_2": 90, "s4_3": 90,
     "s5_1": 90, "s5_2": 80, "s5_3": 80,
+    "s9_1": 90, "s9_2": 70,
     "narrative": 100,
     "insight": 120,
 }
@@ -185,6 +186,9 @@ _OUTPUT_SCHEMAS = {
     "part_5": {"s5_1": 90, "s5_2": 80, "s5_3": 80, "insight": 120},
     "part_6": {"narrative": 100, "insight": 120},
     "part_7": {"narrative": 100, "insight": 120},
+    # LARCO only (see run_analysis.py's build_sections())
+    "part_9": {"s9_1": 90, "s9_2": 70, "insight": 120},
+    "part_10": {"narrative": 100, "insight": 120},
 }
 
 
@@ -388,12 +392,26 @@ def _build_part_prompt(package: dict, part_key: str, report_title: str) -> str:
         "",
     ]
 
-    if part_key in ("part_6", "part_7"):
-        # Scorecard parts
-        group_a = "Claimant" if part_key == "part_6" else "Female"
-        group_b = "Non-Claimant" if part_key == "part_6" else "Male"
-        lines.append("SCORECARD TABLE:")
+    if part_key in ("part_6", "part_7", "part_10"):
+        # Scorecard-shaped parts -- Part 10's "scorecard" is a wave-over-wave
+        # trend table (Current Wave vs Prior Wave), built by
+        # orchestrator.py's _build_trend_data() into the exact same row
+        # shape Parts 6/7's segment scorecards use, so it reuses this same
+        # prompt formatting unmodified.
+        if part_key == "part_6":
+            group_a, group_b = "Claimant", "Non-Claimant"
+        elif part_key == "part_7":
+            group_a, group_b = "Female", "Male"
+        else:
+            group_a, group_b = "Current Wave", "Prior Wave"
+        table_label = "TREND TABLE" if part_key == "part_10" else "SCORECARD TABLE"
+        lines.append(f"{table_label}:")
         lines.append(_build_scorecard_text(package.get("scorecard", []), group_a, group_b))
+        if part_key == "part_10":
+            trend_available = bool(package.get("scorecard")) and any(
+                row["group_b_value"] != "N/A (no prior wave)" for row in package.get("scorecard", [])
+            )
+            lines.append(f"\nTREND AVAILABLE: {trend_available}")
         lines.append("")
 
         # Narrative section note

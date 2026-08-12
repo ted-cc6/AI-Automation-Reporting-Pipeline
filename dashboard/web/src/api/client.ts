@@ -11,12 +11,19 @@ export interface CountryOption {
   count?: number;
 }
 
+// Which source-survey schema an upload matches, from diffing its header row
+// against each known schema's canonical column mapping (see
+// dashboard/api/schema_detection.py). "unknown" means neither matched well
+// enough to trust -- the user should be asked to confirm before starting a run.
+export type DatasetSchema = "africa_vietnam" | "larco" | "unknown";
+
 export interface CsvUploadResponse {
   upload_id: string;
   filename: string;
   size_bytes: number;
   row_count_preview: number;
   columns_detected: number;
+  detected_schema: DatasetSchema;
 }
 
 export interface LlmValidateResponse {
@@ -210,6 +217,19 @@ export interface StartRunRequest {
   country?: string;
   year?: number;
   quarter?: number;
+  // Cupboard Week only, optional -- if omitted, the backend resolves it from
+  // the upload's own detected_schema. Only needs to be sent explicitly when
+  // detection came back "unknown" and the user picked one manually.
+  dataset_schema?: DatasetSchema;
+  // LARCO only, optional -- a prior completed run_id for Part 10's trend
+  // comparison. See listLarcoPriorCandidates().
+  prior_run_id?: string;
+}
+
+export interface PriorRunCandidate {
+  run_id: string;
+  country?: string | null;
+  created_at?: string | null;
 }
 
 export function startRun(payload: StartRunRequest): Promise<StartRunResponse> {
@@ -222,6 +242,12 @@ export function getRun(runId: string): Promise<RunSnapshot> {
 
 export function listRuns(): Promise<RunSummary[]> {
   return req("/runs");
+}
+
+// Completed LARCO runs usable as StartRunRequest.prior_run_id, for Part 10's
+// trend comparison -- only meaningful once a LARCO upload is detected.
+export function listLarcoPriorCandidates(): Promise<PriorRunCandidate[]> {
+  return req("/runs/larco-prior-candidates");
 }
 
 export function getVisualSlots(runId: string): Promise<VisualSlotInfo[]> {

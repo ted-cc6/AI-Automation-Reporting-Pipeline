@@ -772,3 +772,104 @@ parts:
       insight:
         word_limit: 120
         verbatim_section: "part7"
+
+  # ───────────────────────────────────────────────────────────────────
+  # PART 9 — Additional Services (LARCO only, see run_analysis.py's
+  # build_sections() -- never included for Africa/Vietnam runs, whose
+  # equivalent q_bundled_services_used/q_services_helped questions exist
+  # but are ~0.4% filled, effectively unused)
+  # ───────────────────────────────────────────────────────────────────
+  part_9:
+    title: "Additional Services"
+    visuals:
+      - file: "part9_services_used.png"
+        caption: "Additional Services Used"
+    sections:
+      s9_1:
+        label: "Services Used"
+        word_limit: 90
+        metrics:
+          services_used_base:
+            path: "parts.part_9.services_used.n_base"
+            fmt: "count"
+        distribution_path: "parts.part_9.services_used.headline.ranked"
+        note: >
+          Non-claim benefits bundled with the insurance product (teleconsultation,
+          face-to-face consultations, discounted/free medicines, lab tests, health events)
+          -- distinct from the claims-payout benefits covered elsewhere in this report.
+          The distribution is measured on the FULL surveyed population, not just clients
+          who used a service -- most respondents showing "None" or no response is the
+          expected finding for this question, not a data-quality problem, and must not be
+          described as low engagement or a concern. If the distribution is empty, state
+          plainly that this module wasn't part of this dataset's survey rather than
+          speculating about service usage or inventing a reason for zero data.
+
+      s9_2:
+        label: "Service Helpfulness"
+        word_limit: 70
+        metrics:
+          services_helped:
+            path: "parts.part_9.services_helped.headline.value"
+            fmt: "pct"
+            n_path: "parts.part_9.services_helped.headline.n_valid"
+            suppressed_path: "parts.part_9.services_helped.headline.suppressed"
+            population: "Only clients who used at least one additional service (see Services Used above) -- this question was not asked of clients who used none"
+        note: >
+          services_helped is the share who found the service(s) they used helpful as
+          wanted, among only the (typically small) group who used at least one -- never
+          imply this figure describes the full survey population.
+
+      insight:
+        word_limit: 120
+        verbatim_section: "part9"
+
+  # ───────────────────────────────────────────────────────────────────
+  # PART 10 — Trend Comparison (LARCO only -- second-wave comparison
+  # against a prior run's own snapshot; see analysis_engine/sections/
+  # part_10.py and run_analysis.py's --prior-run-id)
+  # ───────────────────────────────────────────────────────────────────
+  part_10:
+    title: "Trend Comparison"
+    visuals:
+      - file: "part10_trend.png"
+        caption: "Wave-over-Wave Trend"
+    # Consumed by generation/orchestrator.py's _build_trend_data() -- each
+    # indicator's current/prior values already live pre-computed in
+    # analysis_results.json's parts.part_10 block (see part_10.py), so this
+    # list only needs key/label/fmt, not per-metric JSON paths like every
+    # other part's `metrics:` block.
+    trend_indicators:
+      - key: first_time_access
+        label: "First-Time Access to Insurance"
+        fmt: "pct"
+      - key: access_to_alternatives
+        label: "Access to Alternatives (Difficult)"
+        fmt: "pct"
+      - key: child_wellbeing_improvement
+        label: "Child Wellbeing Improvement"
+        fmt: "pct"
+      - key: client_satisfaction_nps
+        label: "Client Satisfaction (NPS)"
+        fmt: "nps"
+      - key: product_understanding
+        label: "Product Understanding"
+        fmt: "pct"
+    sections:
+      narrative:
+        word_limit: 100
+        note: >
+          Compares this wave's 5 headline indicators against a prior wave's own snapshot
+          of the same 5 indicators (see the TREND TABLE) -- if TREND AVAILABLE is false,
+          state plainly that this is the first comparable wave for this dataset rather
+          than describing or implying a trend that doesn't exist. client_satisfaction_nps
+          is a POINT delta (NPS runs -100 to +100), not a percentage-point delta like the
+          other four indicators -- never call an NPS change "percentage points." product_understanding
+          is defined as the single most positive response option only (a stricter bar than
+          a typical top-2-box), so do not describe it as "top-2-box" or imply a broader
+          definition. Significance threshold: p < 0.05 = statistically significant, mark
+          with *; the NPS row has no significance test (see the table note) since NPS
+          isn't a proportion -- do not describe an NPS row as "significant" or "not
+          significant" using the same framing as the other four rows.
+      insight:
+        word_limit: 120
+        verbatim_section: "part10"

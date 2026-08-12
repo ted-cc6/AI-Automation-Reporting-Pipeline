@@ -528,6 +528,72 @@ def build_part_7(doc, package: dict, texts: dict):
 
 
 # ---------------------------------------------------------------------------
+# Part 9 — Additional Services (LARCO only)
+# ---------------------------------------------------------------------------
+
+def build_part_9(doc, package: dict, texts: dict):
+    _add_heading(doc, f"Part 9: {package['title']}", level=1)
+    sections = package.get("sections", {})
+    visuals  = package.get("visuals", [])
+
+    s9_1 = sections.get("s9_1", {})
+    _add_heading(doc, s9_1.get("label", "Services Used"), level=2)
+    _add_paragraph(doc, texts.get("s9_1", ""))
+    dist = s9_1.get("distributions", {}).get("main", [])
+    if dist:
+        rows = [[d.get("option", d.get("value", "")), d.get("n", ""),
+                 f"{d.get('pct', 0) * 100:.1f}%" if d.get("pct") is not None else ""]
+                for d in dist]
+        _add_table(doc, ["Service", "N", "%"], rows)
+    if visuals:
+        _add_image_or_placeholder(doc, visuals[0])
+
+    s9_2 = sections.get("s9_2", {})
+    _add_heading(doc, s9_2.get("label", "Service Helpfulness"), level=2)
+    _add_paragraph(doc, texts.get("s9_2", ""))
+
+    _add_insight_box(doc, texts.get("insight", ""), sections.get("insight", {}).get("verbatims", []))
+
+
+# ---------------------------------------------------------------------------
+# Part 10 — Trend Comparison (LARCO only)
+# ---------------------------------------------------------------------------
+
+def build_part_10(doc, package: dict, texts: dict):
+    _add_heading(doc, f"Part 10: {package['title']}", level=1)
+    sections = package.get("sections", {})
+    visuals  = package.get("visuals", [])
+
+    scorecard = package.get("scorecard", [])
+    if scorecard:
+        # No groups() dict here (see orchestrator.py's _build_trend_data()
+        # note) -- plain column headers, not _group_header()'s "(n=...)"
+        # suffix, since a single per-table N would misrepresent rows that
+        # each have their own base/suppression.
+        headers = ["Indicator", "Current Wave", "Prior Wave", "Sig.*"]
+        rows, footnotes = [], []
+        for row in scorecard:
+            sig_mark = "*" if row["significant"] else ""
+            label = row["label"]
+            if row.get("sig_test_note"):
+                label += " ‡"
+                footnotes.append(f"‡ {row['label']}: {row['sig_test_note']}")
+            rows.append([label, row["group_a_value"], row["group_b_value"], sig_mark])
+        _add_table(doc, headers, rows)
+        _add_paragraph(doc, "* p < 0.05 (two-proportion z-test)")
+        for fn in footnotes:
+            _add_paragraph(doc, fn)
+
+    if visuals:
+        _add_image_or_placeholder(doc, visuals[0])
+
+    _add_heading(doc, "Findings", level=2)
+    _add_paragraph(doc, texts.get("narrative", ""))
+
+    _add_insight_box(doc, texts.get("insight", ""), sections.get("insight", {}).get("verbatims", []))
+
+
+# ---------------------------------------------------------------------------
 # Main assembly
 # ---------------------------------------------------------------------------
 
@@ -570,6 +636,8 @@ def assemble(packages: list, written_texts: dict, run_id: str, output_path: Path
         "part_5": build_part_5,
         "part_6": build_part_6,
         "part_7": build_part_7,
+        "part_9": build_part_9,
+        "part_10": build_part_10,
     }
 
     for package in packages:

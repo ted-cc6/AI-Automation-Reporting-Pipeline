@@ -1,0 +1,229 @@
+# value_coding_map.yaml — VisionFund LARCO Insurance Annual Survey
+# First-pass mapping, authored 2026-08-11 against the real LARCO export
+# (Insurance_Annual_Survey_-_all_versions..., 209 raw columns, 1,356 rows,
+# Ecuador/Mexico/Guatemala/Honduras/Bolivia). Reviewed: ___________________
+#
+# Companion to data_loader_larco/column_mapping.csv. Wherever a LARCO
+# question is the same underlying construct as one already in Africa's
+# data_loader/value_coding_map.yaml, this file reuses Africa's exact
+# question_ref AND (where a downstream analysis_engine section calculator
+# does an exact string/int comparison) Africa's exact coded values, so
+# analysis_engine/qualitative/generation need no changes to run on LARCO
+# data. See column_mapping.csv's per-row notes for the reasoning behind
+# each individual mapping decision.
+#
+# Any raw value NOT listed in the dicts below will trigger a WARNING in the
+# transformer and be left as NaN (or, for single_select_value_map entries,
+# fall back to the generic letter-prefix-strip rule) -- the script will not
+# crash. This mirrors Africa's own file's documented behavior.
+
+# ---------------------------------------------------------------------------
+# 1. Insurance type routing (approximate -- see column_mapping.csv notes)
+# ---------------------------------------------------------------------------
+# LARCO has no single "which product are you enrolled in" field. This routes
+# off the "claims filed in the last 12 months" multiselect's raw concatenated
+# string instead -- a real limitation, not a bug. "I did not file a claim"
+# and "Other" are deliberately left unmapped (~83% + a handful of respondents
+# get insurance_type=NaN, which is expected). Combo strings (a respondent who
+# selected more than one claim type) are routed to their first-listed type as
+# a documented approximation.
+insurance_type_routing:
+  "Health & Life Insurance": health
+  "Personal Accident Insurance": personal_accident
+  "Credit Life": credit_life
+  "Credit Life Personal Accident Insurance": credit_life
+  "Health & Life Insurance Credit Life": health
+  "Health & Life Insurance Personal Accident Insurance": health
+
+# ---------------------------------------------------------------------------
+# 2. Scope rules
+# ---------------------------------------------------------------------------
+scope_rules:
+  sentinel: "__SCOPE_NA__"
+
+# ---------------------------------------------------------------------------
+# 3. Likert-4 -- none in this schema
+# ---------------------------------------------------------------------------
+# LARCO has no direct equivalent of Africa's separate 4-point
+# q_coverage_understanding/q_claim_process_understanding items -- see
+# q_product_understanding_combined below and its single_select handling.
+likert_4: {}
+
+# ---------------------------------------------------------------------------
+# 4. Likert-5
+# ---------------------------------------------------------------------------
+likert_5:
+
+  # col 34 — To what extent has the insurance affected your stress/worries?
+  # Reused Africa's q_financial_stress scale direction: 1=most reduced
+  # (best) ... 5=most increased (worst).
+  q_financial_stress:
+    "Very much improved": {int: 1, label: "Significantly reduced"}
+    "Somewhat improved":  {int: 2, label: "Somewhat reduced"}
+    "No change":          {int: 3, label: "No effect"}
+    "Somewhat worsened":  {int: 4, label: "Somewhat increased"}
+    "Very much worsened": {int: 5, label: "Significantly increased"}
+
+  # col 20 — Claim experience rating (LARCO-only, claimants only, ~17% fill)
+  q_claim_experience_rating:
+    "Very Good": {int: 1, label: "Very Good"}
+    "Good":      {int: 2, label: "Good"}
+    "Fair":      {int: 3, label: "Fair"}
+    "Poor":      {int: 4, label: "Poor"}
+    "Very Poor": {int: 5, label: "Very Poor"}
+
+# ---------------------------------------------------------------------------
+# 5. Binary standalone questions
+# ---------------------------------------------------------------------------
+# "0"/"1" here is q_claim_submitted ONLY (col 19's raw child value) -- an
+# inverted proxy for whether a claim was filed (raw column literally means
+# "did NOT file a claim"). If a future LARCO question is added with genuine
+# response_type=binary and raw "0"/"1" values meaning true/false in the
+# normal sense, this global dict would need to become per-question (see
+# single_select_value_map below for the pattern to extend to).
+binary_standalone:
+  "Yes": true
+  "No":  false
+  "0":   true
+  "1":   false
+
+# ---------------------------------------------------------------------------
+# 6. Multi-select child encoding
+# ---------------------------------------------------------------------------
+multi_select_child:
+  "1": true
+  "0": false
+
+# ---------------------------------------------------------------------------
+# 7. Multi-select option labels
+# ---------------------------------------------------------------------------
+multi_select_option_labels:
+
+  # cols 28–32 — Which microfinance service(s) are you also accessing?
+  # Reused Africa's q_vf_services_received parent name.
+  q_vf_services_received:
+    a: "Microloans"
+    b: "Savings Accounts"
+    c: "Other Health Services (telemedicine, education etc.)"
+    d: "Financial Education"
+    e: "Other"
+
+  # cols 38–45 — In which areas has your child's wellbeing improved?
+  # Reused Africa's q_child_improvements parent name. LARCO's live option
+  # set differs from Africa's (see column_mapping.csv notes on cols 46-53).
+  q_child_improvements:
+    a: "Less work around the house and in the business"
+    b: "More time playing"
+    c: "Children under 18 stayed in school or training"
+    d: "All health care costs paid"
+    e: "Sufficient and varied nutritious food"
+    f: "Sufficient clothing, shoes, and school supplies"
+    g: "Improved housing"
+    h: "Other"
+
+# ---------------------------------------------------------------------------
+# 8. Single-select explicit value maps (NEW section, LARCO-specific)
+# ---------------------------------------------------------------------------
+# Unlike Africa's file, these ARE read by the transformer (see
+# data_loader_transformer.py's code_single_select(), extended 2026-08-11 to
+# accept an optional per-qref value_map). Needed here because LARCO's raw
+# single-select options don't carry Africa's "X. " letter prefix, and two
+# constructs must land on Africa's *exact* coded label set for existing
+# analysis_engine section calculators (which do exact string comparisons)
+# to work unmodified. Any qref NOT listed here passes through unchanged
+# (the default letter-prefix-strip rule is a no-op on LARCO's raw text,
+# which already has no letter prefixes) -- e.g. q_sex, q_client_education,
+# q_household_size need no entry.
+single_select_value_map:
+
+  # col 36 — child wellbeing. LARCO's 5-level degree-of-change scale is
+  # collapsed onto Africa's exact 3-value scheme ("Yes"/"No"/"Do not support
+  # any children") because analysis_engine/sections/part_4.py, part_5.py,
+  # part_6.py, and part_7.py all do exact string comparisons against
+  # q_child_wellbeing == "Yes". This is a real, documented loss of
+  # granularity (LARCO distinguishes "somewhat" vs "very much" improved;
+  # Africa's scheme does not) -- flagged for review, not silently assumed.
+  q_child_wellbeing:
+    "Very much improved":     "Yes"
+    "Somewhat improved":      "Yes"
+    "No change":              "No"
+    "Somewhat worsened":      "No"
+    "I do not have children": "Do not support any children"
+
+  # col 57 — access to alternatives. Only the two "difficult" tiers need to
+  # land on Africa's exact strings -- analysis_engine/sections/part_3.py and
+  # part_8.py's _ALTERNATIVE_ACCESS_DIFFICULT constant does an exact-string
+  # match against ["Very difficult", "Slightly difficult"] specifically.
+  # The "easy" tiers have no such exact-match dependency anywhere found in
+  # analysis_engine, so LARCO's own two tiers are kept distinct rather than
+  # both collapsed onto Africa's single "Slightly easy" label.
+  q_alternative_access:
+    "Very Difficult": "Very difficult"
+    "Difficult":       "Slightly difficult"
+    "Easily":          "Slightly easy"
+    "Very Easily":     "Very easy"
+
+# ---------------------------------------------------------------------------
+# 9. Notes — reviewer guidance
+# ---------------------------------------------------------------------------
+notes:
+  scope_of_this_mapping: >
+    This is an insurance-report-only mapping. The PPI (poverty probability
+    index) household questionnaire block present in the raw LARCO CSV (raw
+    columns 61-120, six different national PPI instruments in Spanish) is
+    NOT mapped here -- deliberately out of scope for the Cupboard-style
+    insurance report, pending manager confirmation this is the right call.
+    Likewise, columns 121-199 in the raw export other than the ones this
+    file actually maps (Loan1/Loan2/Repayment*/Business_Performance*/
+    Impact_Outcomes*/Participant_Feedback*/Additional_Questions*/
+    Enumerator/Race) are 100% empty in this export and are not mapped --
+    they appear to be unused scaffold fields from a broader KoBo form
+    template, not real survey content.
+
+  duplicate_header_blocks: >
+    The raw CSV is a KoBoToolbox "all versions" export, which merged at
+    least two form-version definitions and produced several dead, zero-
+    variance duplicate column blocks alongside the real ones (e.g. raw cols
+    9-13 duplicate the live claims-type children at cols 14-19; raw cols
+    23-27 duplicate the live VF-services children at cols 28-32; raw cols
+    46-53 mostly duplicate the live child-wellbeing-improvement children at
+    cols 38-45, with one partial exception at col 53 noted in
+    column_mapping.csv). Only the live blocks are mapped.
+
+  insurance_type_routing_is_approximate: >
+    See column_mapping.csv's note on raw col 8. LARCO's insurance_type is
+    derived from claims FILED, not product enrollment, and is NaN for the
+    ~83% of respondents who filed no claim. This means Africa's
+    health_only/crop_only/credit_life_only-scoped follow-up questions would
+    have very little data even if LARCO had asked them (it doesn't).
+
+  additional_services_module_missing: >
+    The manager's email described a 2-question "additional services" module
+    (which services were used; whether they helped) for a new Part 9 report
+    section. That module's exact question text/options already exist,
+    unused, in Africa's own value_coding_map.yaml as q_bundled_services_used
+    / q_services_helped (~0.4% fill there). Neither question appears
+    anywhere in this LARCO CSV export -- Part 9 will render "not applicable"
+    against this dataset until a corrected export containing those two
+    columns is obtained, at which point add them here under the same
+    canonical names Africa already uses.
+
+  q_nps_followup_single_column: >
+    LARCO asks one always-on NPS follow-up instead of Africa's three
+    conditional promoter/passive/detractor columns. qualitative/config.yaml
+    and prepare_payload.py need explicit support for bucketing a single
+    column by q_nps_score band (Phase 5) -- this was not knowable until
+    the actual column layout was inspected, so it is a small deviation from
+    the "no qualitative code changes needed" assumption in the original plan.
+
+  q_child_wellbeing_and_q_alternative_access_value_maps: >
+    Both required a genuinely new transformer capability
+    (single_select_value_map, see section 8 above) because
+    code_single_select() previously only supported a single global
+    letter-prefix-strip rule with no per-question override -- Africa's own
+    value_coding_map.yaml's single_select_strip_prefix section documents
+    intended relabelings that were, in fact, never applied by the code (see
+    data_loader/data_loader_transformer.py's code_single_select(), and the
+    project's existing "Known issues" note on this). The fix is additive and
+    backward compatible: Africa's mapping defines no single_select_value_map
+    key, so its output is byte-for-byte unchanged.

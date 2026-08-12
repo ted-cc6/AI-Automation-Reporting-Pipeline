@@ -21,25 +21,45 @@ from analysis_engine.country_config import DEFAULT_COUNTRY
 
 PROJECT_ROOT = Path(__file__).parent
 DATA_LOADER  = PROJECT_ROOT / "data_loader"
+DATA_LOADER_LARCO = PROJECT_ROOT / "data_loader_larco"
+
+# Which column_mapping.csv/value_coding_map.yaml pair the profiler/
+# transformer read, keyed by the same dataset_schema strings used
+# throughout the pipeline (data_loader_screening.py's SCOPE_COUNTRIES,
+# data_loader_derived.py's VALID_INSURANCE_SLUGS, run_metadata.yaml).
+DATASET_SCHEMA_PATHS = {
+    "africa_vietnam": (DATA_LOADER / "column_mapping.csv", DATA_LOADER / "value_coding_map.yaml"),
+    "larco":          (DATA_LOADER_LARCO / "column_mapping.csv", DATA_LOADER_LARCO / "value_coding_map.yaml"),
+}
+DEFAULT_DATASET_SCHEMA = "africa_vietnam"
 
 STEPS = [
     {
         "name": "profiler",
         "script": DATA_LOADER / "data_loader_profiler.py",
-        "args": lambda csv, run_dir, country: ["--csv", str(csv), "--output-dir", str(run_dir)],
+        "args": lambda csv, run_dir, country, schema: (
+            ["--csv", str(csv), "--output-dir", str(run_dir),
+             "--mapping", str(DATASET_SCHEMA_PATHS[schema][0])]
+        ),
     },
     {
         "name": "transformer",
         "script": DATA_LOADER / "data_loader_transformer.py",
-        "args": lambda csv, run_dir, country: ["--csv", str(csv), "--output-dir", str(run_dir)],
+        "args": lambda csv, run_dir, country, schema: (
+            ["--csv", str(csv), "--output-dir", str(run_dir),
+             "--mapping", str(DATASET_SCHEMA_PATHS[schema][0]),
+             "--yaml", str(DATASET_SCHEMA_PATHS[schema][1])]
+        ),
     },
     {
         "name": "screening",
         "script": DATA_LOADER / "data_loader_screening.py",
         # Scopes the report to a single country instead of the full
-        # multi-country portfolio.
-        "args": lambda csv, run_dir, country: (
-            ["--output-dir", str(run_dir)] + (["--country", country] if country else [])
+        # multi-country portfolio; dataset_schema picks the right
+        # SCOPE_COUNTRIES allow-list (see data_loader_screening.py).
+        "args": lambda csv, run_dir, country, schema: (
+            ["--output-dir", str(run_dir), "--dataset-schema", schema]
+            + (["--country", country] if country else [])
         ),
     },
     {
@@ -47,25 +67,31 @@ STEPS = [
         "script": DATA_LOADER / "data_loader_derived.py",
         # Also needs to know the scope: a country-scoped run can legitimately
         # have zero severe-coping respondents (relaxes a structural assertion
-        # that would otherwise treat that as a coding bug).
-        "args": lambda csv, run_dir, country: (
-            ["--output-dir", str(run_dir)] + (["--country", country] if country else [])
+        # that would otherwise treat that as a coding bug). dataset_schema
+        # controls the insurance_type valid-slug allow-list and which flags
+        # are expected to exist at all.
+        "args": lambda csv, run_dir, country, schema: (
+            ["--output-dir", str(run_dir), "--dataset-schema", schema]
+            + (["--country", country] if country else [])
         ),
     },
     {
         "name": "validator",
         "script": DATA_LOADER / "data_loader_validator.py",
         # Same reason as the "derived" step: its own independent
-        # flag_negative_coping check needs the same scope awareness.
-        "args": lambda csv, run_dir, country: (
-            ["--output-dir", str(run_dir)] + (["--country", country] if country else [])
+        # flag_negative_coping check needs the same scope awareness, and
+        # dataset_schema picks which checks/range/slug lists apply.
+        "args": lambda csv, run_dir, country, schema: (
+            ["--output-dir", str(run_dir), "--dataset-schema", schema]
+            + (["--country", country] if country else [])
         ),
     },
 ]
 
 
-def run_step(step: dict, csv: Path, run_dir: Path, filter_country: "str | None") -> None:
-    cmd = [sys.executable, str(step["script"])] + step["args"](csv, run_dir, filter_country)
+def run_step(step: dict, csv: Path, run_dir: Path, filter_country: "str | None",
+             dataset_schema: str) -> None:
+    cmd = [sys.executable, str(step["script"])] + step["args"](csv, run_dir, filter_country, dataset_schema)
     print(f"\n{'='*60}")
     print(f"  Step: {step['name']}")
     print(f"  Cmd : {' '.join(cmd)}")
@@ -121,6 +147,11 @@ def main() -> None:
                         help="Run identifier for the output folder under runs/ (default: YYYY-MM-DD)")
     parser.add_argument("--country", type=str, default=DEFAULT_COUNTRY, metavar="COUNTRY",
                         help="Country identifier for analysis config (e.g. 'vietnam'). Default: 'default'.")
+    parser.add_argument("--dataset-schema", type=str, default=DEFAULT_DATASET_SCHEMA,
+                        choices=sorted(DATASET_SCHEMA_PATHS), metavar="SCHEMA",
+                        help=f"Which source-survey schema this CSV export uses -- selects the "
+                             f"column_mapping.csv/value_coding_map.yaml pair and every downstream "
+                             f"step's schema-specific checks. Default: {DEFAULT_DATASET_SCHEMA!r}.")
     args = parser.parse_args()
 
     if not args.csv.exists():
@@ -141,6 +172,7 @@ def main() -> None:
         yaml.dump(
             {"run_id": run_id, "country": args.country,
              "country_filter_applied": filter_country is not None,
+             "dataset_schema": args.dataset_schema,
              "created_at": datetime.now(timezone.utc).isoformat()},
             f, default_flow_style=False, allow_unicode=True,
         )
@@ -149,9 +181,10 @@ def main() -> None:
     print(f"Pipeline starting — run_id: {run_id}")
     print(f"CSV     : {args.csv.resolve()}")
     print(f"Run dir : {run_dir.resolve()}")
+    print(f"Schema  : {args.dataset_schema}")
 
     for step in STEPS:
-        run_step(step, args.csv, run_dir, filter_country)
+        run_step(step, args.csv, run_dir, filter_country, args.dataset_schema)
 
     write_summary(run_dir, args.csv, run_id)
     print(f"\nAll steps passed. Outputs in: {run_dir}")

@@ -250,6 +250,64 @@ def _build_scorecard_7(analysis: dict, scorecard_spec: list) -> list:
     return rows
 
 
+def _build_trend_data(analysis: dict, trend_spec: list) -> list:
+    """Part 10's wave-over-wave trend rows, shaped exactly like
+    _build_scorecard_6/7()'s output (label/group_a_*/group_b_*/sig_p/
+    significant/population/sig_test_note) so writer.py's existing
+    scorecard-table prompt builder and assembler.py's existing
+    scorecard-table renderer can both be reused unmodified -- "group_a"/
+    "group_b" become "Current Wave"/"Prior Wave" instead of two segments.
+
+    Unlike every other part, part_10's current/prior/delta/significance are
+    already fully pre-computed by analysis_engine/sections/part_10.py itself
+    (it reads the prior run's own JSON at analysis time) -- this just
+    formats what's already there, it doesn't re-derive anything.
+    """
+    part_10 = get_nested(analysis, "parts.part_10", default=None) or {}
+    current = part_10.get("current", {})
+    comparison = part_10.get("comparison") or {}
+    prior_available = bool(part_10.get("prior_available"))
+
+    rows = []
+    for ind in trend_spec:
+        key, label, fmt = ind["key"], ind["label"], ind["fmt"]
+        cur = current.get(key, {})
+        val_a = format_value(
+            cur.get("value"), fmt,
+            suppressed=bool(cur.get("suppressed", False)),
+            not_applicable=bool(cur.get("not_applicable", False)),
+        )
+
+        val_b = "N/A (no prior wave)"
+        sig_p = None
+        sig_note = None
+        if prior_available and key in comparison:
+            comp = comparison[key]
+            prior = comp.get("prior", {})
+            val_b = format_value(
+                prior.get("value"), fmt,
+                suppressed=bool(prior.get("suppressed", False)),
+                not_applicable=bool(prior.get("not_applicable", False)),
+            )
+            sig = comp.get("significance") or {}
+            sig_p = sig.get("p_value")
+            if key == "client_satisfaction_nps":
+                sig_note = sig.get("test")
+
+        rows.append({
+            "label":         label,
+            "group_a_label": "Current Wave",
+            "group_a_value": val_a,
+            "group_b_label": "Prior Wave",
+            "group_b_value": val_b,
+            "sig_p":         sig_p,
+            "significant":   bool(sig_p is not None and sig_p < 0.05),
+            "population":    None,
+            "sig_test_note": sig_note,
+        })
+    return rows
+
+
 def _build_scorecard_5(analysis: dict, scorecard_spec: list) -> list:
     """Part 5's caregiver vs non-caregiver comparison (financial stress & healthcare access)."""
     rows = []
@@ -344,6 +402,13 @@ def build_part_package(part_key: str, analysis: dict, qual: dict,
     elif part_key == "part_7" and "scorecard_metrics" in spec_part:
         scorecard = _build_scorecard_7(analysis, spec_part["scorecard_metrics"])
         groups = get_nested(analysis, "parts.part_7.groups", default={}) or {}
+    elif part_key == "part_10" and "trend_indicators" in spec_part:
+        # No groups() dict -- unlike Parts 5/6/7's segments, "current wave"
+        # vs "prior wave" isn't a single fixed N (each indicator has its own
+        # base/suppression), so a single per-table N in the header would be
+        # misleading here; build_part_10() renders plain "Current Wave"/
+        # "Prior Wave" column headers with no n= suffix.
+        scorecard = _build_trend_data(analysis, spec_part["trend_indicators"])
 
     # Visuals
     visuals = []

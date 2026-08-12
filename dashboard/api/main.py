@@ -16,6 +16,7 @@ from dashboard.api.routes import (
     csv_routes,
     gedsi_reconcile_routes,
     llm_routes,
+    reconcile_larco_routes,
     reconcile_routes,
     run_routes,
     visuals_routes,
@@ -39,6 +40,7 @@ app.include_router(csv_routes.router)
 app.include_router(country_routes.router)
 app.include_router(llm_routes.router)
 app.include_router(reconcile_routes.router)
+app.include_router(reconcile_larco_routes.router)
 app.include_router(gedsi_reconcile_routes.router)
 app.include_router(run_routes.router)
 app.include_router(visuals_routes.router)

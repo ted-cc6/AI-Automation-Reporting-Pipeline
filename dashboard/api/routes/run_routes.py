@@ -3,13 +3,15 @@ import asyncio
 import json
 import uuid
 
+import yaml
 from fastapi import APIRouter, Header, HTTPException
 from fastapi.responses import FileResponse, StreamingResponse
 
 from dashboard.api import gedsi_runner, pipeline_runner
 from dashboard.api.config import RUNS_DIR, UPLOADS_DIR
 from dashboard.api.jobs import RunConflictError, get_run, list_runs, start_new_run
-from dashboard.api.models import RunSummary, StartRunRequest, StartRunResponse
+from dashboard.api.models import PriorRunCandidate, RunSummary, StartRunRequest, StartRunResponse
+from dashboard.api.schema_detection import detect_dataset_schema
 
 router = APIRouter(prefix="/api/runs", tags=["runs"])
 
@@ -48,6 +50,22 @@ async def start_run(req: StartRunRequest) -> StartRunResponse:
     if req.report_type == "gender_study" and req.dry_run:
         raise HTTPException(400, "dry_run is not supported for gender_study runs.")
 
+    # gender_study runs GEDSI's own pipeline, which has no dataset_schema
+    # concept at all (see gedsi_reconciliation.py) -- this resolution only
+    # matters for cupboard_week, and only touches the raw upload's header
+    # row (cheap), never re-detects against an already-reconciled mapping.
+    dataset_schema = req.dataset_schema
+    if req.report_type == "cupboard_week" and dataset_schema is None:
+        dataset_schema = detect_dataset_schema(upload_path)
+        if dataset_schema == "unknown":
+            raise HTTPException(
+                400,
+                "Could not determine this upload's source-survey schema "
+                "(neither Africa/Vietnam nor LARCO matched well). Pass "
+                "dataset_schema explicitly once you've confirmed which "
+                "schema this file belongs to.",
+            )
+
     run_id = _default_run_id(req)
     try:
         start_new_run(run_id, req.report_type, req.country)
@@ -58,7 +76,10 @@ async def start_run(req: StartRunRequest) -> StartRunResponse:
         task = asyncio.create_task(asyncio.to_thread(gedsi_runner.execute, run_id, upload_path, req.llm))
     else:
         task = asyncio.create_task(
-            asyncio.to_thread(pipeline_runner.execute, run_id, upload_path, req.country, req.llm, req.dry_run)
+            asyncio.to_thread(
+                pipeline_runner.execute, run_id, upload_path, req.country, req.llm, req.dry_run,
+                dataset_schema=dataset_schema, prior_run_id=req.prior_run_id,
+            )
         )
     _background_tasks.add(task)
     task.add_done_callback(_background_tasks.discard)
@@ -71,6 +92,44 @@ async def get_all_runs() -> list[RunSummary]:
         RunSummary(run_id=r.run_id, pipeline=r.pipeline, status=r.status, created_at=r.created_at)
         for r in list_runs()
     ]
+
+
+@router.get("/larco-prior-candidates", response_model=list[PriorRunCandidate])
+async def list_larco_prior_candidates() -> list[PriorRunCandidate]:
+    """Completed LARCO runs usable as Part 10's --prior-run-id. Registered
+    before GET /{run_id} below -- Starlette matches routes in registration
+    order, and {run_id} would otherwise swallow this literal path first.
+
+    Scans runs/ on disk rather than the in-memory RUNS job registry (see
+    dashboard/api/jobs.py) deliberately: RUNS is cleared on every dashboard
+    restart, but a prior wave's output is exactly the kind of thing that
+    needs to stay pickable weeks or months later, long after any restart.
+    """
+    candidates: list[PriorRunCandidate] = []
+    if not RUNS_DIR.exists():
+        return candidates
+
+    for run_dir in RUNS_DIR.iterdir():
+        if not run_dir.is_dir():
+            continue
+        metadata_path = run_dir / "run_metadata.yaml"
+        results_path = run_dir / "analysis_results.json"
+        if not metadata_path.exists() or not results_path.exists():
+            continue
+        try:
+            metadata = yaml.safe_load(metadata_path.read_text(encoding="utf-8")) or {}
+        except yaml.YAMLError:
+            continue
+        if metadata.get("dataset_schema") != "larco":
+            continue
+        candidates.append(PriorRunCandidate(
+            run_id=run_dir.name,
+            country=metadata.get("country"),
+            created_at=metadata.get("created_at"),
+        ))
+
+    candidates.sort(key=lambda c: c.created_at or "", reverse=True)
+    return candidates
 
 
 @router.get("/{run_id}")

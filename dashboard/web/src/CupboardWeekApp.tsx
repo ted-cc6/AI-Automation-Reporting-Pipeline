@@ -7,6 +7,7 @@ import { ResultsPanel } from "./components/ResultsPanel/ResultsPanel";
 import { useRunEvents } from "./state/useRunEvents";
 import {
   listUploadCountries,
+  listLarcoPriorCandidates,
   uploadCsv,
   validateLlmKey,
   startRun,
@@ -16,7 +17,9 @@ import {
 import type {
   CountryOption,
   CsvUploadResponse,
+  DatasetSchema,
   LlmValidateResponse,
+  PriorRunCandidate,
   Provider,
   ReportType,
   VisualSlotInfo,
@@ -48,6 +51,15 @@ export function CupboardWeekApp({
   const [csvUploading, setCsvUploading] = useState(false);
   const [csvError, setCsvError] = useState<string | null>(null);
   const [datasetReady, setDatasetReady] = useState(false);
+
+  // Only set when detection comes back "unknown" and the user picks one
+  // manually (see SetupPanel's schema-override buttons) -- resolvedSchema
+  // below is the single source of truth everything else reads from.
+  const [schemaOverride, setSchemaOverride] = useState<DatasetSchema | null>(null);
+  const [priorRunId, setPriorRunId] = useState("");
+  const [priorRunOptions, setPriorRunOptions] = useState<PriorRunCandidate[]>([]);
+
+  const resolvedSchema: DatasetSchema | null = schemaOverride ?? csvUpload?.detected_schema ?? null;
 
   const [provider, setProvider] = useState<Provider>("gemini");
   const [apiKey, setApiKey] = useState("");
@@ -84,6 +96,23 @@ export function CupboardWeekApp({
       })
       .catch(() => setCountries([DEFAULT_COUNTRY_OPTION]));
   }, [csvUpload]);
+
+  // A manual override only makes sense for the upload it was picked for --
+  // a new file gets a fresh detection, not the previous file's override.
+  useEffect(() => {
+    setSchemaOverride(null);
+  }, [csvUpload?.upload_id]);
+
+  useEffect(() => {
+    if (resolvedSchema !== "larco") {
+      setPriorRunOptions([]);
+      setPriorRunId("");
+      return;
+    }
+    listLarcoPriorCandidates()
+      .then(setPriorRunOptions)
+      .catch(() => setPriorRunOptions([]));
+  }, [resolvedSchema]);
 
   useEffect(() => {
     getVisualSlots(computedRunId)
@@ -135,6 +164,8 @@ export function CupboardWeekApp({
         quarter,
         run_id: runIdOverride.trim() || undefined,
         llm: { provider, api_key: apiKey },
+        dataset_schema: resolvedSchema && resolvedSchema !== "unknown" ? resolvedSchema : undefined,
+        prior_run_id: resolvedSchema === "larco" && priorRunId ? priorRunId : undefined,
       });
       setRunId(res.run_id);
     } catch (err) {
@@ -184,6 +215,13 @@ export function CupboardWeekApp({
         provider={provider}
         apiKey={apiKey}
         onDatasetResolved={setDatasetReady}
+        schemaOverride={schemaOverride}
+        onSchemaOverrideChange={setSchemaOverride}
+        reconcileEndpointBase={resolvedSchema === "larco" ? "/reconcile-larco" : "/reconcile"}
+        showPriorRunPicker={resolvedSchema === "larco"}
+        priorRunOptions={priorRunOptions}
+        priorRunId={priorRunId}
+        onPriorRunIdChange={setPriorRunId}
         powerbiMode={powerbiMode}
         onPowerbiModeChange={setPowerbiMode}
         visualSlots={visualSlots}

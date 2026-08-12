@@ -9,7 +9,9 @@ import pandas as pd
 
 from data_loader.data_loader_screening import (
     CONTENT_EXCLUDE_COLS,
-    SCOPE_COUNTRIES,
+    DATASET_SCHEMAS,
+    SCOPE_COUNTRIES_AFRICA_VIETNAM,
+    SCOPE_COUNTRIES_LARCO,
     choose_canonical_index,
     content_columns,
     find_client_id_collisions,
@@ -119,18 +121,27 @@ class TestFindNonConsentingRows:
 class TestFindOutOfScopeCountryRows:
     def test_flags_countries_outside_the_study_scope(self):
         df = _base_df(country=["Kenya", "Mexico", "Vietnam"])
-        mask = find_out_of_scope_country_rows(df)
+        mask = find_out_of_scope_country_rows(df, SCOPE_COUNTRIES_AFRICA_VIETNAM)
         assert list(mask) == [False, True, False]
 
     def test_all_in_scope_countries_are_never_flagged(self):
-        df = _base_df(country=list(SCOPE_COUNTRIES)[:1] * 3)
-        mask = find_out_of_scope_country_rows(df)
+        df = _base_df(country=list(SCOPE_COUNTRIES_AFRICA_VIETNAM)[:1] * 3)
+        mask = find_out_of_scope_country_rows(df, SCOPE_COUNTRIES_AFRICA_VIETNAM)
         assert not mask.any()
 
     def test_missing_column_flags_nothing(self):
         df = _base_df().drop(columns=["country"])
-        mask = find_out_of_scope_country_rows(df)
+        mask = find_out_of_scope_country_rows(df, SCOPE_COUNTRIES_AFRICA_VIETNAM)
         assert not mask.any()
+
+    def test_larco_scope_flags_africa_countries_and_vice_versa(self):
+        df = _base_df(country=["Ecuador", "Kenya", "Bolivia"])
+        mask = find_out_of_scope_country_rows(df, SCOPE_COUNTRIES_LARCO)
+        assert list(mask) == [False, True, False]
+
+    def test_dataset_schemas_registry_has_no_country_overlap(self):
+        assert SCOPE_COUNTRIES_AFRICA_VIETNAM.isdisjoint(SCOPE_COUNTRIES_LARCO)
+        assert set(DATASET_SCHEMAS) == {"africa_vietnam", "larco"}
 
 
 # ---------------------------------------------------------------------------

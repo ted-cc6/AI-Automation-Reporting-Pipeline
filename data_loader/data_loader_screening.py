@@ -79,12 +79,26 @@ _TEST_KEYWORD_PATTERN = r"\b(?:" + "|".join(TEST_KEYWORDS) + r")\b"
 
 # The study's in-scope country programmes -- an allow-list (not a deny-list
 # of specific out-of-scope countries) so any unexpected/future stray value is
-# also caught, not just the ones seen in past quarters. Update this set if
-# VisionFund's insurance survey expands to a new country programme.
-SCOPE_COUNTRIES = frozenset({
+# also caught, not just the ones seen in past quarters. Update the relevant
+# set if VisionFund's insurance survey expands to a new country programme
+# within an existing schema (a genuinely new source schema needs its own new
+# set here, not an addition to one of these two -- see DATASET_SCHEMAS).
+SCOPE_COUNTRIES_AFRICA_VIETNAM = frozenset({
     "Rwanda", "Ghana", "Zambia", "Malawi", "Uganda", "Tanzania", "Kenya",
     "Vietnam",
 })
+SCOPE_COUNTRIES_LARCO = frozenset({
+    "Ecuador", "Mexico", "Guatemala", "Honduras", "Bolivia",
+})
+
+# Keyed by the same dataset_schema strings used throughout the pipeline
+# (data_loader_derived.py, run_pipeline.py, dashboard/api/pipeline_runner.py,
+# run_metadata.yaml's "dataset_schema" field).
+DATASET_SCHEMAS = {
+    "africa_vietnam": SCOPE_COUNTRIES_AFRICA_VIETNAM,
+    "larco": SCOPE_COUNTRIES_LARCO,
+}
+DEFAULT_DATASET_SCHEMA = "africa_vietnam"
 
 
 # ---------------------------------------------------------------------------
@@ -164,11 +178,11 @@ def find_non_consenting_rows(df: pd.DataFrame) -> pd.Series:
 # Screen — Out-of-scope-country respondents
 # ---------------------------------------------------------------------------
 
-def find_out_of_scope_country_rows(df: pd.DataFrame) -> pd.Series:
-    """Boolean mask: True where country is not one of SCOPE_COUNTRIES."""
+def find_out_of_scope_country_rows(df: pd.DataFrame, scope_countries: frozenset) -> pd.Series:
+    """Boolean mask: True where country is not one of scope_countries."""
     if "country" not in df.columns:
         return pd.Series(False, index=df.index)
-    return ~df["country"].isin(SCOPE_COUNTRIES)
+    return ~df["country"].isin(scope_countries)
 
 
 # ---------------------------------------------------------------------------
@@ -272,8 +286,10 @@ def _row_label(row: pd.Series) -> str:
     )
 
 
-def screen(df: pd.DataFrame, target_country: "str | None" = None) -> ScreeningResult:
+def screen(df: pd.DataFrame, target_country: "str | None" = None,
+           dataset_schema: str = DEFAULT_DATASET_SCHEMA) -> ScreeningResult:
     working = df
+    scope_countries = DATASET_SCHEMAS[dataset_schema]
 
     # 1. Test/QA rows -- removed entirely.
     test_mask = find_test_rows(working)
@@ -316,7 +332,7 @@ def screen(df: pd.DataFrame, target_country: "str | None" = None) -> ScreeningRe
     working = working[~consent_mask]
 
     # 4. Out-of-scope-country respondents -- removed entirely.
-    scope_mask = find_out_of_scope_country_rows(working)
+    scope_mask = find_out_of_scope_country_rows(working, scope_countries)
     removed_out_of_scope = [
         {"client_id": r.get("client_id"), "kobotoolbox_id": r.get("kobotoolbox_id"),
          "uuid": r.get("uuid"), "country": r.get("country"),
@@ -347,7 +363,8 @@ def screen(df: pd.DataFrame, target_country: "str | None" = None) -> ScreeningRe
 
 
 def build_screening_report(result: ScreeningResult, n_start: int,
-                            target_country: "str | None" = None) -> str:
+                            target_country: "str | None" = None,
+                            dataset_schema: str = DEFAULT_DATASET_SCHEMA) -> str:
     ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     n_test = len(result.removed_test)
     n_dup = len(result.removed_duplicates)
@@ -418,7 +435,8 @@ def build_screening_report(result: ScreeningResult, n_start: int,
 
     lines.append("## Out-of-Scope-Country Rows Removed")
     lines.append(
-        f"_Country is not one of the study's scope: {', '.join(sorted(SCOPE_COUNTRIES))}._"
+        f"_Country is not one of the study's scope ({dataset_schema}): "
+        f"{', '.join(sorted(DATASET_SCHEMAS[dataset_schema]))}._"
     )
     if result.removed_out_of_scope:
         lines.append("| client_id | kobotoolbox_id | uuid | country | reason |")
@@ -471,9 +489,14 @@ def build_screening_report(result: ScreeningResult, n_start: int,
 # Main
 # ---------------------------------------------------------------------------
 
-def main(output_dir: Path, target_country: "str | None" = None) -> None:
+def main(output_dir: Path, target_country: "str | None" = None,
+         dataset_schema: str = DEFAULT_DATASET_SCHEMA) -> None:
     parquet_path = output_dir / "survey_clean.parquet"
     report_path = output_dir / "screening_report.md"
+
+    if dataset_schema not in DATASET_SCHEMAS:
+        log.error(f"Unknown dataset_schema {dataset_schema!r} — expected one of {sorted(DATASET_SCHEMAS)}")
+        sys.exit(1)
 
     if not parquet_path.exists():
         log.error(f"Parquet not found: {parquet_path}")
@@ -485,12 +508,16 @@ def main(output_dir: Path, target_country: "str | None" = None) -> None:
     log.info(f"  {n_start:,} rows, {len(df.columns)} columns")
 
     if target_country:
-        log.info(f"Screening for test/QA, duplicate submissions, and scoping to country={target_country!r}...")
+        log.info(
+            f"Screening for test/QA, duplicate submissions, and scoping to "
+            f"country={target_country!r} (dataset_schema={dataset_schema!r})..."
+        )
     else:
-        log.info("Screening for test/QA and duplicate submissions...")
-    result = screen(df, target_country=target_country)
+        log.info(f"Screening for test/QA and duplicate submissions (dataset_schema={dataset_schema!r})...")
+    result = screen(df, target_country=target_country, dataset_schema=dataset_schema)
 
-    report_md = build_screening_report(result, n_start, target_country=target_country)
+    report_md = build_screening_report(result, n_start, target_country=target_country,
+                                        dataset_schema=dataset_schema)
     report_path.write_text(report_md, encoding="utf-8")
 
     out_df = result.df.reset_index(drop=True)
@@ -537,5 +564,11 @@ if __name__ == "__main__":
              "the full multi-country portfolio. Case-insensitive match against the "
              "country column.",
     )
+    parser.add_argument(
+        "--dataset-schema", type=str, default=DEFAULT_DATASET_SCHEMA,
+        choices=sorted(DATASET_SCHEMAS), metavar="SCHEMA",
+        help=f"Which source-survey schema's country allow-list to screen against. "
+             f"Default: {DEFAULT_DATASET_SCHEMA!r}.",
+    )
     args = parser.parse_args()
-    main(args.output_dir, target_country=args.country)
+    main(args.output_dir, target_country=args.country, dataset_schema=args.dataset_schema)

@@ -318,7 +318,19 @@ def derive_ms_list(out: pd.DataFrame, children_by_parent: dict[str, list[tuple[s
 # ---------------------------------------------------------------------------
 
 def code_single_select(series: pd.Series, col_idx: int, qref: str,
-                       sentinel: str, wt: WarnTracker) -> pd.Categorical:
+                       sentinel: str, wt: WarnTracker,
+                       value_map: "dict | None" = None) -> pd.Categorical:
+    """value_map (optional): explicit raw-value -> label overrides for this
+    qref, from cmap['single_select_value_map'][qref]. Needed when a source
+    schema's raw options don't share Africa's "X. " letter-prefix convention
+    and/or must be collapsed onto a different schema's exact label set (e.g.
+    a downstream section calculator does an exact string comparison against
+    specific labels). Falls back to the default strip_letter_prefix() rule
+    for any value not present in value_map, and warns (does not raise) if a
+    value_map was given for this qref but doesn't cover a raw value seen in
+    the data -- same "warn, don't crash" convention as every other coding
+    step. None (the default) reproduces prior behavior exactly.
+    """
     clean = []
     for v in series:
         sv = _strip_val(v)
@@ -326,6 +338,12 @@ def code_single_select(series: pd.Series, col_idx: int, qref: str,
             clean.append(None)
         elif sv == sentinel:
             clean.append(sentinel)
+        elif value_map is not None:
+            if sv in value_map:
+                clean.append(value_map[sv])
+            else:
+                wt.warn(col_idx, sv, f"{qref}: not in single_select_value_map")
+                clean.append(strip_letter_prefix(sv))
         else:
             clean.append(strip_letter_prefix(sv))
     return pd.Categorical(clean)
@@ -452,6 +470,15 @@ def main(csv_path: Path, mapping_path: Path, yaml_path: Path, output_dir: Path) 
         actual_header = col_names[idx]
         letter = extract_option_letter(actual_header)
         if letter is None:
+            # Fallback for schemas whose raw multi-select option headers don't
+            # carry Africa's "/x. Option text" letter-prefix convention (e.g.
+            # LARCO's "...(select all that apply)?/Microloans", no prefix at
+            # all) -- column_mapping.csv can set output_name to the intended
+            # letter explicitly for that row instead. None (the default)
+            # reproduces prior behavior exactly.
+            override = str(row.get("output_name") or "").strip()
+            letter = override or None
+        if letter is None:
             log.warning(f"Col {idx}: could not extract option letter from '{actual_header[:80]}' — skipped")
             continue
         child_col_name = f"{parent_ref}__{letter}"
@@ -507,7 +534,8 @@ def main(csv_path: Path, mapping_path: Path, yaml_path: Path, output_dir: Path) 
     log.info("Step j: Single-select coding")
     for idx, row in resolved_rows(response_type="single_select"):
         qref = row["question_ref"]
-        out[qref] = code_single_select(raw(idx), idx, qref, sentinel, wt)
+        value_map = cmap.get("single_select_value_map", {}).get(qref)
+        out[qref] = code_single_select(raw(idx), idx, qref, sentinel, wt, value_map=value_map)
 
     # ---- STEP k: Free-text ----
     log.info("Step k: Free-text columns")
