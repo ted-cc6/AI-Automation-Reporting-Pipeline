@@ -6,6 +6,17 @@
 dashboard/api/uploads/
 runs/
 
+# core_credit -- local dev artifacts, never baked into the image (BYOK key comes from the
+# dashboard's own upload/run flow, not a committed .env; per-run outputs/checkpoints are
+# regenerated fresh on every run under runs/, matching every other pipeline's convention)
+core_credit/.env
+core_credit/.claude/
+core_credit/processed_data/
+core_credit/**/output/
+core_credit/**/checkpoints.db
+core_credit/**/.pytest_cache/
+core_credit/**/__pycache__/
+
 # Frontend deps/build (rebuilt fresh in the Docker build stage)
 dashboard/web/node_modules/
 dashboard/web/dist/

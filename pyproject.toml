@@ -30,6 +30,20 @@ dashboard = [
     "anthropic>=0.40",
     "openai>=1.50",
 ]
+# core_credit (agent/) is a sibling pipeline run as a subprocess by
+# dashboard/api/core_credit_runner.py, never imported in-process -- see that module's
+# docstring for why. Its dependencies still need to land in this same environment/image
+# though, since the subprocess shares the container's Python interpreter and site-packages.
+# pandas/pydantic/pyyaml/python-docx are already covered by the base dependency list above;
+# openpyxl is installed separately in the Dockerfile (shared with GEDSI's .xlsx output).
+core_credit = [
+    "langgraph>=0.2",
+    "langgraph-checkpoint>=2.0",
+    "langgraph-checkpoint-sqlite>=2.0",
+    "langchain>=0.3",
+    "langchain-anthropic>=0.3",
+    "python-dotenv>=1.0",
+]
 
 [project.scripts]
 vf-load-data = "run_pipeline:main"

@@ -1,0 +1,6 @@
+langchain
+langchain-anthropic
+pandas
+pydantic>=2
+python-dotenv
+pytest

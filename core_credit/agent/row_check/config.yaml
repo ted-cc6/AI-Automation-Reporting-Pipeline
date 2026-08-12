@@ -1,0 +1,46 @@
+# Row Checker configuration
+#
+# Deliberately narrow scope: this agent checks exactly two things (exact
+# duplicate rows, and duplicate-client-id / test-keyword flags). Every other
+# column and row passes through untouched into the analysis-ready output.
+
+identity_columns:
+  client_id: "Introduction/Global unique client id"
+  branch: "Introduction/INTR02_resp_value"
+  submitted_by: "_submitted_by"
+  row_uuid: "_uuid"
+
+# Columns excluded from the exact-duplicate-row comparison because they are
+# system/audit fields that are always unique per submission -- a genuine
+# double-submission will still differ on these even when every actual
+# survey answer is identical, so comparing them would hide the duplicate.
+exclude_from_duplicate_check:
+  - "_id"
+  - "_uuid"
+  - "_submission_time"
+  - "_status"
+  - "_submitted_by"
+  - "start"
+  - "end"
+
+# Case-insensitive substring match against the columns listed below.
+test_keywords:
+  - "test"
+  - "demo"
+  - "training"
+  - "dummy"
+  - "sample"
+  - "xxx"
+  - "n/a"
+  - "asdf"
+  - "placeholder"
+
+keyword_check_columns:
+  - "Introduction/Global unique client id"
+  - "Introduction/INTR01_resp_value"
+  - "Introduction/INTR02_resp_value"
+  - "_submitted_by"
+
+# Where the analysis-ready CSV + QA report are written, relative to the
+# project root (the directory containing this agent/ folder).
+output_dir: "processed_data"

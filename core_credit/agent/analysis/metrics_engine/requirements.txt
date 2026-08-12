@@ -1,0 +1,3 @@
+pandas
+pydantic>=2
+pytest

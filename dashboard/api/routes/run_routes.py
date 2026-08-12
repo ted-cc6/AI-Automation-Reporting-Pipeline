@@ -7,7 +7,7 @@ import yaml
 from fastapi import APIRouter, Header, HTTPException
 from fastapi.responses import FileResponse, StreamingResponse
 
-from dashboard.api import gedsi_runner, pipeline_runner
+from dashboard.api import core_credit_runner, gedsi_runner, pipeline_runner
 from dashboard.api.config import RUNS_DIR, UPLOADS_DIR
 from dashboard.api.jobs import RunConflictError, get_run, list_runs, start_new_run
 from dashboard.api.models import PriorRunCandidate, RunSummary, StartRunRequest, StartRunResponse
@@ -36,6 +36,8 @@ def _default_run_id(req: StartRunRequest) -> str:
         return req.run_id
     if req.report_type == "gender_study":
         return f"gender_study_{uuid.uuid4().hex[:10]}"
+    if req.report_type == "core_credit":
+        return f"core_credit_{uuid.uuid4().hex[:10]}"
     return f"{req.country}_{req.year}_Q{req.quarter}"
 
 
@@ -47,8 +49,10 @@ async def start_run(req: StartRunRequest) -> StartRunResponse:
 
     if req.report_type == "cupboard_week" and (req.country is None or req.year is None or req.quarter is None):
         raise HTTPException(400, "country, year, and quarter are required for cupboard_week runs.")
-    if req.report_type == "gender_study" and req.dry_run:
-        raise HTTPException(400, "dry_run is not supported for gender_study runs.")
+    if req.report_type in ("gender_study", "core_credit") and req.dry_run:
+        raise HTTPException(400, f"dry_run is not supported for {req.report_type} runs.")
+    if req.report_type == "core_credit" and req.llm.provider != "anthropic":
+        raise HTTPException(400, "core_credit currently only supports the Anthropic provider.")
 
     # gender_study runs GEDSI's own pipeline, which has no dataset_schema
     # concept at all (see gedsi_reconciliation.py) -- this resolution only
@@ -74,6 +78,8 @@ async def start_run(req: StartRunRequest) -> StartRunResponse:
 
     if req.report_type == "gender_study":
         task = asyncio.create_task(asyncio.to_thread(gedsi_runner.execute, run_id, upload_path, req.llm))
+    elif req.report_type == "core_credit":
+        task = asyncio.create_task(core_credit_runner.execute(run_id, upload_path, req.llm))
     else:
         task = asyncio.create_task(
             asyncio.to_thread(

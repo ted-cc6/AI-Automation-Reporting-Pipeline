@@ -23,3 +23,21 @@
   color: var(--color-ink-soft);
   font-size: var(--text-body);
 }
+
+.app-header__back {
+  margin-left: auto;
+  flex-shrink: 0;
+  background: none;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  padding: 0.5rem 0.9rem;
+  font-family: var(--font-body);
+  font-size: var(--text-caption);
+  color: var(--color-ink-soft);
+  cursor: pointer;
+}
+
+.app-header__back:hover {
+  border-color: var(--color-orange);
+  color: var(--color-orange-strong);
+}

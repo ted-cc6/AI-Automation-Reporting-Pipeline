@@ -1,0 +1,69 @@
+# Column Cleaner configuration
+#
+# This file controls the rule-based part of the column classification engine
+# (rules.py). Edit this instead of touching code when business rules change
+# (e.g. a new module should be excluded, or a new noise column shows up).
+
+# Entire sections (the part of a column name before the first "/") to drop
+# outright, regardless of content. Matched case-insensitively.
+# Voluntary Savings is its own report (see Core_Credit_Impact_Report_Template),
+# not part of the Core Credit report, so it's excluded here by default.
+excluded_sections:
+  - Savings
+
+# Exact column names (top-level, no section prefix) that are pure survey-tool
+# boilerplate and never useful for report generation. Always dropped.
+always_drop_column_names:
+  - "Device Info"
+  - "Enumerator Name"
+
+# Exact column names that must always be kept, no matter what the null-check
+# or pattern rules would otherwise decide. These are structural/audit fields
+# (record identity, timestamps) that a report pipeline may need even if a
+# particular export happens to leave one of them empty.
+#
+# The last two entries below are NOT generic Kobo boilerplate -- they're real,
+# hard-coded dependencies of agent/analysis/ and agent/row_check/ that happen
+# to have no _resp_en/_resp_value suffix, so the pattern rules can't recognize
+# them and would otherwise leave them as an LLM-overridable "needs review"
+# judgment call. Confirmed the hard way: a real orchestrator run had
+# Introduction/SurveyVersion dropped (agent's reasoning: "audit field, not
+# impact data" -- reasonable in isolation, wrong for this pipeline, since
+# ppi_module/pipeline.py uses it to pick which PPI scorecard applies) and the
+# whole run failed ~10 minutes into Poverty Likelihood, after several other
+# sections had already made expensive real LLM calls. If you add a new
+# hard-coded column reference anywhere in agent/analysis/ or agent/row_check/
+# that doesn't already end in a recognized suffix, add it here too.
+always_keep_column_names:
+  - "_id"
+  - "_uuid"
+  - "_submission_time"
+  - "_status"
+  - "_submitted_by"
+  - "_index"
+  - "start"
+  - "end"
+  - "Introduction/SurveyVersion"  # ppi_module/pipeline.py: which PPI scorecard guide applies
+  - "Introduction/Global unique client id"  # qualitative_agent/data_prep.py + row_check's own identity_columns.client_id
+  - "Introduction/${Country_question}"  # metrics_engine/segments.py, ppi_module, driver/build_poverty_likelihood.py:
+    # the country code every segment cut, PPI scorecard lookup, and benchmark comparison keys
+    # off of. rules.py deliberately leaves ${...} columns unmatched by pattern in general (a
+    # dynamic-label reference can hold a real answer, not just a metadata echo), and an agent's
+    # own judgment has correctly kept this specific one on every run so far -- but given how
+    # much of the pipeline depends on it, it shouldn't rest on judgment at all.
+
+# Where the trimmed CSV + audit manifest are written, relative to the
+# project root (the directory containing this agent/ folder).
+output_dir: "processed_data"
+
+# Row-chunk size used for both profiling (null-count / cardinality pass)
+# and the final streamed write. Keeps memory flat regardless of file size.
+chunk_size: 5000
+
+# Cap on how many distinct non-null values are tracked per column while
+# profiling. We only need to know "is this column near-constant or highly
+# varied", not the exact cardinality, so this stays small on purpose.
+cardinality_cap: 20
+
+# How many example values to surface per column in the profiling report.
+sample_values_per_column: 3

@@ -1,0 +1,27 @@
+.node-group-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.node-group__header {
+  margin-bottom: 0.5rem;
+}
+.node-group__header strong {
+  font-size: var(--text-body);
+}
+.node-group__header p {
+  margin: 0.15rem 0 0;
+  color: var(--color-ink-soft);
+  font-size: var(--text-caption);
+}
+
+.stage-row--compact {
+  padding: 0.6rem 1rem;
+}
+.stage-row--compact .stage-row__main {
+  align-items: center;
+}
+.stage-row--compact .stage-row__main span {
+  font-size: var(--text-body);
+}

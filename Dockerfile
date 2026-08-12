@@ -27,6 +27,14 @@ COPY dashboard ./dashboard
 COPY country_configs ./country_configs
 COPY insurance-report-spec.yaml insurance-report-spec.schema.json ./
 
+# Core Credit Impact Report pipeline -- a sibling project, run as a subprocess by
+# dashboard/api/core_credit_runner.py rather than pip-installed (see that module's docstring).
+# Only the source ships; per-run output/checkpoints.db/.env are runtime-writable and excluded
+# via .dockerignore. If core_credit/External Benchmarks.xlsx isn't present at build time, the
+# pipeline still runs -- benchmark_module/reference_data.py degrades external-benchmark columns
+# to "not available" instead of crashing (see that module for detail).
+COPY core_credit ./core_credit
+
 # GEDSI (Gender Study) pipeline lives in its own sibling project folder, not
 # pip-installed -- dashboard/api/config.py adds GENDSI_ROOT to sys.path at
 # import time so `from gedsi_pipeline import ...` resolves the same way it
@@ -36,7 +44,7 @@ COPY insurance-report-spec.yaml insurance-report-spec.schema.json ./
 COPY GENDSI/gedsi_pipeline ./GENDSI/gedsi_pipeline
 COPY GENDSI/work/codebooks ./GENDSI/work/codebooks
 
-RUN pip install --no-cache-dir ".[dashboard]" openpyxl  # openpyxl: gedsi_pipeline's .xlsx workbook output
+RUN pip install --no-cache-dir ".[dashboard,core_credit]" openpyxl  # openpyxl: gedsi_pipeline's .xlsx workbook output
 
 # Bring in the built frontend from stage 1
 COPY --from=frontend-build /frontend/dist ./dashboard/web/dist

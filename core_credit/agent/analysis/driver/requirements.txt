@@ -1,0 +1,6 @@
+langchain
+langchain-anthropic
+pandas
+openpyxl
+pydantic>=2
+python-dotenv

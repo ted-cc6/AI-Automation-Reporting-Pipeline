@@ -95,7 +95,12 @@ export interface StartRunResponse {
   status: string;
 }
 
-export type ReportType = "cupboard_week" | "gender_study";
+export type ReportType = "cupboard_week" | "gender_study" | "core_credit";
+
+// Top-level space the landing page offers -- one level above ReportType, since Insurance
+// itself still offers a choice between two report types (cupboard_week/gender_study) once
+// inside, while Core Credit is a single report type with no sibling variant.
+export type Product = "insurance" | "core_credit";
 
 export interface RunSummary {
   run_id: string;
@@ -138,6 +143,14 @@ export interface RunSnapshot {
   // present but always "pending" on cupboard_week runs.
   stage5: StageInfo;
   stage6: StageInfo;
+  // core_credit only -- its graph has a genuinely parallel middle tier (9
+  // sections at once), which doesn't fit the linear stage1..stage6 shape
+  // above. node_name -> "done", populated as each orchestrator node
+  // produces real output; core_credit_result carries its two run-level
+  // summaries once the run finishes. Both are always present (default {})
+  // on every run, just empty for cupboard_week/gender_study.
+  core_credit_nodes: Record<string, string>;
+  core_credit_result: { visuals_missing?: string[]; completeness_issues?: string[] };
   error?: string | null;
   docx_ready: boolean;
   xlsx_ready: boolean;

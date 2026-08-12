@@ -43,3 +43,9 @@ dashboard/web/tsconfig.tsbuildinfo
 
 # --- Raw/reference survey data & Power BI file (real client data; dev-only, not used at runtime) ---
 data/
+
+# --- core_credit runtime artifacts (regenerable per-run output, not source) ---
+core_credit/.claude/
+core_credit/processed_data/
+core_credit/**/output/
+core_credit/**/checkpoints.db

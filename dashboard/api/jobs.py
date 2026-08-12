@@ -27,7 +27,7 @@ from pathlib import Path
 from typing import Literal, Optional
 
 RunStatus = Literal["queued", "running", "succeeded", "partial_failure", "failed"]
-ReportType = Literal["cupboard_week", "gender_study"]
+ReportType = Literal["cupboard_week", "gender_study", "core_credit"]
 
 
 class RunConflictError(Exception):
@@ -48,6 +48,12 @@ class RunState:
     stage4: dict = field(default_factory=lambda: {"status": "pending", "parts": {}})
     stage5: dict = field(default_factory=lambda: {"status": "pending"})
     stage6: dict = field(default_factory=lambda: {"status": "pending"})
+    # core_credit only -- its graph has a genuinely parallel middle tier (9 sections at once),
+    # which doesn't fit the linear stage1..stage6 shape above. node_name -> "done", populated as
+    # core_credit_runner.py tails the subprocess's progress stream; core_credit_result carries
+    # its two run-level summaries (visuals_missing, completeness_issues) once the run finishes.
+    core_credit_nodes: dict = field(default_factory=dict)
+    core_credit_result: dict = field(default_factory=dict)
     logs: list = field(default_factory=list)
     docx_path: Optional[Path] = None
     xlsx_path: Optional[Path] = None
@@ -96,6 +102,8 @@ class RunState:
             "stage4": self.stage4,
             "stage5": self.stage5,
             "stage6": self.stage6,
+            "core_credit_nodes": self.core_credit_nodes,
+            "core_credit_result": self.core_credit_result,
             "error": self.error,
             "docx_ready": self.docx_path is not None,
             "xlsx_ready": self.xlsx_path is not None,

@@ -1,0 +1,77 @@
+"""Per-country reporting decisions that are policy, not something derivable from the reference data.
+
+These came out of a direct discussion with VisionFund's Impact team about
+this quarter's report (2026Q2): India's PPI stays excluded (a standing
+policy carried over from the FY25 AIM dataset work, confirmed as still
+applicable here), Vietnam is reported on national percentiles rather than
+$-a-day lines, and Kosovo/Mali/Montenegro/Mongolia are NA this wave with a
+footnote -- consistent with the same four countries being NA in last year's
+figures too, so this is an established pattern, not a new gap.
+
+Everyone not listed here falls through to the default: score whichever of
+the template's three headline lines ($1.90/2011 PPP, $2.15/2017 PPP,
+$3.20/2011 PPP) their guide actually has points for -- "show whatever line
+they do have," per that same discussion.
+"""
+
+from __future__ import annotations
+
+from dataclasses import dataclass
+from typing import Literal, Optional
+
+TARGET_LINES = ["USD190day2011PPP", "USD215day2017PPP", "USD320day2011PPP"]
+
+
+@dataclass(frozen=True)
+class CountryPPIPolicy:
+    status: Literal["ok", "not_available"] = "ok"
+    reason: Optional[str] = None
+    metric_type: Literal["dollar_line", "percentile"] = "dollar_line"
+    lines: Optional[list] = None  # explicit override; None => auto-detect from TARGET_LINES
+
+
+NOT_AVAILABLE: dict = {
+    "IND": CountryPPIPolicy(
+        status="not_available",
+        reason="Excluded by VisionFund policy this wave (carried over from the FY25 AIM dataset decision).",
+    ),
+    "KOS": CountryPPIPolicy(
+        status="not_available",
+        reason="No PPI responses collected and no usable scorecard this wave (consistent with prior waves).",
+    ),
+    "MLI": CountryPPIPolicy(
+        status="not_available",
+        reason="No PPI responses collected and no usable scorecard this wave (consistent with prior waves).",
+    ),
+    "MNE": CountryPPIPolicy(
+        status="not_available",
+        reason="No PPI responses collected this wave (consistent with prior waves).",
+    ),
+    "MNG": CountryPPIPolicy(
+        status="not_available",
+        reason="Only 10 of the 12 scorecard questions were asked this wave; cannot be scored under the current guide.",
+    ),
+}
+
+OVERRIDES: dict = {
+    "VNM": CountryPPIPolicy(
+        metric_type="percentile",
+        lines=["Bottom20thPercentile", "Bottom40thPercentile", "Bottom60thPercentile", "Bottom80thPercentile"],
+    ),
+}
+
+
+def policy_for(country_code: str) -> CountryPPIPolicy:
+    if country_code in NOT_AVAILABLE:
+        return NOT_AVAILABLE[country_code]
+    if country_code in OVERRIDES:
+        return OVERRIDES[country_code]
+    return CountryPPIPolicy()
+
+
+def na_footnote(results) -> Optional[str]:
+    """Combines every NOT_AVAILABLE country's reason into the single footnote the template asks for."""
+    reasons = [f"{r.country_code}: {r.status_reason}" for r in results if r.status_reason]
+    if not reasons:
+        return None
+    return "Not available this wave -- " + "; ".join(reasons)

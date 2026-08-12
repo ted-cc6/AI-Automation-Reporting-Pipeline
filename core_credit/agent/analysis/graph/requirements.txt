@@ -1,0 +1,10 @@
+langgraph
+langgraph-checkpoint
+langgraph-checkpoint-sqlite
+langchain
+langchain-anthropic
+pandas
+openpyxl
+pydantic>=2
+python-dotenv
+pytest

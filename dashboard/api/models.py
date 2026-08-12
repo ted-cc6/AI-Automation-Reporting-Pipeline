@@ -56,7 +56,7 @@ class PowerBiConfigRequest(BaseModel):
     report_id: Optional[str] = None
 
 
-ReportType = Literal["cupboard_week", "gender_study"]
+ReportType = Literal["cupboard_week", "gender_study", "core_credit"]
 
 
 class StartRunRequest(BaseModel):
@@ -66,7 +66,8 @@ class StartRunRequest(BaseModel):
     run_id: Optional[str] = None
     dry_run: bool = False
     # Cupboard Week only -- required when report_type == "cupboard_week",
-    # ignored for gender_study (which has no country/quarter concept).
+    # ignored for gender_study and core_credit (neither has a country/quarter concept --
+    # core_credit's dataset is the global multi-country rollup in a single upload).
     country: Optional[str] = None
     year: Optional[int] = None
     quarter: Optional[int] = None

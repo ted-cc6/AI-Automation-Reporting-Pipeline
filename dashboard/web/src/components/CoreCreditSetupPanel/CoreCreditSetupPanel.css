@@ -1,0 +1,8 @@
+@import "../../styles/forms.css";
+@import "../SetupPanel/SetupPanel.css";
+
+.core-credit-note {
+  margin: 0.75rem 0 0;
+  font-size: var(--text-caption);
+  color: var(--color-ink-soft);
+}
