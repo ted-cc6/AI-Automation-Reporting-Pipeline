@@ -768,7 +768,9 @@ def build_part_9(doc, package: dict, texts: dict):
 
 
 # ---------------------------------------------------------------------------
-# Part 10 — Trend Comparison (LARCO only)
+# Part 10 — Trend Comparison (renders whenever analysis_results.json has a
+# parts.part_10 block -- see run_analysis.py's build_sections() and
+# generation/orchestrator.py's orchestrate())
 # ---------------------------------------------------------------------------
 
 def build_part_10(doc, package: dict, texts: dict):
@@ -870,7 +872,7 @@ def assemble(packages: list, written_texts: dict, run_id: str, output_path: Path
         "part_10": build_part_10,
     }
 
-    # Part 10 (Trend Comparison, LARCO only) moves to the front of the
+    # Part 10 (Trend Comparison, when present) moves to the front of the
     # findings sections -- right after About This Survey, ahead of Part 1 --
     # instead of sitting last after Parts 1-9. It's the headline wave-over-
     # wave result and belongs near the executive summary/about-survey front

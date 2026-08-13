@@ -864,9 +864,9 @@ parts:
         verbatim_section: "part9"
 
   # ───────────────────────────────────────────────────────────────────
-  # PART 10 — Trend Comparison (LARCO only -- second-wave comparison
-  # against a prior run's own snapshot; see analysis_engine/sections/
-  # part_10.py and run_analysis.py's --prior-run-id)
+  # PART 10 — Trend Comparison (second-wave comparison against a prior
+  # run's own snapshot, any schema -- see analysis_engine/sections/
+  # part_10.py and run_analysis.py's --prior-run-id/build_sections())
   # ───────────────────────────────────────────────────────────────────
   part_10:
     title: "Trend Comparison"

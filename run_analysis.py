@@ -37,10 +37,14 @@ SCHEMA_VERSION = "1.5"   # was "1.4" — inverted Likert scale corrected:
                           # positive-outcome Likert metrics (Track D scale fix)
 
 # Registry of section calculators shared by every dataset schema — add a new
-# section here only; nothing else changes. Parts 9/10 are LARCO-only (see
-# build_sections() below) since Africa/Vietnam has no meaningful data for
-# either (Part 9's source columns are ~0.4% filled there; Part 10's trend
-# indicators have no second wave to compare against).
+# section here only; nothing else changes. Parts 9/10 are gated in
+# build_sections() below: Part 9 stays LARCO-schema-only (Africa/Vietnam's
+# copy of its source columns is ~0.4% filled — see part_9.py); Part 10
+# activates whenever a --prior-run-id is given, LARCO-schema or not, since
+# 2026 folded LARCO into the africa_vietnam schema and a LARCO country's
+# 2025-vs-2026 trend comparison is now an africa_vietnam-schema run with a
+# larco-schema prior (see country_configs/ecuador.yaml etc. and
+# project_larco_2026_pivot memory).
 SECTIONS = [
     ("about_survey", "About This Survey",                 about_survey),
     ("part_1", "Client Understanding & Value Perception", part_1),
@@ -57,12 +61,6 @@ SECTIONS = [
     ("part_8", "Kling Index — Product Outcomes",         part_8),
 ]
 
-LARCO_ONLY_SECTIONS = [
-    ("part_9",  "Additional Services",  part_9),
-    ("part_10", "Trend Comparison",     part_10),
-]
-
-
 def build_sections(dataset_schema: str = "africa_vietnam", prior_run_id: "str | None" = None) -> list:
     """Return [(key, label, calculate_fn), ...] for this dataset_schema.
 
@@ -72,10 +70,23 @@ def build_sections(dataset_schema: str = "africa_vietnam", prior_run_id: "str | 
     pipeline_runner.py's _run_stage2()) can stay a uniform
     `calculate_fn(ds, segment_masks)` regardless of which sections are
     active, rather than special-casing part_10 in the loop itself.
+
+    Part 9 and Part 10 are gated independently:
+    - Part 9 (Additional Services) only ever has real data on a
+      dataset_schema="larco" run (the 2025 LARCO-instrument export) --
+      unchanged.
+    - Part 10 (Trend Comparison) activates whenever prior_run_id is given,
+      regardless of schema, PLUS unconditionally on a "larco" run even with
+      no prior_run_id (a first-wave LARCO run still needs to store its own
+      "current" snapshot for some future wave to compare against -- see
+      part_10.py's module docstring). This is what lets a 2026
+      africa_vietnam-schema run (e.g. a LARCO country's own report) trend-
+      compare against its 2025 larco-schema baseline.
     """
     sections = [(key, label, module.calculate) for key, label, module in SECTIONS]
     if dataset_schema == "larco":
         sections.append(("part_9", "Additional Services", part_9.calculate))
+    if dataset_schema == "larco" or prior_run_id:
         sections.append((
             "part_10", "Trend Comparison",
             functools.partial(part_10.calculate, prior_run_id=prior_run_id),
@@ -152,8 +163,10 @@ def main() -> int:
     )
     parser.add_argument(
         "--prior-run-id", default=None,
-        help="LARCO only: a prior run's run_id to trend-compare Part 10 against "
-             "(reads that run's own analysis_results.json). Ignored for non-LARCO runs.",
+        help="A prior run's run_id to trend-compare Part 10 against (reads that "
+             "run's own analysis_results.json) -- activates Part 10 on this run "
+             "regardless of dataset schema. Every larco-schema run activates "
+             "Part 10 unconditionally even without this flag.",
     )
     args = parser.parse_args()
 
@@ -186,8 +199,12 @@ def main() -> int:
         dataset_schema = "africa_vietnam"
 
     sections = build_sections(dataset_schema, prior_run_id=args.prior_run_id)
-    if dataset_schema == "larco":
-        log.info(f"dataset_schema='larco' — added {[k for k, _, _ in LARCO_ONLY_SECTIONS]}")
+    active_keys = {key for key, _, _ in sections}
+    if "part_9" in active_keys:
+        log.info("dataset_schema='larco' — added part_9 (Additional Services)")
+    if "part_10" in active_keys:
+        reason = "dataset_schema='larco'" if dataset_schema == "larco" else f"--prior-run-id={args.prior_run_id!r}"
+        log.info(f"Part 10 (Trend Comparison) active — {reason}")
 
     country_config = load_country_config(country)
     if country_config.segment_overrides:

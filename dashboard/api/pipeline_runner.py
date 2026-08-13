@@ -257,23 +257,12 @@ def _run_stage4(state, run_dir: Path, llm: LlmConfig, dry_run: bool) -> None:
     if not preflight["ok"]:
         raise RuntimeError("Preflight failed: " + "; ".join(preflight["errors"]))
 
-    # report_spec.yaml lists Parts 9/10 (LARCO-only, see run_analysis.py's
-    # build_sections()) alongside the shared Parts 1-8 -- without this
-    # filter, a non-LARCO run would still render those two sections, just
-    # with every metric showing SUPPRESSED (analysis_results.json simply
-    # has no parts.part_9/part_10 key for that schema), which is confusing
-    # rather than a crash. Read the same run_metadata.yaml field stage 1/2
-    # already write/read.
-    run_metadata_path = run_dir / "run_metadata.yaml"
-    dataset_schema = DEFAULT_DATASET_SCHEMA
-    if run_metadata_path.exists():
-        with open(run_metadata_path, encoding="utf-8") as f:
-            dataset_schema = (yaml.safe_load(f) or {}).get("dataset_schema", DEFAULT_DATASET_SCHEMA)
-    parts_filter = None if dataset_schema == "larco" else [
-        k for k in spec.get("parts", {}) if k not in ("part_9", "part_10")
-    ]
-
-    packages = orchestrate(state.run_id, parts_filter=parts_filter)
+    # Parts 9/10 are only rendered when analysis_results.json actually has
+    # data for them -- orchestrate()'s default parts_filter (parts_filter=
+    # None) derives that straight from the run's own output, so no
+    # dataset_schema lookup is needed here (see generation/orchestrator.py's
+    # orchestrate() for the full rationale).
+    packages = orchestrate(state.run_id)
 
     if dry_run:
         out = run_dir / "dry_run_packages.json"
@@ -312,9 +301,10 @@ def execute(run_id: str, csv_path: Path, country: str, llm: LlmConfig, dry_run: 
             dataset_schema: str = DEFAULT_DATASET_SCHEMA, prior_run_id: "str | None" = None) -> None:
     """Entry point run via asyncio.to_thread() from the /api/runs route.
 
-    prior_run_id: LARCO only -- a prior run_id for Part 10's trend
-    comparison (see analysis_engine/sections/part_10.py). Ignored for
-    non-LARCO runs.
+    prior_run_id: a prior run_id for Part 10's trend comparison (see
+    analysis_engine/sections/part_10.py) -- activates Part 10 on this run
+    regardless of dataset_schema (e.g. a 2026 africa_vietnam-schema run for
+    a LARCO country, compared against its 2025 larco-schema baseline).
     """
     state = RUNS[run_id]
     run_dir = RUNS_DIR / run_id

@@ -53,20 +53,11 @@ def main():
     if args.parts:
         parts_filter = [f"part_{p.strip()}" for p in args.parts.split(",")]
     else:
-        # report_spec.yaml lists Parts 9/10 (LARCO-only, see run_analysis.py's
-        # build_sections()) alongside the shared Parts 1-8 -- default to
-        # excluding them unless this run's own metadata says dataset_schema
-        # is "larco", so a plain `--run-id ... ` (no --parts) on Africa/
-        # Vietnam data doesn't render two all-SUPPRESSED sections. An
+        # Let orchestrate() derive the default filter from this run's own
+        # analysis_results.json (Parts 9/10 only render when they actually
+        # have data -- see generation/orchestrator.py's orchestrate()). An
         # explicit --parts always wins over this default.
-        run_metadata_path = ROOT / "runs" / run_id / "run_metadata.yaml"
-        dataset_schema = "africa_vietnam"
-        if run_metadata_path.exists():
-            with open(run_metadata_path, encoding="utf-8") as f:
-                dataset_schema = (yaml.safe_load(f) or {}).get("dataset_schema", "africa_vietnam")
-        parts_filter = None if dataset_schema == "larco" else [
-            k for k in spec.get("parts", {}) if k not in ("part_9", "part_10")
-        ]
+        parts_filter = None
 
     log.info(f"Generation Pipeline | run_id={run_id}")
 

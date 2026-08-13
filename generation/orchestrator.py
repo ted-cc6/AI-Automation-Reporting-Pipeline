@@ -529,6 +529,24 @@ def build_part_package(part_key: str, analysis: dict, qual: dict,
 def orchestrate(run_id: str, parts_filter: list = None) -> list:
     spec = yaml.safe_load(SPEC_PATH.read_text(encoding="utf-8"))
     analysis, qual = load_data(run_id)
+
+    if parts_filter is None:
+        # report_spec.yaml lists Parts 9/10 alongside the shared Parts 1-8,
+        # but they only have real data when run_analysis.py's
+        # build_sections() actually computed them for this run (Part 9:
+        # dataset_schema="larco" only; Part 10: dataset_schema="larco", or
+        # any schema given a --prior-run-id -- see run_analysis.py). Deriving
+        # the default filter from analysis_results.json's own `parts` keys,
+        # instead of re-deriving that same schema/prior_run_id condition a
+        # second time here, keeps the two in lockstep by construction --
+        # this used to be hand-duplicated in both dashboard/api/
+        # pipeline_runner.py and this module's CLI (run_generation.py) and
+        # had to be updated in both places whenever the condition changed.
+        # An explicit parts_filter (e.g. run_generation.py's --parts) always
+        # bypasses this and is used as-is.
+        available = set(analysis.get("parts", {}))
+        parts_filter = [k for k in spec["parts"] if k not in ("part_9", "part_10") or k in available]
+
     packages = []
     for part_key, part_spec in spec["parts"].items():
         if parts_filter and part_key not in parts_filter:
