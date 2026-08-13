@@ -20,7 +20,9 @@ Four independent screens, with different actions:
   3. Non-consenting respondents -- q_survey_consent == False (answered "b. No"
      to the opening consent question). Removed entirely.
   4. Out-of-scope-country respondents -- country not in SCOPE_COUNTRIES (the
-     study's 7 African country programmes + Vietnam). Removed entirely.
+     study's 7 African country programmes + Vietnam, plus -- as of the 2026
+     wave, which folded LARCO into this same schema -- Ecuador, Mexico,
+     Guatemala, Honduras, Bolivia, and Dominican Republic). Removed entirely.
 
 A fifth check does NOT remove anything: rows that share a client_id but are
 NOT exact-content duplicates (i.e. the same client_id was evidently reused
@@ -83,9 +85,20 @@ _TEST_KEYWORD_PATTERN = r"\b(?:" + "|".join(TEST_KEYWORDS) + r")\b"
 # set if VisionFund's insurance survey expands to a new country programme
 # within an existing schema (a genuinely new source schema needs its own new
 # set here, not an addition to one of these two -- see DATASET_SCHEMAS).
+#
+# 2026-08-13: LARCO's countries were folded into the Africa/Vietnam (133-col)
+# instrument for the 2026 wave -- the 2026 "LIVE" export includes Ecuador/
+# Mexico/Guatemala/Honduras/Bolivia/Dominican Republic rows in this same
+# schema, NOT the separate 209-col LARCO instrument. Without these six here,
+# every LARCO-country respondent in a 2026 africa_vietnam-schema run would be
+# silently dropped as "out of scope". SCOPE_COUNTRIES_LARCO below is
+# unchanged and still describes the older, differently-worded 2025 LARCO
+# instrument (data_loader_larco/) -- kept only to reprocess that 2025 export
+# as a Part 10 trend-comparison baseline, not for 2026+ ingestion.
 SCOPE_COUNTRIES_AFRICA_VIETNAM = frozenset({
     "Rwanda", "Ghana", "Zambia", "Malawi", "Uganda", "Tanzania", "Kenya",
-    "Vietnam",
+    "Vietnam", "Ecuador", "Mexico", "Guatemala", "Honduras", "Bolivia",
+    "Dominican Republic",
 })
 SCOPE_COUNTRIES_LARCO = frozenset({
     "Ecuador", "Mexico", "Guatemala", "Honduras", "Bolivia",

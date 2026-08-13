@@ -36,8 +36,20 @@ class CountryConfig:
 
 
 def load_country_config(country: str) -> CountryConfig:
-    """Load and parse a country YAML config, falling back to _default.yaml if not found."""
-    yaml_path = _CONFIGS_DIR / f"{country}.yaml"
+    """Load and parse a country YAML config, falling back to _default.yaml if not found.
+
+    Config filenames are single lowercase tokens with underscores for spaces
+    (e.g. "dominican_republic.yaml"), but callers pass the country through in
+    whatever form it arrived in upstream -- the dashboard's country picker
+    sends the raw CSV value lowercased but NOT slugified (e.g. "dominican
+    republic", a literal space -- see dashboard/api/routes/csv_routes.py),
+    and a CLI user might type "Dominican Republic". Every single-word country
+    seen before 2026 made this distinction invisible; normalize here so a
+    two-word country resolves to its dedicated config instead of silently
+    falling back to default.yaml.
+    """
+    slug = country.strip().lower().replace(" ", "_")
+    yaml_path = _CONFIGS_DIR / f"{slug}.yaml"
 
     if not yaml_path.exists():
         if country != DEFAULT_COUNTRY:

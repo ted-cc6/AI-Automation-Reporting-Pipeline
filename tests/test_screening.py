@@ -120,7 +120,11 @@ class TestFindNonConsentingRows:
 
 class TestFindOutOfScopeCountryRows:
     def test_flags_countries_outside_the_study_scope(self):
-        df = _base_df(country=["Kenya", "Mexico", "Vietnam"])
+        # Nigeria: a real country that is nonetheless outside both schemas'
+        # scope -- Mexico used to serve this role until the 2026 wave folded
+        # LARCO's countries into SCOPE_COUNTRIES_AFRICA_VIETNAM (see
+        # test_dataset_schemas_registry_intentionally_overlaps_on_larco_countries).
+        df = _base_df(country=["Kenya", "Nigeria", "Vietnam"])
         mask = find_out_of_scope_country_rows(df, SCOPE_COUNTRIES_AFRICA_VIETNAM)
         assert list(mask) == [False, True, False]
 
@@ -139,8 +143,15 @@ class TestFindOutOfScopeCountryRows:
         mask = find_out_of_scope_country_rows(df, SCOPE_COUNTRIES_LARCO)
         assert list(mask) == [False, True, False]
 
-    def test_dataset_schemas_registry_has_no_country_overlap(self):
-        assert SCOPE_COUNTRIES_AFRICA_VIETNAM.isdisjoint(SCOPE_COUNTRIES_LARCO)
+    def test_dataset_schemas_registry_intentionally_overlaps_on_larco_countries(self):
+        # 2026-08-13: LARCO's countries were folded into the africa_vietnam
+        # schema for the 2026 wave (same unified instrument), while
+        # SCOPE_COUNTRIES_LARCO is kept unchanged so the older 2025
+        # LARCO-instrument export can still be reprocessed as a Part 10
+        # trend-comparison baseline. So every LARCO-schema country must also
+        # be in scope for africa_vietnam -- overlap here is intentional, not
+        # a regression of the pre-2026 disjointness this test used to assert.
+        assert SCOPE_COUNTRIES_LARCO <= SCOPE_COUNTRIES_AFRICA_VIETNAM
         assert set(DATASET_SCHEMAS) == {"africa_vietnam", "larco"}
 
 
@@ -330,7 +341,7 @@ class TestScreen:
         df = _base_df(
             client_id=["test rosa", "A2", "A3"],
             q_survey_consent=[True, False, True],
-            country=["Kenya", "Kenya", "Mexico"],
+            country=["Kenya", "Kenya", "Nigeria"],
         )
         result = screen(df)
 
@@ -340,7 +351,7 @@ class TestScreen:
         assert result.removed_non_consenting[0]["client_id"] == "A2"
         assert len(result.removed_out_of_scope) == 1
         assert result.removed_out_of_scope[0]["client_id"] == "A3"
-        assert result.removed_out_of_scope[0]["country"] == "Mexico"
+        assert result.removed_out_of_scope[0]["country"] == "Nigeria"
 
         # All three rows were removed for one reason or another -- nothing survives.
         assert len(result.df) == 0
@@ -368,7 +379,7 @@ class TestScreen:
         # country selection is an additional narrowing, not a replacement.
         df = _base_df(
             client_id=["test rosa", "A2", "A3"],
-            country=["Vietnam", "Vietnam", "Mexico"],
+            country=["Vietnam", "Vietnam", "Nigeria"],
         )
         result = screen(df, target_country="Vietnam")
 

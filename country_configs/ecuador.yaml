@@ -1,18 +1,19 @@
 country: ecuador
 label: Ecuador
 report_context: >
-  Part of VisionFund's LARCO (Latin America and Caribbean) insurance survey,
-  data_loader_larco/ schema. First-pass config -- no Ecuador-specific
-  segment/metric nuances confirmed yet; only the structural gap that applies
-  to every LARCO country (no disability screener question) is recorded
-  below. Update this file once country-specific context is available.
+  LARCO (Latin America and Caribbean) country. From the 2026 wave onward,
+  submits the same unified Africa/Vietnam survey instrument as every other
+  country (data_loader/ schema, dataset_schema="africa_vietnam") -- no
+  Ecuador-specific segment/metric nuances confirmed yet. A 2025 wave also
+  exists under the older, differently-worded LARCO instrument
+  (data_loader_larco/ schema, dataset_schema="larco"), used only as a
+  Part 10 trend-comparison baseline against 2026+ runs. That older
+  instrument had no disability screener question, but this file
+  deliberately does NOT restate that as a pwd segment_override: the 2026
+  schema DOES have q_disability, so a hardcoded override here would
+  wrongly suppress the PWD segment on 2026 runs. On a "larco"-schema run
+  of the 2025 data, analysis_engine/segments.py's required-column check
+  already degrades pwd to empty/skipped automatically when q_disability is
+  absent -- no override needed for that case either.
 
-segment_overrides:
-  pwd:
-    available: false
-    skip_reason: >
-      LARCO's survey instrument has no Washington Group disability screener
-      question (data_loader_larco/column_mapping.csv has no q_disability
-      row) -- this would already resolve to an empty/skipped segment via
-      analysis_engine/segments.py's required-column check even without this
-      override; recorded explicitly here for visibility.
+segment_overrides: {}
