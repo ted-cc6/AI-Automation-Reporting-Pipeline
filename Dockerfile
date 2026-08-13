@@ -15,7 +15,7 @@ WORKDIR /app
 
 # Install the package (incl. dashboard extras: fastapi/uvicorn/anthropic/openai)
 COPY pyproject.toml ./
-COPY run_pipeline.py run_analysis.py utils.py coverage_report.py inspect_spec.py generate_visuals.py llm_providers.py ./
+COPY run_pipeline.py run_analysis.py utils.py coverage_report.py inspect_spec.py generate_visuals.py llm_providers.py report_scopes.py data_quality_flags.py ./
 COPY analysis_engine ./analysis_engine
 COPY data_loader ./data_loader
 COPY data_loader_larco ./data_loader_larco
