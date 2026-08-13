@@ -14,12 +14,6 @@ import type {
 } from "../../api/client";
 import "./SetupPanel.css";
 
-const SCHEMA_LABELS: Record<DatasetSchema, string> = {
-  africa_vietnam: "Africa / Vietnam",
-  larco: "LARCO",
-  unknown: "Unrecognized",
-};
-
 function slotLabel(filename: string): string {
   return filename
     .replace(".png", "")
@@ -127,17 +121,6 @@ export function SetupPanel(props: {
 
         {props.csvUpload && (
           <>
-            <p className="schema-detection">
-              Detected dataset:{" "}
-              <span
-                className={`badge ${
-                  props.csvUpload.detected_schema === "unknown" ? "badge--warning" : "badge--success"
-                }`}
-              >
-                {SCHEMA_LABELS[props.schemaOverride ?? props.csvUpload.detected_schema]}
-                {props.schemaOverride ? " (manual)" : ""}
-              </span>
-            </p>
             {props.csvUpload.detected_schema === "unknown" && !props.schemaOverride && (
               <div className="schema-override">
                 <p className="field-error">

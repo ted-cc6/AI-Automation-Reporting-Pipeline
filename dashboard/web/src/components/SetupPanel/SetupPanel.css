@@ -37,14 +37,6 @@
   color: var(--color-ink-soft);
 }
 
-.schema-detection {
-  margin: 0.75rem 0 0;
-  font-size: var(--text-caption);
-  color: var(--color-ink-soft);
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-}
 .schema-override {
   margin-top: 0.5rem;
 }
