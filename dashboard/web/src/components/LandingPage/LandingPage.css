@@ -1,46 +1,59 @@
 .landing {
-  padding: 1rem 0 2rem;
-}
-
-.landing__heading {
-  margin: 0 0 0.4rem;
-}
-
-.landing__subheading {
-  margin: 0 0 1.75rem;
-  color: var(--color-ink-soft);
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 2.5rem 0 4rem;
 }
 
 .landing-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-  gap: 1rem;
+  gap: 1.25rem;
 }
 
 .landing-tile {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  gap: 0.5rem;
+  gap: 0.75rem;
   text-align: left;
-  padding: 1.5rem;
+  padding: 1.75rem;
   background: var(--color-surface);
   border: 1px solid var(--color-border);
-  border-radius: var(--radius);
+  border-radius: 10px;
   box-shadow: var(--shadow-card);
   cursor: pointer;
   font-family: inherit;
-  transition: border-color 0.12s ease, transform 0.12s ease;
+  transition: border-color 0.15s ease, transform 0.15s ease, box-shadow 0.15s ease;
 }
 
 .landing-tile:hover,
 .landing-tile:focus-visible {
   border-color: var(--color-orange);
-  transform: translateY(-1px);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 10px rgba(33, 29, 29, 0.08), 0 10px 24px rgba(33, 29, 29, 0.07);
+}
+
+.landing-tile__icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.75rem;
+  height: 2.75rem;
+  border-radius: 999px;
+  background: #fdf0e7;
+  color: var(--color-orange-strong);
+}
+
+.landing-tile__icon svg {
+  width: 1.4rem;
+  height: 1.4rem;
 }
 
 .landing-tile h3 {
   margin: 0;
+  font-size: var(--text-h4);
 }
 
 .landing-tile p {
@@ -49,14 +62,42 @@
   font-size: var(--text-body);
 }
 
+.landing-tile__footer {
+  width: 100%;
+  margin-top: auto;
+  padding-top: 0.75rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
 .landing-tile__meta {
-  font-size: var(--text-caption);
-  color: var(--color-ink-soft);
+  font-size: 0.72rem;
+  letter-spacing: 0.02em;
   font-family: var(--font-mono);
+  color: var(--color-ink-soft);
+  background: var(--color-surface-alt);
+  border-radius: 999px;
+  padding: 0.2rem 0.6rem;
 }
 
 .landing-tile__cta {
-  margin-top: 0.5rem;
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
   font-weight: 600;
   color: var(--color-orange-strong);
+}
+
+.landing-tile__arrow-icon {
+  width: 1.1rem;
+  height: 1.1rem;
+  transition: transform 0.15s ease;
+}
+
+.landing-tile:hover .landing-tile__arrow-icon,
+.landing-tile:focus-visible .landing-tile__arrow-icon {
+  transform: translateX(3px);
 }
