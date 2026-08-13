@@ -89,6 +89,8 @@ def main():
         raw_gemini=raw_gemini,
         df=df,
         run_id=run_id,
+        provider="gemini",
+        model=config["model"],
     )
 
     # Print summary

@@ -41,7 +41,7 @@ def _call_gemini(api_key: str, system_prompt: str, user_content: str,
     from google.genai import types
 
     # Same rationale as the Anthropic/OpenAI clients: a generous ceiling (ms)
-    # for the large single-batch qualitative-tagging call, not a floor.
+    # for the large qualitative-tagging calls (NPS batches + synthesis), not a floor.
     client = genai.Client(api_key=api_key, http_options=types.HttpOptions(timeout=1_800_000))
     response = client.models.generate_content(
         model=model,
@@ -102,6 +102,24 @@ def _call_anthropic(api_key: str, system_prompt: str, user_content: str,
         else:
             raise
 
+    log.info(
+        f"Anthropic response: stop_reason={response.stop_reason!r}, "
+        f"input_tokens={response.usage.input_tokens}, output_tokens={response.usage.output_tokens}"
+    )
+    if response.stop_reason == "max_tokens":
+        # The model hit max_output_tokens before finishing its tool_use block
+        # (or before ever starting it, if the payload/task was large enough
+        # that reasoning alone consumed most of the budget) -- block.input
+        # below can be empty or truncated-but-JSON-parseable in this case,
+        # which downstream would otherwise surface as a confusing "missing
+        # keys" error with no hint that the real cause was hitting the token
+        # ceiling, not a malformed/unexpected response shape.
+        log.warning(
+            f"Anthropic hit max_tokens ({max_output_tokens}) before finishing its response -- "
+            "any tool_use block below is likely truncated or empty. Increase max_output_tokens "
+            "or reduce the payload size for this call."
+        )
+
     for block in response.content:
         if block.type == "tool_use":
             return json.dumps(block.input, ensure_ascii=False)
@@ -113,7 +131,7 @@ def _call_openai(api_key: str, system_prompt: str, user_content: str,
     from openai import OpenAI
 
     # Same rationale as the Anthropic client above: a generous ceiling for the
-    # large single-batch qualitative-tagging call, not a floor.
+    # large qualitative-tagging calls (NPS batches + synthesis), not a floor.
     client = OpenAI(api_key=api_key, timeout=1800.0)
     response = client.chat.completions.create(
         model=model,

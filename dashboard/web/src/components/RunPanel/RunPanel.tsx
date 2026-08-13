@@ -7,7 +7,7 @@ import "./RunPanel.css";
 const STAGES: { key: "stage1" | "stage2" | "stage3" | "stage4"; label: string; description: string }[] = [
   { key: "stage1", label: "1. Data loading", description: "Clean and validate the uploaded survey CSV" },
   { key: "stage2", label: "2. Analysis", description: "Compute segments, statistics, and the Kling Index" },
-  { key: "stage3", label: "3. Qualitative tagging", description: "One LLM call over open-ended responses" },
+  { key: "stage3", label: "3. Qualitative tagging", description: "Batched LLM calls over open-ended responses" },
   { key: "stage4", label: "4. Report generation", description: "Seven LLM calls, one per report part, then assembly" },
 ];
 

@@ -38,6 +38,7 @@ from data_loader import (
 from data_loader.data_loader_api import load_survey_data
 from analysis_engine.country_config import DEFAULT_COUNTRY, load_country_config
 from analysis_engine.segments import describe_segments, get_all_segment_masks
+from qualitative import llm_call
 from qualitative.llm_call import call_gemini
 from qualitative.parse_results import parse_and_save
 from qualitative.prepare_payload import build_payload, load_config as load_qual_config, print_payload_stats
@@ -211,7 +212,7 @@ def _run_stage2(state, run_dir: Path, country: str, dataset_schema: str = DEFAUL
 def _run_stage3(state, run_dir: Path, llm: LlmConfig, dry_run: bool) -> None:
     state.current_stage = 3
     state.stage3 = {"status": "running"}
-    state.log("Stage 3/4 -- Qualitative tagging (1 LLM call)...")
+    state.log("Stage 3/4 -- Qualitative tagging (batched NPS tagging + synthesis)...")
 
     try:
         df = pd.read_parquet(run_dir / "survey_clean.parquet")
@@ -226,6 +227,13 @@ def _run_stage3(state, run_dir: Path, llm: LlmConfig, dry_run: bool) -> None:
 
         model = qual_config["model"] if llm.provider == "gemini" else llm.model
         raw_response_path = run_dir / "gemini_raw_response.json"
+        nps_total = len(payload.get("nps_promoters", [])) + len(payload.get("nps_passives", [])) \
+            + len(payload.get("nps_detractors", []))
+        n_batches = -(-nps_total // llm_call._NPS_BATCH_SIZE)  # ceil division
+        state.log(
+            f"  [stage 3] tagging {nps_total} NPS responses in {n_batches} batch(es), "
+            "then one synthesis call -- see container logs for per-batch progress."
+        )
         raw_result = call_gemini(
             payload=payload,
             raw_response_path=raw_response_path,
@@ -233,7 +241,8 @@ def _run_stage3(state, run_dir: Path, llm: LlmConfig, dry_run: bool) -> None:
             provider=llm.provider,
             api_key=llm.api_key,
         )
-        parse_and_save(raw_gemini=raw_result, df=df, run_id=state.run_id)
+        parse_and_save(raw_gemini=raw_result, df=df, run_id=state.run_id,
+                        provider=llm.provider, model=model)
         state.stage3 = {"status": "succeeded"}
         state.log("Stage 3/4 complete.")
     except Exception as exc:

@@ -29,10 +29,10 @@ SECTION_INSIGHT_FIELDS = {"theme_summary", "top_drivers", "sentiment_split"}
 NPS_GROUPS = ("promoters", "passives", "detractors")
 
 
-def _validate(raw: dict) -> None:
+def _validate(raw: dict, provider: str = "LLM") -> None:
     missing = REQUIRED_TOP_KEYS - set(raw.keys())
     if missing:
-        raise ValueError(f"Gemini response missing keys: {missing}")
+        raise ValueError(f"{provider} response missing keys: {missing}")
 
     nps_tags = raw["nps_tags"]
     for grp in NPS_GROUPS:
@@ -174,6 +174,8 @@ def parse_and_save(
     df: pd.DataFrame,
     run_id: str,
     meta_extra: dict = None,
+    provider: str = "LLM",
+    model: str = "unknown",
 ) -> dict:
     """
     Validate, enrich, and assemble final qualitative_results.json.
@@ -183,11 +185,20 @@ def parse_and_save(
         df:          Full survey DataFrame (for profile lookups)
         run_id:      Run identifier (e.g. "2026_Q2")
         meta_extra:  Optional dict with token counts etc. from the API response
+        provider:    Which provider actually produced raw_gemini (for accurate
+                     error messages only -- "Gemini" was hardcoded here even
+                     when Anthropic/OpenAI generated the response; see
+                     llm_call.py's error messages, fixed for the same reason
+                     in commit 3b47925 but missed in this sibling module).
+        model:       Which model actually produced raw_gemini -- the output
+                     meta.model field used to be hardcoded "gemini-2.5-pro"
+                     regardless of provider, same bug class as the message
+                     above.
 
     Returns:
         Final qualitative results dict (also written to disk)
     """
-    _validate(raw_gemini)
+    _validate(raw_gemini, provider=provider)
 
     section_insights = raw_gemini.get("section_insights", {})
     _check_section_insights(section_insights)
@@ -217,7 +228,8 @@ def parse_and_save(
     result = {
         "meta": {
             "schema_version": "1.1",
-            "model": "gemini-2.5-pro",
+            "provider": provider,
+            "model": model,
             "run_id": run_id,
             "generated_at": datetime.now(timezone.utc).isoformat(),
             **(meta_extra or {}),
