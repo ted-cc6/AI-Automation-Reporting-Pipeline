@@ -6,12 +6,16 @@ Run: pytest tests/test_stats.py -v
 from __future__ import annotations
 
 
+import math
+
+import numpy as np
 import pandas as pd
 import pytest
 
 from analysis_engine.stats import (
     LOW_N_THRESHOLD,
     SCOPE_SENTINEL,
+    _safe_exp,
     claims_funnel,
     composite_index,
     disaggregate,
@@ -522,6 +526,78 @@ class TestDisaggregate:
         mask = pd.Series([True] * 35, index=range(100, 135))
         results = disaggregate(df, "score", top_two_box, segment_masks={"all": mask})
         assert results["all"]["n_valid"] == 35
+
+
+# ---------------------------------------------------------------------------
+# logistic_regression / _safe_exp — quasi-complete separation
+#
+# A country-scoped run can be small enough (e.g. n=272 for Mexico's 2026
+# data) that a rare predictor near-perfectly aligns with the outcome
+# (quasi-complete separation). statsmodels' MLE then fails to converge and
+# can return a coefficient/std_err pair large enough that coef ± z*std_err
+# overflows math.exp()'s ~709 ceiling -- this used to raise OverflowError
+# and crash the entire Part 5 section (analysis_engine/sections/part_5.py),
+# discarding real, valid data (drivers correlations, caregiver comparison)
+# that had nothing to do with the one degenerate regression coefficient.
+# ---------------------------------------------------------------------------
+
+class TestSafeExp:
+    def test_normal_values_match_math_exp(self):
+        assert _safe_exp(1.0) == math.exp(1.0)
+        assert _safe_exp(0.0) == math.exp(0.0)
+
+    def test_overflow_returns_inf_instead_of_raising(self):
+        with pytest.raises(OverflowError):
+            math.exp(1000)
+        assert _safe_exp(1000) == math.inf
+
+    def test_large_negative_underflows_to_zero_like_math_exp(self):
+        # math.exp() itself never raises on underflow, only overflow -- this
+        # just documents that _safe_exp doesn't change that side's behavior.
+        assert _safe_exp(-1000) == 0.0
+
+
+class TestLogisticRegressionSeparation:
+    def test_quasi_complete_separation_does_not_raise_overflowerror(self):
+        # rare_flag is 1 for only 6 respondents, all of whom have y == 1 --
+        # near-perfect (but not exact, avoiding a singular-matrix failure
+        # mode) alignment with the outcome, the same shape as the real bug
+        # (Mexico 2026's rare 'bundled_service_client' segment flag).
+        rng = np.random.default_rng(42)
+        n = 200
+        y = pd.Series(rng.integers(0, 2, size=n).astype("float64"))
+        rare_flag = np.zeros(n)
+        ones_idx = np.where(y.values == 1)[0][:6]
+        rare_flag[ones_idx] = 1
+        X = pd.DataFrame({"rare_flag": rare_flag, "control": rng.normal(size=n)})
+
+        result = logistic_regression(y, X)
+
+        assert result["error"] is None
+        assert result["converged"] is False
+        rare = result["coefficients"]["rare_flag"]
+        # The degenerate coefficient's CI is genuinely unbounded -- inf is
+        # the honest answer, not a crash and not a silently wrong number.
+        # run_analysis.py's _sanitise() converts inf to None before this
+        # ever reaches JSON output (see stats.py's _safe_exp docstring).
+        assert rare["ci_upper"] == math.inf
+        assert not math.isnan(rare["odds_ratio"])
+
+    def test_well_behaved_fit_has_finite_coefficients(self):
+        # Sanity check the fix didn't change normal, converging output.
+        rng = np.random.default_rng(7)
+        n = 200
+        control = rng.normal(size=n)
+        y = pd.Series((control + rng.normal(scale=0.5, size=n) > 0).astype("float64"))
+        X = pd.DataFrame({"control": control})
+
+        result = logistic_regression(y, X)
+
+        assert result["error"] is None
+        for coef in result["coefficients"].values():
+            assert math.isfinite(coef["odds_ratio"])
+            assert math.isfinite(coef["ci_lower"])
+            assert math.isfinite(coef["ci_upper"])
 
 
 # ---------------------------------------------------------------------------

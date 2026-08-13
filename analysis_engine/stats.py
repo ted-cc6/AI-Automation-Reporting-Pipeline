@@ -513,6 +513,27 @@ def spearman_correlation(x: pd.Series, y: pd.Series) -> dict:
 
 # --- Regression ---
 
+def _safe_exp(x: float) -> float:
+    """math.exp() that returns inf instead of raising OverflowError.
+
+    An unconverged fit (quasi/complete separation -- a predictor that
+    near-perfectly splits the outcome, more likely the smaller a
+    country-scoped sample is) can drive a coefficient or std_err large
+    enough that coef ± z*std_err overflows a Python float's ~709 exp()
+    ceiling. inf is the mathematically honest answer (an unbounded odds
+    ratio/CI, the expected symptom of separation) -- run_analysis.py's
+    _sanitise() already converts inf/nan to None before JSON output, the
+    same representation used for every other undefined value in this
+    schema, so this only needs to stop the crash, not re-derive a value.
+    `converged: False` (see logistic_regression() below) already flags the
+    whole result as not to be trusted at face value.
+    """
+    try:
+        return math.exp(x)
+    except OverflowError:
+        return math.inf
+
+
 def logistic_regression(y: pd.Series, X: "pd.DataFrame", confidence: float = 0.95) -> dict:
     """Binary logistic regression (statsmodels Logit).
 
@@ -582,11 +603,11 @@ def logistic_regression(y: pd.Series, X: "pd.DataFrame", confidence: float = 0.9
         key = "intercept" if name == "const" else name
         result["coefficients"][key] = {
             "coef":        coef,
-            "odds_ratio":  math.exp(coef),
+            "odds_ratio":  _safe_exp(coef),
             "std_err":     std_err,
             "p_value":     p_val,
-            "ci_lower":    math.exp(coef - z * std_err),
-            "ci_upper":    math.exp(coef + z * std_err),
+            "ci_lower":    _safe_exp(coef - z * std_err),
+            "ci_upper":    _safe_exp(coef + z * std_err),
             "ci_level":    confidence,
             "significant": bool(p_val < 0.05),
         }
