@@ -364,7 +364,7 @@ def check_5_derived(df: pd.DataFrame, target_country: "str | None" = None,
             if target_country:
                 warnings.append(
                     f"Check 5: flag_negative_coping has zero True values out of {n_in_scope} "
-                    f"insured-event respondents in country-scoped run ({target_country!r}) — "
+                    f"insured-event respondents in a scoped run ({target_country!r}) — "
                     "not treated as an error"
                 )
             else:
@@ -652,7 +652,13 @@ LARCO_Q_DEFINITIONS = [
 
 
 def main(output_dir: Path, target_country: "str | None" = None,
-         dataset_schema: str = "africa_vietnam") -> None:
+         dataset_schema: str = "africa_vietnam",
+         report_scope: "str | None" = None) -> None:
+    # report_scope narrows the population the same way target_country does --
+    # fed through the same parameter below rather than threading a second one
+    # through check_5_derived(), which only ever uses this value as a boolean
+    # gate + a log message, never to look anything up.
+    scope_desc = target_country or report_scope
     parquet_path = output_dir / "survey_clean.parquet"
     yaml_path    = PROJECT_ROOT / "insurance-report-spec.yaml"
     schema_path  = PROJECT_ROOT / "insurance-report-spec.schema.json"
@@ -725,7 +731,7 @@ def main(output_dir: Path, target_country: "str | None" = None,
     _log_check("4", len(c4_errors), 0)
 
     log.info("Check 5: Derived Variable Sanity")
-    c5_rows, c5_errors, c5_warnings = check_5_derived(df, target_country=target_country,
+    c5_rows, c5_errors, c5_warnings = check_5_derived(df, target_country=scope_desc,
                                                        valid_insurance_slugs=valid_insurance_slugs)
     all_errors.extend(c5_errors)
     all_warnings.extend(c5_warnings)
@@ -779,5 +785,12 @@ if __name__ == "__main__":
         help="Which source-survey schema this parquet came from -- controls which "
              "checks run and against which column/range/slug lists. Default: 'africa_vietnam'.",
     )
+    parser.add_argument(
+        "--report-scope", type=str, default=None, metavar="SCOPE",
+        help="If this run was scoped to a named region group (see data_loader_screening.py "
+             "--report-scope), relaxes Check 5's flag_negative_coping structural assertion "
+             "the same way --country does.",
+    )
     args = parser.parse_args()
-    main(args.output_dir, target_country=args.country, dataset_schema=args.dataset_schema)
+    main(args.output_dir, target_country=args.country, dataset_schema=args.dataset_schema,
+         report_scope=args.report_scope)

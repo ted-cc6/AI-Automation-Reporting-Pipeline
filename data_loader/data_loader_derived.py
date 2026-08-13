@@ -189,7 +189,7 @@ def run_assertions(df: pd.DataFrame, target_country: "str | None" = None,
             if target_country:
                 log.warning(
                     f"flag_negative_coping: zero True values out of {n_in_scope} "
-                    f"insured-event respondents in country-scoped run ({target_country!r}) "
+                    f"insured-event respondents in a scoped run ({target_country!r}) "
                     "-- not treated as an error"
                 )
             else:
@@ -238,7 +238,14 @@ FLAG_COMPUTE_FNS = {
 
 
 def main(output_dir: Path, target_country: "str | None" = None,
-         dataset_schema: str = "africa_vietnam") -> None:
+         dataset_schema: str = "africa_vietnam",
+         report_scope: "str | None" = None) -> None:
+    # report_scope (a region group, e.g. "lacro") narrows the population the
+    # same way target_country does -- fed through the same parameter here
+    # rather than threading a second one through run_assertions(), which
+    # only ever uses this value as a boolean gate + a log message, never to
+    # look anything up.
+    scope_desc = target_country or report_scope
     parquet_path = output_dir / "survey_clean.parquet"
     if not parquet_path.exists():
         log.error(f"Parquet not found: {parquet_path}")
@@ -271,7 +278,7 @@ def main(output_dir: Path, target_country: "str | None" = None,
     )
 
     log.info("Running structural assertions...")
-    if not run_assertions(df, target_country=target_country, skipped_flags=frozenset(skipped_flags),
+    if not run_assertions(df, target_country=scope_desc, skipped_flags=frozenset(skipped_flags),
                            valid_insurance_slugs=valid_insurance_slugs):
         log.error("Assertions failed — output NOT written")
         sys.exit(1)
@@ -326,5 +333,12 @@ if __name__ == "__main__":
         help="Which source-survey schema this parquet came from -- controls the "
              "insurance_type valid-slug allow-list. Default: 'africa_vietnam'.",
     )
+    parser.add_argument(
+        "--report-scope", type=str, default=None, metavar="SCOPE",
+        help="If this run was scoped to a named region group (see data_loader_screening.py "
+             "--report-scope), relaxes the flag_negative_coping structural assertion the "
+             "same way --country does.",
+    )
     args = parser.parse_args()
-    main(args.output_dir, target_country=args.country, dataset_schema=args.dataset_schema)
+    main(args.output_dir, target_country=args.country, dataset_schema=args.dataset_schema,
+         report_scope=args.report_scope)

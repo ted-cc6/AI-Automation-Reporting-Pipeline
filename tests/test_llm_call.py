@@ -99,6 +99,63 @@ class TestChunk:
 
 
 # ---------------------------------------------------------------------------
+# _dedupe_protection_flags
+# ---------------------------------------------------------------------------
+
+class TestDedupeProtectionFlags:
+    def test_no_duplicates_passes_through_unchanged(self):
+        flags = [
+            {"id": "row_0001", "flag_type": "staff_misconduct", "severity": "medium"},
+            {"id": "row_0002", "flag_type": "coercion", "severity": "high"},
+        ]
+        assert llm_call._dedupe_protection_flags(flags) == flags
+
+    def test_same_id_and_flag_type_collapses_to_one(self):
+        # The synthesis call was handed nps_protection_flags_found as context
+        # and can re-emit the same case in its own protection_flags list --
+        # this is the real bug the user cited (refs #12/#18/#600/#806
+        # appearing twice, inflating the total).
+        flags = [
+            {"id": "row_0012", "flag_type": "staff_misconduct", "severity": "medium", "reason": "batch phase"},
+            {"id": "row_0012", "flag_type": "staff_misconduct", "severity": "medium", "reason": "synthesis"},
+        ]
+        result = llm_call._dedupe_protection_flags(flags)
+        assert len(result) == 1
+        assert result[0]["reason"] == "batch phase"  # first occurrence wins on a tie
+
+    def test_higher_severity_copy_wins(self):
+        # Same underlying case flagged at different severities by the two
+        # phases (the user's cited "#1678 appeared in two tiers") -- keep
+        # the more severe one rather than picking arbitrarily.
+        flags = [
+            {"id": "row_1678", "flag_type": "coercion", "severity": "low"},
+            {"id": "row_1678", "flag_type": "coercion", "severity": "high"},
+        ]
+        result = llm_call._dedupe_protection_flags(flags)
+        assert len(result) == 1
+        assert result[0]["severity"] == "high"
+
+    def test_same_id_different_flag_type_both_kept(self):
+        # A genuinely distinct second concern about the same respondent is
+        # not a duplicate -- only the same (id, flag_type) pair collapses.
+        flags = [
+            {"id": "row_0042", "flag_type": "staff_misconduct", "severity": "medium"},
+            {"id": "row_0042", "flag_type": "data_privacy", "severity": "low"},
+        ]
+        result = llm_call._dedupe_protection_flags(flags)
+        assert len(result) == 2
+
+    def test_preserves_first_seen_order(self):
+        flags = [
+            {"id": "row_0003", "flag_type": "coercion", "severity": "low"},
+            {"id": "row_0001", "flag_type": "coercion", "severity": "low"},
+            {"id": "row_0003", "flag_type": "coercion", "severity": "high"},
+        ]
+        result = llm_call._dedupe_protection_flags(flags)
+        assert [f["id"] for f in result] == ["row_0003", "row_0001"]
+
+
+# ---------------------------------------------------------------------------
 # Prompt variants
 # ---------------------------------------------------------------------------
 
@@ -123,6 +180,13 @@ class TestPromptVariants:
         assert "AND country" not in prompt
         assert "scoped to a single country programme" in prompt
 
+    def test_synthesis_prompt_instructs_against_out_of_scope_country_recommendations(self):
+        # top_actions is where the model writes recommendations -- a
+        # region-scoped report (e.g. LACRO) must never recommend an action
+        # for a country outside its own scope (e.g. Kenya).
+        prompt = _build_synthesis_prompt(is_single_country=False)
+        assert "does not cover" in prompt
+
     def test_batch_and_synthesis_prompts_share_identical_taxonomy_text(self):
         # Both prompts embed the same _THEME_TAXONOMY_BLOCK/_PROTECTION_FLAG_
         # TAXONOMY_BLOCK constants -- tagging must never drift depending on
@@ -133,6 +197,26 @@ class TestPromptVariants:
         assert llm_call._THEME_TAXONOMY_BLOCK in synthesis
         assert llm_call._PROTECTION_FLAG_TAXONOMY_BLOCK in batch
         assert llm_call._PROTECTION_FLAG_TAXONOMY_BLOCK in synthesis
+
+    def test_no_prompt_text_itself_contains_an_em_or_en_dash(self):
+        # The prompt is the model's own style example -- if the instruction
+        # text uses the dash it's telling the model to avoid, the model will
+        # imitate the example over the instruction (see writer.py's
+        # _house_voice_text() for the same principle applied to report prose).
+        for prompt in (
+            _build_batch_prompt(is_single_country=False),
+            _build_batch_prompt(is_single_country=True),
+            _build_synthesis_prompt(is_single_country=False),
+            _build_synthesis_prompt(is_single_country=True),
+        ):
+            assert "—" not in prompt
+            assert "–" not in prompt
+
+    def test_both_prompts_instruct_against_em_and_en_dash(self):
+        batch = _build_batch_prompt(is_single_country=False)
+        synthesis = _build_synthesis_prompt(is_single_country=False)
+        assert "em dash" in batch and "en dash" in batch
+        assert "em dash" in synthesis and "en dash" in synthesis
 
 
 # ---------------------------------------------------------------------------
@@ -268,6 +352,41 @@ class TestCallGeminiOrchestration:
         assert result["protection_flags"][0]["column"] == "nps_detractors"
         assert result["protection_flags"][0]["id"] == "row_0002"
 
+    def test_synthesis_re_flagging_a_batch_flagged_case_is_deduped(self, tmp_path, monkeypatch):
+        # Synthesis is handed nps_protection_flags_found as context (see
+        # llm_call.py's synthesis_input) and can re-emit the same case in its
+        # own protection_flags output, sometimes at a different severity --
+        # the merged result must collapse that to one entry, not double-count
+        # the same client.
+        captured = []
+
+        def fake_call_llm(**kwargs):
+            captured.append(kwargs)
+            body = json.loads(kwargs["user_content"])
+            if "nps_responses" in body:
+                return _fake_batch_response(body["nps_responses"])
+            synth = json.loads(_fake_synthesis_response())
+            synth["protection_flags"] = [
+                {"id": "row_0002", "flag_type": "staff_misconduct", "severity": "high",
+                 "reason": "escalated on full-payload review"},
+            ]
+            return json.dumps(synth)
+
+        monkeypatch.setattr(llm_call, "call_llm", fake_call_llm)
+
+        payload = {
+            "nps_promoters": [], "nps_passives": [],
+            "nps_detractors": [_nps_record(1, "detractor"), _nps_record(2, "detractor")],
+            "claim_no_reason_other": [], "claim_challenges_other_support": [], "sparse_other": [],
+        }
+        result = call_gemini(payload, tmp_path / "raw.json", provider="gemini", api_key="fake-key")
+
+        matching = [f for f in result["protection_flags"] if f["id"] == "row_0002"]
+        assert len(matching) == 1
+        # The higher-severity copy (synthesis's "high") wins over the batch
+        # phase's "low".
+        assert matching[0]["severity"] == "high"
+
     def test_verbatim_candidate_enriched_with_original_record_fields(self, tmp_path, monkeypatch):
         captured = []
         self._install_fake_call_llm(monkeypatch, captured)
@@ -372,3 +491,121 @@ class TestCallGeminiOrchestration:
 
         # Only the 2nd batch's records made it into the merged tags.
         assert len(result["nps_tags"]["promoters"]) == 10
+
+
+# ---------------------------------------------------------------------------
+# excluded_countries -- data_quality_flags.py's exclusion mechanism (see
+# that module's docstring). Flagged countries stay in nps_tags/theme counts
+# (aggregate figures are unaffected) but must never appear as a verbatim
+# candidate or not-worth-it representative -- and the synthesis prompt must
+# carry an explicit instruction not to cite them as headline evidence.
+# ---------------------------------------------------------------------------
+
+class TestExcludedCountries:
+    def _install_fake_call_llm(self, monkeypatch, captured_calls):
+        def fake_call_llm(**kwargs):
+            captured_calls.append(kwargs)
+            body = json.loads(kwargs["user_content"])
+            if "nps_responses" in body:
+                tags = {"promoters": [], "passives": [], "detractors": []}
+                candidates = {f"part{i}": [] for i in range(1, 8)}
+                not_worth_it = []
+                for rec in body["nps_responses"]:
+                    tags[rec["nps_group"] + "s"].append([rec["id"], ["staff_service"]])
+                    candidates["part4"].append({"id": rec["id"], "note": "candidate"})
+                    if rec.get("not_worth_it"):
+                        not_worth_it.append({"id": rec["id"], "type_guess": "pricing", "one_line_reason": "x"})
+                return json.dumps({
+                    "nps_tags": tags, "protection_flags": [],
+                    "verbatim_candidates": candidates, "not_worth_it_candidates": not_worth_it,
+                })
+            return _fake_synthesis_response()
+
+        monkeypatch.setattr(llm_call, "call_llm", fake_call_llm)
+
+    def test_flagged_country_excluded_from_verbatim_candidates(self, tmp_path, monkeypatch):
+        captured = []
+        self._install_fake_call_llm(monkeypatch, captured)
+
+        payload = {
+            "nps_promoters": [
+                _nps_record(1, "promoter", country="Bolivia"),
+                _nps_record(2, "promoter", country="Ecuador"),
+            ],
+            "nps_passives": [], "nps_detractors": [],
+            "claim_no_reason_other": [], "claim_challenges_other_support": [], "sparse_other": [],
+        }
+        call_gemini(payload, tmp_path / "raw.json", provider="gemini", api_key="fake-key",
+                     excluded_countries=["Bolivia"])
+
+        synthesis_call = next(c for c in captured if "nps_responses" not in json.loads(c["user_content"]))
+        synth_input = json.loads(synthesis_call["user_content"])
+        candidate_ids = [c["id"] for c in synth_input["verbatim_candidates"]["part4"]]
+        assert candidate_ids == ["row_0002"]  # Bolivia's row_0001 excluded
+
+    def test_flagged_country_still_tagged_in_nps_tags(self, tmp_path, monkeypatch):
+        # Aggregate figures (nps_tags, and therefore theme_counts) are
+        # unaffected by the exclusion -- only quote/example eligibility is.
+        captured = []
+        self._install_fake_call_llm(monkeypatch, captured)
+
+        payload = {
+            "nps_promoters": [_nps_record(1, "promoter", country="Bolivia")],
+            "nps_passives": [], "nps_detractors": [],
+            "claim_no_reason_other": [], "claim_challenges_other_support": [], "sparse_other": [],
+        }
+        result = call_gemini(payload, tmp_path / "raw.json", provider="gemini", api_key="fake-key",
+                              excluded_countries=["Bolivia"])
+
+        assert len(result["nps_tags"]["promoters"]) == 1
+        assert result["nps_tags"]["promoters"][0][0] == "row_0001"
+
+    def test_flagged_country_excluded_from_not_worth_it_candidates(self, tmp_path, monkeypatch):
+        captured = []
+        self._install_fake_call_llm(monkeypatch, captured)
+
+        payload = {
+            "nps_promoters": [
+                _nps_record(1, "promoter", country="Bolivia", not_worth_it=True),
+                _nps_record(2, "promoter", country="Ecuador", not_worth_it=True),
+            ],
+            "nps_passives": [], "nps_detractors": [],
+            "claim_no_reason_other": [], "claim_challenges_other_support": [], "sparse_other": [],
+        }
+        call_gemini(payload, tmp_path / "raw.json", provider="gemini", api_key="fake-key",
+                     excluded_countries=["Bolivia"])
+
+        synthesis_call = next(c for c in captured if "nps_responses" not in json.loads(c["user_content"]))
+        synth_input = json.loads(synthesis_call["user_content"])
+        ids = [c["id"] for c in synth_input["not_worth_it_candidates"]]
+        assert ids == ["row_0002"]
+
+    def test_synthesis_prompt_carries_flag_instruction_when_excluded(self, tmp_path, monkeypatch):
+        captured = []
+        self._install_fake_call_llm(monkeypatch, captured)
+
+        payload = {
+            "nps_promoters": [_nps_record(1, "promoter", country="Bolivia")],
+            "nps_passives": [], "nps_detractors": [],
+            "claim_no_reason_other": [], "claim_challenges_other_support": [], "sparse_other": [],
+        }
+        call_gemini(payload, tmp_path / "raw.json", provider="gemini", api_key="fake-key",
+                     excluded_countries=["Bolivia"])
+
+        synthesis_call = next(c for c in captured if "nps_responses" not in json.loads(c["user_content"]))
+        assert "DATA QUALITY FLAG" in synthesis_call["system_prompt"]
+        assert "Bolivia" in synthesis_call["system_prompt"]
+
+    def test_no_excluded_countries_leaves_prompt_unchanged(self, tmp_path, monkeypatch):
+        captured = []
+        self._install_fake_call_llm(monkeypatch, captured)
+
+        payload = {
+            "nps_promoters": [_nps_record(1, "promoter")],
+            "nps_passives": [], "nps_detractors": [],
+            "claim_no_reason_other": [], "claim_challenges_other_support": [], "sparse_other": [],
+        }
+        call_gemini(payload, tmp_path / "raw.json", provider="gemini", api_key="fake-key")
+
+        synthesis_call = next(c for c in captured if "nps_responses" not in json.loads(c["user_content"]))
+        assert "DATA QUALITY FLAG" not in synthesis_call["system_prompt"]

@@ -12,14 +12,18 @@ from data_loader.data_loader_screening import (
     DATASET_SCHEMAS,
     SCOPE_COUNTRIES_AFRICA_VIETNAM,
     SCOPE_COUNTRIES_LARCO,
+    build_screening_summary,
     choose_canonical_index,
     content_columns,
     find_client_id_collisions,
     find_duplicate_groups,
+    find_duration_outliers,
     find_non_consenting_rows,
     find_out_of_scope_country_rows,
     find_test_rows,
     find_unselected_country_rows,
+    find_unselected_region_rows,
+    find_uuid_duplicate_pairs,
     screen,
 )
 
@@ -179,6 +183,82 @@ class TestFindUnselectedCountryRows:
         df = _base_df().drop(columns=["country"])
         mask = find_unselected_country_rows(df, "Vietnam")
         assert not mask.any()
+
+
+# ---------------------------------------------------------------------------
+# find_unselected_region_rows -- report_scope filter (see report_scopes.py)
+# ---------------------------------------------------------------------------
+
+class TestFindUnselectedRegionRows:
+    def test_flags_every_row_outside_the_given_regions(self):
+        df = _base_df(region=["LACRO", "AFRICA", "ASIA"])
+        mask = find_unselected_region_rows(df, ["LACRO"])
+        assert list(mask) == [False, True, True]
+
+    def test_multiple_regions_are_all_kept(self):
+        df = _base_df(region=["AFRICA", "ASIA", "LACRO"])
+        mask = find_unselected_region_rows(df, ["AFRICA", "ASIA"])
+        assert list(mask) == [False, False, True]
+
+    def test_comparison_is_case_insensitive(self):
+        df = _base_df(region=["lacro", "LACRO", "Lacro"])
+        mask = find_unselected_region_rows(df, ["LACRO"])
+        assert not mask.any()
+
+    def test_missing_column_flags_nothing(self):
+        df = _base_df()  # no region column
+        mask = find_unselected_region_rows(df, ["LACRO"])
+        assert not mask.any()
+
+
+# ---------------------------------------------------------------------------
+# screen() -- report_scope wiring end to end
+# ---------------------------------------------------------------------------
+
+class TestScreenReportScope:
+    def test_report_scope_narrows_to_the_named_regions(self):
+        df = _base_df(
+            client_id=["A1", "A2", "A3"],
+            region=["LACRO", "AFRICA", "LACRO"],
+        )
+        result = screen(df, report_scope="lacro")
+        assert len(result.df) == 2
+        assert list(result.df["client_id"]) == ["A1", "A3"]
+        assert len(result.removed_unselected_region) == 1
+        assert result.removed_unselected_region[0]["client_id"] == "A2"
+
+    def test_report_scope_runs_after_other_screens_not_instead_of_them(self):
+        df = _base_df(
+            client_id=["test rosa", "A2", "A3"],
+            region=["LACRO", "LACRO", "AFRICA"],
+        )
+        result = screen(df, report_scope="lacro")
+        assert len(result.removed_test) == 1
+        assert len(result.removed_unselected_region) == 1
+        assert result.removed_unselected_region[0]["client_id"] == "A3"
+        assert len(result.df) == 1
+        assert result.df.iloc[0]["client_id"] == "A2"
+
+    def test_no_report_scope_leaves_every_region_in_place(self):
+        df = _base_df(region=["LACRO", "AFRICA", "ASIA"])
+        result = screen(df)
+        assert len(result.df) == 3
+        assert result.removed_unselected_region == []
+
+
+# ---------------------------------------------------------------------------
+# build_screening_summary
+# ---------------------------------------------------------------------------
+
+class TestBuildScreeningSummary:
+    def test_summary_reports_report_scope_removals(self):
+        df = _base_df(region=["LACRO", "AFRICA", "LACRO"])
+        result = screen(df, report_scope="lacro")
+        summary = build_screening_summary(result, n_start=3, report_scope="lacro")
+        assert summary["report_scope"] == "lacro"
+        assert summary["removed"]["unselected_region"] == 1
+        assert summary["n_end"] == 2
+        assert "rules" in summary
 
 
 # ---------------------------------------------------------------------------
@@ -388,3 +468,127 @@ class TestScreen:
         assert result.removed_out_of_scope[0]["client_id"] == "A3"
         assert len(result.df) == 1
         assert result.df.iloc[0]["client_id"] == "A2"
+
+
+# ---------------------------------------------------------------------------
+# find_uuid_duplicate_pairs -- a THIRD independent signal from exact-content
+# duplicates and client-ID collisions (see the function's own docstring)
+# ---------------------------------------------------------------------------
+
+class TestFindUuidDuplicatePairs:
+    def test_shared_uuid_different_client_id_partial_overlap_is_a_pair(self):
+        df = _base_df(
+            client_id=["A1", "A2", "A3"],
+            uuid=["dup-uuid", "dup-uuid", "u3"],
+            q_coverage_understanding=[1, 1, 3],  # matches between A1/A2
+            q_nps_score=[9, 2, 2],                # differs between A1/A2
+        )
+        pairs = find_uuid_duplicate_pairs(df)
+        assert len(pairs) == 1
+        p = pairs[0]
+        assert {p["client_id_a"], p["client_id_b"]} == {"A1", "A2"}
+        assert 0.0 < p["similarity"] < 1.0
+
+    def test_fully_matching_content_gets_a_pair_at_100_percent(self):
+        # client_id IS a content column (not in CONTENT_EXCLUDE_COLS), so a
+        # true 100%-similarity pair needs a matching client_id too -- this
+        # is the ceiling case, not the real-world shape (find_duplicate_
+        # groups() would already catch a same-client_id, fully-identical
+        # pair as an exact duplicate; this function doesn't care and would
+        # still score it, confirming the similarity math itself).
+        df = _base_df(
+            client_id=["A1", "A1", "A3"], uuid=["dup-uuid", "dup-uuid", "u3"],
+            q_coverage_understanding=[1, 1, 3], q_nps_score=[9, 9, 2],
+        )
+        pairs = find_uuid_duplicate_pairs(df)
+        assert len(pairs) == 1
+        assert pairs[0]["similarity"] == 1.0
+        assert pairs[0]["severity"] == "high"
+
+    def test_severity_bands_follow_similarity(self):
+        assert find_uuid_duplicate_pairs(
+            _base_df(uuid=["u", "u", "x"], q_coverage_understanding=[1, 1, 3], q_nps_score=[9, 5, 2])
+        )[0]["severity"] in ("high", "medium", "low")  # sanity: always one of the three
+
+    def test_unique_uuids_produce_no_pairs(self):
+        df = _base_df()  # default fixture already has 3 distinct uuids
+        assert find_uuid_duplicate_pairs(df) == []
+
+    def test_missing_uuid_column_returns_empty(self):
+        df = _base_df().drop(columns=["uuid"])
+        assert find_uuid_duplicate_pairs(df) == []
+
+    def test_never_drops_rows_report_only(self):
+        df = _base_df(uuid=["dup-uuid", "dup-uuid", "u3"])
+        result = screen(df)
+        assert len(result.df) == 3  # nothing removed
+        assert len(result.uuid_duplicate_pairs) == 1
+
+
+# ---------------------------------------------------------------------------
+# find_duration_outliers -- derivable data-quality signal (see
+# data_quality_flags.py for how a "concentrated" finding becomes a flag)
+# ---------------------------------------------------------------------------
+
+def _duration_df(n_normal=100, n_fast=40, fast_country="Bolivia",
+                  fast_enumerator_share=1.0) -> pd.DataFrame:
+    """n_normal respondents at ~13 minutes across a few countries, plus
+    n_fast respondents from fast_country at ~2 minutes -- mirrors the real
+    Bolivia scenario (n=278, 213 outliers, one enumerator)."""
+    rows = []
+    countries = ["Ecuador", "Mexico", "Guatemala"]
+    for i in range(n_normal):
+        rows.append({
+            "country": countries[i % len(countries)],
+            "enumerator": f"enum_{i % 5}",
+            "interview_start": "2026-04-01T09:00:00",
+            "interview_end": "2026-04-01T09:13:00",  # 13 min
+        })
+    n_from_top_enum = int(n_fast * fast_enumerator_share)
+    for i in range(n_fast):
+        enumerator = "rosa_cardenas" if i < n_from_top_enum else f"other_enum_{i}"
+        rows.append({
+            "country": fast_country,
+            "enumerator": enumerator,
+            "interview_start": "2026-04-01T09:00:00",
+            "interview_end": "2026-04-01T09:02:00",  # 2 min
+        })
+    df = pd.DataFrame(rows)
+    df["client_id"] = [f"C{i}" for i in range(len(df))]
+    return df
+
+
+class TestFindDurationOutliers:
+    def test_concentrated_fast_country_is_flagged(self):
+        df = _duration_df()
+        findings = find_duration_outliers(df)
+        assert len(findings) == 1
+        f = findings[0]
+        assert f["country"] == "Bolivia"
+        assert f["n_outliers"] == 40
+        assert f["concentrated"] is True
+        assert f["top_enumerator"] == "rosa_cardenas"
+        assert f["top_enumerator_share_of_outliers"] == 1.0
+
+    def test_spread_out_fast_interviews_are_not_concentrated(self):
+        df = _duration_df(fast_enumerator_share=0.1)  # only 10% from one enumerator
+        findings = find_duration_outliers(df)
+        assert len(findings) == 1
+        assert findings[0]["concentrated"] is False
+
+    def test_no_elevated_country_produces_no_findings(self):
+        df = _duration_df(n_fast=0)
+        assert find_duration_outliers(df) == []
+
+    def test_small_country_below_min_n_is_ignored(self):
+        df = _duration_df(n_fast=5)  # below _DURATION_OUTLIER_MIN_N (30)
+        assert find_duration_outliers(df) == []
+
+    def test_missing_required_columns_returns_empty(self):
+        assert find_duration_outliers(pd.DataFrame({"country": ["Kenya"]})) == []
+
+    def test_never_drops_rows_report_only(self):
+        df = _duration_df()
+        result = screen(df)
+        assert len(result.df) == len(df)  # nothing removed
+        assert len(result.duration_outliers) == 1

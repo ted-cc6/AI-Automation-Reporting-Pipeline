@@ -75,19 +75,19 @@ class TestIsSingleCountry:
 class TestReportTitle:
     def test_no_meta_matches_original_hardcoded_global_title(self):
         period = writer.format_period_label("2026_Q2")
-        expected = f"VisionFund International Insurance Impact Report — Global Portfolio, {period}"
+        expected = f"VisionFund International Insurance Impact Report: Global Portfolio, {period}"
         assert _report_title("2026_Q2") == expected
         assert _report_title("2026_Q2", None) == expected
         assert _report_title("2026_Q2", {}) == expected
 
     def test_default_country_meta_matches_global_title(self):
         period = writer.format_period_label("2026_Q2")
-        expected = f"VisionFund International Insurance Impact Report — Global Portfolio, {period}"
+        expected = f"VisionFund International Insurance Impact Report: Global Portfolio, {period}"
         assert _report_title("2026_Q2", {"country": "default", "country_label": "Default"}) == expected
 
     def test_scoped_country_uses_country_label(self):
         title = _report_title("2026_Q2", {"country": "vietnam", "country_label": "Vietnam"})
-        assert title == f"VisionFund International Insurance Impact Report — Vietnam, {writer.format_period_label('2026_Q2')}"
+        assert title == f"VisionFund International Insurance Impact Report: Vietnam, {writer.format_period_label('2026_Q2')}"
 
     def test_scoped_country_without_label_falls_back_to_titlecase(self):
         title = _report_title("2026_Q2", {"country": "kenya"})
@@ -102,7 +102,7 @@ class TestReportTitle:
         title = _report_title(
             "2026_Q2", {"country": "ecuador", "country_label": "Ecuador", "dataset_schema": "larco"}
         )
-        assert title == f"VisionFund International Insurance Impact Report — Ecuador, {writer.format_period_label('2026_Q2')}"
+        assert title == f"VisionFund International Insurance Impact Report: Ecuador, {writer.format_period_label('2026_Q2')}"
         assert "LARCO" not in title
 
     def test_missing_dataset_schema_key_defaults_to_global(self):
@@ -166,6 +166,30 @@ class TestHouseVoice:
             assert anchor in single
         # Everything from SCALE DIRECTION onward is untouched by the swap.
         assert multi[multi.index("SCALE DIRECTION"):] == single[single.index("SCALE DIRECTION"):]
+
+    def test_instructs_against_em_and_en_dash(self):
+        prompt = _house_voice("TITLE")
+        assert "em dash" in prompt
+        assert "en dash" in prompt
+
+    def test_instructs_against_out_of_scope_country_recommendations(self):
+        multi = " ".join(_house_voice("TITLE", single_country=False).split())
+        single = " ".join(_house_voice("TITLE", single_country=True).split())
+        assert "does not cover" in multi
+        assert "never recommend an action for any other country" in single
+
+    def test_own_prose_contains_no_em_or_en_dash_outside_the_instruction_itself(self):
+        # The prompt is the model's own style example -- if HOUSE_VOICE's own
+        # prose used the dash it's telling the model to avoid, the model
+        # would imitate the example over the instruction. The single
+        # permitted appearance is the instruction line itself, which quotes
+        # the banned characters literally so the model knows what to avoid.
+        prompt = _house_voice("TITLE")
+        offending = [
+            line for line in prompt.splitlines()
+            if ("—" in line or "–" in line) and "em dash" not in line
+        ]
+        assert offending == []
 
 
 # ---------------------------------------------------------------------------

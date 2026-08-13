@@ -294,10 +294,22 @@ def claims_funnel(df: pd.DataFrame) -> dict:
     has_payout_col       = _COL_PAYOUT_COVERAGE in df.columns
 
     # Step 1: experienced insured event — not_applicable (not zero) when this
-    # schema never asks the question at all.
+    # schema never asks the question at all (has_event_gate False, the whole
+    # column absent). Distinct from a DIFFERENT case this step must also
+    # handle: the column EXISTS schema-wide but a sub-population within it
+    # was never asked due to per-row skip logic (e.g. Vietnam's crop clients
+    # in the 2026 unified schema, which has this column for everyone else --
+    # see data_loader/column_mapping.csv). Those rows are legitimately NaN,
+    # not False, and must not count in the denominator either -- n_asked
+    # (not n_all) is the correct base. Confirmed bug: a pooled run reported
+    # "3,812 surveyed, 481 (12.6%) experienced an insured event" using n_all
+    # as the denominator; the correct base excluding never-asked crop
+    # clients is smaller, giving 13.1%, not 12.6%.
     if has_event_gate:
+        n_asked_event = int(df[_COL_INSURED_EVENT].notna().sum())
         n_event = int((df[_COL_INSURED_EVENT] == True).sum())  # noqa: E712
     else:
+        n_asked_event = None
         n_event = None
 
     # Step 2: filed claim — denominator is the insured-event base when this
@@ -337,15 +349,19 @@ def claims_funnel(df: pd.DataFrame) -> dict:
                 for v, c in vc.items()
             ]
 
-    pct_event = (n_event / n_all) if (has_event_gate and n_all > 0) else None
+    pct_event = (n_event / n_asked_event) if (has_event_gate and n_asked_event > 0) else None
     pct_claim = (n_claimants / filed_claim_base_n) if filed_claim_base_n > 0 else 0.0
     pct_paid  = (n_paid / n_claimants) if (not claim_paid_not_applicable and n_claimants > 0) else None
 
     return {
         "experienced_event": {
             "n":              n_event,
-            "n_total":        n_all,
+            "n_total":        n_asked_event if has_event_gate else n_all,
             "pct_of_total":   pct_event,
+            "base_description": (
+                "respondents asked whether they experienced an insured event "
+                "in the past 12 months" if has_event_gate else None
+            ),
             "not_applicable": not has_event_gate,
             "suppressed":     not has_event_gate,
         },

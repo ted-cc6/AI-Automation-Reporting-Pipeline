@@ -56,10 +56,10 @@ def _report_title(run_id: str, meta: "dict | None" = None) -> str:
     meta = meta or {}
     if _is_single_country(meta):
         label = meta.get("country_label") or meta["country"].title()
-        return f"VisionFund International Insurance Impact Report — {label}, {period}"
+        return f"VisionFund International Insurance Impact Report: {label}, {period}"
     if _is_larco_rollup(meta):
-        return f"VisionFund International Insurance Impact Report — LARCO Regional Portfolio, {period}"
-    return f"VisionFund International Insurance Impact Report — Global Portfolio, {period}"
+        return f"VisionFund International Insurance Impact Report: LARCO Regional Portfolio, {period}"
+    return f"VisionFund International Insurance Impact Report: Global Portfolio, {period}"
 
 
 # ---------------------------------------------------------------------------
@@ -78,15 +78,18 @@ def _report_title(run_id: str, meta: "dict | None" = None) -> str:
 
 _MULTI_COUNTRY_SCOPE_PARAGRAPH = (
     "SCOPE: This report covers VisionFund's insurance client portfolio across MULTIPLE\n"
-    "countries in one combined analysis — it is not a single-country report. Some\n"
+    "countries in one combined analysis, not a single-country report. Some\n"
     "metrics only apply to a subset of clients (for example, a product that is only\n"
     "sold in one country, or a question that was only asked to certain product\n"
     "types). Whenever a metric's data package states a \"population\" for it, use that\n"
     "population description in your sentence (e.g. \"among health and credit-life\n"
     "clients\" or \"among Vietnam's crop-insurance clients\") instead of implying the\n"
     "figure describes all surveyed clients. Never present two metrics as a\n"
-    "before/after or \"however\" contrast unless they describe the same population —\n"
-    "check each metric's stated population before connecting it to another."
+    "before/after or \"however\" contrast unless they describe the same population;\n"
+    "check each metric's stated population before connecting it to another. Any\n"
+    "recommendation or forward-looking suggestion you write must name only countries\n"
+    "covered by this report; never recommend an action for a country this report does\n"
+    "not cover, even one VisionFund operates in elsewhere."
 )
 
 _SINGLE_COUNTRY_SCOPE_PARAGRAPH = (
@@ -97,8 +100,10 @@ _SINGLE_COUNTRY_SCOPE_PARAGRAPH = (
     "states a \"population\" for it, use that population description in your sentence\n"
     "(e.g. \"among health and credit-life clients\") instead of implying the figure\n"
     "describes all surveyed clients. Never present two metrics as a before/after or\n"
-    "\"however\" contrast unless they describe the same population — check each\n"
-    "metric's stated population before connecting it to another."
+    "\"however\" contrast unless they describe the same population; check each\n"
+    "metric's stated population before connecting it to another. Any recommendation\n"
+    "or forward-looking suggestion you write must be about this one country only;\n"
+    "never recommend an action for any other country."
 )
 
 
@@ -117,56 +122,61 @@ AUDIENCE: Senior MFI leaders, impact investors, and programme managers.
 Assume they understand financial inclusion concepts but not statistical methods.
 
 SCOPE: This report covers VisionFund's insurance client portfolio across MULTIPLE
-countries in one combined analysis — it is not a single-country report. Some
+countries in one combined analysis, not a single-country report. Some
 metrics only apply to a subset of clients (for example, a product that is only
 sold in one country, or a question that was only asked to certain product
 types). Whenever a metric's data package states a "population" for it, use that
 population description in your sentence (e.g. "among health and credit-life
 clients" or "among Vietnam's crop-insurance clients") instead of implying the
 figure describes all surveyed clients. Never present two metrics as a
-before/after or "however" contrast unless they describe the same population —
-check each metric's stated population before connecting it to another.
+before/after or "however" contrast unless they describe the same population;
+check each metric's stated population before connecting it to another. Any
+recommendation or forward-looking suggestion you write must name only countries
+covered by this report; never recommend an action for a country this report does
+not cover, even one VisionFund operates in elsewhere.
 
 SCALE DIRECTION: Several survey questions are coded so that a LOWER number is
 the more positive response (1=best, e.g. "Definitely would renew" = 1). When a
 Part 5 driver correlation gives a "[direction: ...]" note, that note states
-what the sign actually means in plain English for that specific driver — use
+what the sign actually means in plain English for that specific driver; use
 its stated real-world direction verbatim rather than assuming a negative rho
 is automatically a negative finding. A negative correlation is frequently the
 EXPECTED, POSITIVE result once the 1=best coding is accounted for (e.g.
 stronger renewal intent aligning with better child wellbeing produces a
-negative rho, not a positive one) — never describe such a result as
+negative rho, not a positive one). Never describe such a result as
 counterintuitive or concerning without first checking its direction note.
 
 VOICE RULES:
 - Professional, empathetic, evidence-based
 - Active voice. Past tense for findings ("revealed", "showed"), present for implications ("suggests", "indicates")
-- No bullet points, no headers, no markdown in narrative text — flowing prose only
-- Do not use academic jargon (no "statistically significant" — say "the difference is meaningful" or cite the p-value)
+- Never use an em dash (—) or en dash (–) anywhere in your writing. Use a comma, colon,
+  semicolon, parentheses, or a new sentence instead.
+- No bullet points, no headers, no markdown in narrative text; flowing prose only
+- Do not use academic jargon (no "statistically significant"; say "the difference is meaningful" or cite the p-value)
 - Every statistic you cite MUST come from the data package. Never invent or round figures beyond what is provided.
-- Suppressed values (marked "SUPPRESSED") must be noted as "data suppressed due to small sample size" — never estimate or interpolate
+- Suppressed values (marked "SUPPRESSED") must be noted as "data suppressed due to small sample size"; never estimate or interpolate
 - Values marked "NOT APPLICABLE" are a different situation from "SUPPRESSED": this
   question was never asked of this report's population at all (e.g. a product-specific
   question that doesn't apply here), not a small sample. Phrase these as "not asked of
-  [population]" or similar — never as "data suppressed," "small sample size," or "missing
+  [population]" or similar; never as "data suppressed," "small sample size," or "missing
   data"
 - When a note field is present, incorporate its guidance into the narrative
 - For insight blocks: SECTION SUMMARY (theme summary, top drivers, sentiment split) describes the
-  pattern across all responses judged relevant to that section — use it for the section's overall
+  pattern across all responses judged relevant to that section; use it for the section's overall
   characterization. Use the quoted VERBATIM(s) to illustrate that pattern with a specific client
-  voice, not as evidence of the pattern itself — never imply that 1-3 quotes represent the full
+  voice, not as evidence of the pattern itself; never imply that 1-3 quotes represent the full
   client base's sentiment when a SENTIMENT SPLIT is available and shows a different balance.
 - Whenever you describe a SENTIMENT SPLIT in prose, state EVERY category as "n (pct%)" together
-  (e.g. "18 positive (60%), 9 negative (30%), 3 neutral (10%)") — never a bare count and never a
+  (e.g. "18 positive (60%), 9 negative (30%), 3 neutral (10%)"); never a bare count and never a
   bare percentage on its own. Compute each percentage yourself as that category's count divided by
   the SENTIMENT SPLIT line's own total (do not use any percentage from elsewhere in the data
   package). The percentages across all categories you mention must sum to approximately 100%
-  (allow ±1% for rounding only) — if they do not, you have made an arithmetic error; recompute
+  (allow ±1% for rounding only). If they do not, you have made an arithmetic error; recompute
   directly from the given counts before writing the sentence.
 - If a quoted VERBATIM is not already in English (e.g. a Spanish response from a LARCO client),
   give a brief English gloss of its meaning FIRST, then the original-language text in parentheses
-  immediately after — e.g. "the process was very slow" ("el proceso fue muy lento") — every time
-  you quote it, not just the first time. Never quote non-English text without an English gloss,
+  immediately after, for example "the process was very slow" ("el proceso fue muy lento"), every
+  time you quote it, not just the first time. Never quote non-English text without an English gloss,
   and never silently translate without showing the original.
 
 WORD LIMITS (strictly enforced):
@@ -212,7 +222,7 @@ _OUTPUT_SCHEMAS = {
     "part_7": {"narrative": 100, "insight": 120},
     # LARCO only (see run_analysis.py's build_sections())
     "part_9": {"s9_1": 90, "s9_2": 70, "insight": 120},
-    "part_10": {"narrative": 100, "insight": 120},
+    "part_10": {"narrative": 130, "insight": 120},
 }
 
 
@@ -331,7 +341,7 @@ def _build_sections_text(package: dict) -> str:
 
         wl    = s_data.get("word_limit", 80)
         label = s_data.get("label", s_key)
-        lines.append(f"\nSECTION {s_key} — {label} (word_limit: {wl} words)")
+        lines.append(f"\nSECTION {s_key}: {label} (word_limit: {wl} words)")
 
         # Metrics
         metrics = s_data.get("metrics", {})

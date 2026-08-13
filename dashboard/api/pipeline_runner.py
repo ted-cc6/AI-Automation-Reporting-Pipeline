@@ -37,6 +37,8 @@ from data_loader import (
 )
 from data_loader.data_loader_api import load_survey_data
 from analysis_engine.country_config import DEFAULT_COUNTRY, load_country_config
+from report_scopes import REPORT_SCOPES
+from data_quality_flags import get_flags as get_data_quality_flags, flagged_countries
 from analysis_engine.segments import describe_segments, get_all_segment_masks
 from qualitative import llm_call
 from qualitative.llm_call import call_gemini
@@ -45,6 +47,7 @@ from qualitative.prepare_payload import build_payload, load_config as load_qual_
 from generation.assembler import assemble
 from generation.orchestrator import orchestrate, preflight_check
 from generation.writer import write_all_parts
+from generation.validate_output import load_in_scope_countries, validate_report
 
 from dashboard.api.config import PROJECT_ROOT, RUNS_DIR, UPLOADS_DIR
 from dashboard.api.jobs import RUNS
@@ -74,7 +77,8 @@ DEFAULT_DATASET_SCHEMA = "africa_vietnam"
 
 
 def _run_stage1(state, csv_path: Path, run_dir: Path, country: str,
-                 dataset_schema: str = DEFAULT_DATASET_SCHEMA) -> None:
+                 dataset_schema: str = DEFAULT_DATASET_SCHEMA,
+                 report_scope: "str | None" = None) -> None:
     state.current_stage = 1
     state.stage1 = {"status": "running"}
     state.log("Stage 1/4 -- Loading and cleaning survey data...")
@@ -93,6 +97,7 @@ def _run_stage1(state, csv_path: Path, run_dir: Path, country: str,
             {"run_id": state.run_id, "country": country,
              "country_filter_applied": filter_country is not None,
              "dataset_schema": dataset_schema,
+             "report_scope": report_scope,
              "created_at": datetime.now(timezone.utc).isoformat()},
             f, default_flow_style=False, allow_unicode=True,
         )
@@ -122,11 +127,14 @@ def _run_stage1(state, csv_path: Path, run_dir: Path, country: str,
         ("transformer", lambda: data_loader_transformer.main(
             csv_path, mapping_path, value_map_path, run_dir)),
         ("screening", lambda: data_loader_screening.main(
-            run_dir, target_country=filter_country, dataset_schema=dataset_schema)),
+            run_dir, target_country=filter_country, dataset_schema=dataset_schema,
+            report_scope=report_scope)),
         ("derived", lambda: data_loader_derived.main(
-            run_dir, target_country=filter_country, dataset_schema=dataset_schema)),
+            run_dir, target_country=filter_country, dataset_schema=dataset_schema,
+            report_scope=report_scope)),
         ("validator", lambda: data_loader_validator.main(
-            run_dir, target_country=filter_country, dataset_schema=dataset_schema)),
+            run_dir, target_country=filter_country, dataset_schema=dataset_schema,
+            report_scope=report_scope)),
     ]
     for name, fn in steps:
         state.log(f"  [stage 1] running {name}...")
@@ -145,7 +153,7 @@ def _run_stage1(state, csv_path: Path, run_dir: Path, country: str,
 
 
 def _run_stage2(state, run_dir: Path, country: str, dataset_schema: str = DEFAULT_DATASET_SCHEMA,
-                 prior_run_id: "str | None" = None) -> None:
+                 prior_run_id: "str | None" = None, report_scope: "str | None" = None) -> None:
     state.current_stage = 2
     state.stage2 = {"status": "running", "section_timing": {}, "section_errors": {}}
     state.log("Stage 2/4 -- Running analysis engine...")
@@ -157,12 +165,26 @@ def _run_stage2(state, run_dir: Path, country: str, dataset_schema: str = DEFAUL
     segments_skipped = [d["name"] for d in seg_desc if not d.get("available", True)]
     skip_reasons = {d["name"]: d.get("skip_reason", "") for d in seg_desc if not d.get("available", True)}
 
+    report_scope_label = REPORT_SCOPES[report_scope]["label"] if report_scope else None
+    data_notes = None
+    screening_summary_path = run_dir / "screening_summary.json"
+    if screening_summary_path.exists():
+        try:
+            data_notes = json.loads(screening_summary_path.read_text(encoding="utf-8"))
+        except json.JSONDecodeError as exc:
+            state.log(f"  [stage 2] warning: could not parse {screening_summary_path.name}: {exc}")
+
+    duration_outliers = (data_notes or {}).get("duration_outliers") or []
+    quality_flags = get_data_quality_flags(report_scope, duration_outliers)
+    if quality_flags:
+        state.log(f"  [stage 2] data quality flags active: {[f['id'] for f in quality_flags]}")
+
     now = datetime.now(timezone.utc)
     parts: dict = {}
     section_errors: dict = {}
     section_timing: dict = {}
 
-    sections = ra.build_sections(dataset_schema, prior_run_id=prior_run_id)
+    sections = ra.build_sections(dataset_schema, prior_run_id=prior_run_id, report_scope=report_scope)
     for key, label, calculate_fn in sections:
         t0 = time.perf_counter()
         try:
@@ -187,6 +209,9 @@ def _run_stage2(state, run_dir: Path, country: str, dataset_schema: str = DEFAUL
             "country": country_config.country,
             "country_label": country_config.label,
             "report_context": country_config.report_context,
+            "dataset_schema": dataset_schema,
+            "report_scope": report_scope,
+            "report_scope_label": report_scope_label,
             "metric_notes": {
                 name: {"note": note.note, "applies_to_segments": note.applies_to_segments}
                 for name, note in country_config.metric_notes.items()
@@ -198,6 +223,8 @@ def _run_stage2(state, run_dir: Path, country: str, dataset_schema: str = DEFAUL
             "section_errors": section_errors,
         },
         "segments_summary": seg_desc,
+        "data_notes": data_notes,
+        "data_quality_flags": quality_flags,
         "parts": parts,
     }
     result = ra._sanitise(result)
@@ -234,12 +261,26 @@ def _run_stage3(state, run_dir: Path, llm: LlmConfig, dry_run: bool) -> None:
             f"  [stage 3] tagging {nps_total} NPS responses in {n_batches} batch(es), "
             "then one synthesis call -- see container logs for per-batch progress."
         )
+
+        # Reuse stage 2's already-computed data_quality_flags (analysis_
+        # results.json, written before stage 3 ever runs) rather than
+        # recomputing from screening_summary.json a second time here.
+        excluded_countries = []
+        analysis_results_path = run_dir / "analysis_results.json"
+        if analysis_results_path.exists():
+            try:
+                stage2_result = json.loads(analysis_results_path.read_text(encoding="utf-8"))
+                excluded_countries = flagged_countries(stage2_result.get("data_quality_flags") or [])
+            except json.JSONDecodeError as exc:
+                state.log(f"  [stage 3] warning: could not parse analysis_results.json for data quality flags: {exc}")
+
         raw_result = call_gemini(
             payload=payload,
             raw_response_path=raw_response_path,
             model=model,
             provider=llm.provider,
             api_key=llm.api_key,
+            excluded_countries=excluded_countries,
         )
         parse_and_save(raw_gemini=raw_result, df=df, run_id=state.run_id,
                         provider=llm.provider, model=model)
@@ -294,6 +335,25 @@ def _run_stage4(state, run_dir: Path, llm: LlmConfig, dry_run: bool) -> None:
     )
     failed_parts = [k for k, v in written_texts.items() if isinstance(v, dict) and v.get("_generation_failed")]
 
+    # Advisory validation pass (never blocks assembly; see
+    # generation/validate_output.py's module docstring) -- surfaced in the
+    # run log and saved to disk for review, same as the CLI path in
+    # generation/run_generation.py.
+    in_scope_countries = load_in_scope_countries(state.run_id, runs_dir=RUNS_DIR)
+    validation_findings = validate_report(written_texts, packages, in_scope_countries)
+    (run_dir / "validation_report.json").write_text(
+        json.dumps(validation_findings, indent=2), encoding="utf-8"
+    )
+    state.stage4["validation"] = {
+        "n_reject": sum(1 for f in validation_findings if f["severity"] == "reject"),
+        "n_warn": sum(1 for f in validation_findings if f["severity"] == "warn"),
+    }
+    if validation_findings:
+        state.log(
+            f"  [stage 4] validation: {state.stage4['validation']['n_reject']} reject, "
+            f"{state.stage4['validation']['n_warn']} warn (see validation_report.json)"
+        )
+
     # report_spec.yaml's output_filename is a static string left over from a
     # specific quarter, not templated by run_id -- name the file explicitly
     # here instead so successive runs don't collide or overwrite each other.
@@ -307,20 +367,28 @@ def _run_stage4(state, run_dir: Path, llm: LlmConfig, dry_run: bool) -> None:
 
 
 def execute(run_id: str, csv_path: Path, country: str, llm: LlmConfig, dry_run: bool = False,
-            dataset_schema: str = DEFAULT_DATASET_SCHEMA, prior_run_id: "str | None" = None) -> None:
+            dataset_schema: str = DEFAULT_DATASET_SCHEMA, prior_run_id: "str | None" = None,
+            report_scope: "str | None" = None) -> None:
     """Entry point run via asyncio.to_thread() from the /api/runs route.
 
     prior_run_id: a prior run_id for Part 10's trend comparison (see
     analysis_engine/sections/part_10.py) -- activates Part 10 on this run
     regardless of dataset_schema (e.g. a 2026 africa_vietnam-schema run for
     a LARCO country, compared against its 2025 larco-schema baseline).
+    report_scope: a named region group (see report_scopes.py, e.g. "lacro"
+    or "africa") to scope this run to, instead of the full multi-region
+    portfolio. Not yet exposed in the dashboard UI/API request model --
+    plumbing only, wired through so the dashboard path stays consistent
+    with the CLI (run_pipeline.py --report-scope), which is the supported
+    entrypoint for region-scoped reports today.
     """
     state = RUNS[run_id]
     run_dir = RUNS_DIR / run_id
     state.status = "running"
 
     try:
-        _run_stage1(state, csv_path, run_dir, country, dataset_schema=dataset_schema)
+        _run_stage1(state, csv_path, run_dir, country, dataset_schema=dataset_schema,
+                    report_scope=report_scope)
     except Exception as exc:
         state.stage1 = {"status": "failed", "error": str(exc)}
         state.status = "failed"
@@ -329,7 +397,8 @@ def execute(run_id: str, csv_path: Path, country: str, llm: LlmConfig, dry_run: 
         return
 
     try:
-        _run_stage2(state, run_dir, country, dataset_schema=dataset_schema, prior_run_id=prior_run_id)
+        _run_stage2(state, run_dir, country, dataset_schema=dataset_schema, prior_run_id=prior_run_id,
+                    report_scope=report_scope)
     except Exception as exc:
         state.stage2 = {"status": "failed", "error": str(exc)}
         state.status = "failed"

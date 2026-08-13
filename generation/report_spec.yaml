@@ -131,7 +131,14 @@ parts:
           never "filed through", "submitted via", or "used".
 
       s1_3:
-        label: "Product Value and Renewal Intent"
+        # Generic title (not "...and Renewal Intent") -- renewal_intent is
+        # Vietnam/crop-only (see q_renewal_intent's population note below)
+        # and never appears at all for a LACRO-scoped report; a title
+        # promising content that never renders for that scope is exactly
+        # what the module-manifest "omit silently" rule is meant to avoid.
+        # worth_premium/renewal_intent's own note (below) already tells the
+        # model to write about whichever metrics are actually present.
+        label: "Product Value"
         word_limit: 80
         metrics:
           worth_premium:
@@ -139,18 +146,19 @@ parts:
             fmt: "pct"
             n_path: "parts.part_1.metrics.worth_premium.headline.n_valid"
             suppressed_path: "parts.part_1.metrics.worth_premium.headline.suppressed"
-            population: "Health & credit-life clients across the African country programmes only — Vietnam's crop-insurance clients pay no premium (grant-subsidized) and were not asked this question"
+            population: "Health & credit-life clients across the African country programmes only; Vietnam's crop-insurance clients pay no premium (grant-subsidized) and were not asked this question"
           renewal_intent:
             path: "parts.part_1.metrics.renewal_intent.headline.value"
             fmt: "pct"
             n_path: "parts.part_1.metrics.renewal_intent.headline.n_valid"
             suppressed_path: "parts.part_1.metrics.renewal_intent.headline.suppressed"
-            population: "Vietnam's crop-insurance clients only — this question is not asked of health or credit-life clients in any country"
+            population: "Vietnam's crop-insurance clients only; this question is not asked of health or credit-life clients in any country"
         note: >
-          worth_premium and renewal_intent describe two entirely separate, non-overlapping
-          groups of respondents (see each metric's population above) — never contrast them
-          as if describing the same clients, and do not use transition words like "however"
-          between them. State each finding on its own with its stated population.
+          Any metrics in this section scoped to a restricted population (see each metric's
+          population note above, if present) describe entirely separate, non-overlapping
+          groups of respondents; never contrast two such metrics as if describing the same
+          clients, and do not use transition words like "however" between them. State each
+          finding on its own with its stated population.
 
       insight:
         word_limit: 120
@@ -427,39 +435,39 @@ parts:
             p_path: "parts.part_4.satisfaction_drivers.drivers.financial_stress.p_value"
             n_path: "parts.part_4.satisfaction_drivers.drivers.financial_stress.n_valid"
             suppressed_path: "parts.part_4.satisfaction_drivers.drivers.financial_stress.suppressed"
-            direction: "Raw code: 1=stress significantly reduced (best) to 5=significantly increased (worst); NPS runs 0=worst to 10=best. A negative rho here means lower financial stress correlates with a higher NPS — a positive real-world relationship, despite the negative sign."
+            direction: "Raw code: 1=stress significantly reduced (best) to 5=significantly increased (worst); NPS runs 0=worst to 10=best. A negative rho here means lower financial stress correlates with a higher NPS, a positive real-world relationship, despite the negative sign."
           coverage_understanding:
             rho_path: "parts.part_4.satisfaction_drivers.drivers.coverage_understanding.value"
             p_path: "parts.part_4.satisfaction_drivers.drivers.coverage_understanding.p_value"
             n_path: "parts.part_4.satisfaction_drivers.drivers.coverage_understanding.n_valid"
             suppressed_path: "parts.part_4.satisfaction_drivers.drivers.coverage_understanding.suppressed"
-            direction: "Raw code: 1=very good understanding (best) to 4=very poor (worst); NPS runs 0=worst to 10=best. A negative rho here means better coverage understanding correlates with a higher NPS — a positive real-world relationship, despite the negative sign."
+            direction: "Raw code: 1=very good understanding (best) to 4=very poor (worst); NPS runs 0=worst to 10=best. A negative rho here means better coverage understanding correlates with a higher NPS, a positive real-world relationship, despite the negative sign."
           claim_process_understanding:
             rho_path: "parts.part_4.satisfaction_drivers.drivers.claim_process_understanding.value"
             p_path: "parts.part_4.satisfaction_drivers.drivers.claim_process_understanding.p_value"
             n_path: "parts.part_4.satisfaction_drivers.drivers.claim_process_understanding.n_valid"
             suppressed_path: "parts.part_4.satisfaction_drivers.drivers.claim_process_understanding.suppressed"
-            direction: "Raw code: 1=very good understanding (best) to 4=very poor (worst); NPS runs 0=worst to 10=best. A negative rho here means better claims-process understanding correlates with a higher NPS — a positive real-world relationship, despite the negative sign."
+            direction: "Raw code: 1=very good understanding (best) to 4=very poor (worst); NPS runs 0=worst to 10=best. A negative rho here means better claims-process understanding correlates with a higher NPS, a positive real-world relationship, despite the negative sign."
           worth_premium:
             rho_path: "parts.part_4.satisfaction_drivers.drivers.worth_premium.value"
             p_path: "parts.part_4.satisfaction_drivers.drivers.worth_premium.p_value"
             n_path: "parts.part_4.satisfaction_drivers.drivers.worth_premium.n_valid"
             suppressed_path: "parts.part_4.satisfaction_drivers.drivers.worth_premium.suppressed"
-            population: "Health & credit-life clients only — Vietnam's crop-insurance clients were not asked this question, so they are excluded from this correlation"
-            direction: "Raw code: 1=definitely worth it (best) to 5=definitely not worth it (worst); NPS runs 0=worst to 10=best. A negative rho here means feeling the premium is worth it correlates with a higher NPS — a positive real-world relationship, despite the negative sign."
+            population: "Health & credit-life clients only; Vietnam's crop-insurance clients were not asked this question, so they are excluded from this correlation"
+            direction: "Raw code: 1=definitely worth it (best) to 5=definitely not worth it (worst); NPS runs 0=worst to 10=best. A negative rho here means feeling the premium is worth it correlates with a higher NPS, a positive real-world relationship, despite the negative sign."
           renewal_intent:
             rho_path: "parts.part_4.satisfaction_drivers.drivers.renewal_intent.value"
             p_path: "parts.part_4.satisfaction_drivers.drivers.renewal_intent.p_value"
             n_path: "parts.part_4.satisfaction_drivers.drivers.renewal_intent.n_valid"
             suppressed_path: "parts.part_4.satisfaction_drivers.drivers.renewal_intent.suppressed"
-            population: "Vietnam's crop-insurance clients only — its lower N compared to other drivers reflects this smaller population, not suppressed/missing data — not asked of health or credit-life clients in any country"
-            direction: "Raw code: 1=definitely would renew (best) to 5=definitely would not renew (worst); NPS runs 0=worst to 10=best. A negative rho here means STRONGER renewal intent correlates with a HIGHER NPS — a positive real-world relationship. Do not describe this as renewal intent being bad for satisfaction; the negative sign is an artifact of the 1=best coding, not a negative finding."
+            population: "Vietnam's crop-insurance clients only; its lower N compared to other drivers reflects this smaller population, not suppressed/missing data; not asked of health or credit-life clients in any country"
+            direction: "Raw code: 1=definitely would renew (best) to 5=definitely would not renew (worst); NPS runs 0=worst to 10=best. A negative rho here means STRONGER renewal intent correlates with a HIGHER NPS, a positive real-world relationship. Do not describe this as renewal intent being bad for satisfaction; the negative sign is an artifact of the 1=best coding, not a negative finding."
           confidence_pay:
             rho_path: "parts.part_4.satisfaction_drivers.drivers.confidence_pay.value"
             p_path: "parts.part_4.satisfaction_drivers.drivers.confidence_pay.p_value"
             n_path: "parts.part_4.satisfaction_drivers.drivers.confidence_pay.n_valid"
             suppressed_path: "parts.part_4.satisfaction_drivers.drivers.confidence_pay.suppressed"
-            direction: "Raw code: 1=very confident (best) to 5=not confident at all (worst); NPS runs 0=worst to 10=best. A negative rho here means higher confidence correlates with a higher NPS — a positive real-world relationship, despite the negative sign."
+            direction: "Raw code: 1=very confident (best) to 5=not confident at all (worst); NPS runs 0=worst to 10=best. A negative rho here means higher confidence correlates with a higher NPS, a positive real-world relationship, despite the negative sign."
         drivers_table:
           headers: ["Driver", "ρ (Spearman)", "p-value", "N"]
           # Full ρ/p-value/N methodology explanation lives once in
@@ -475,9 +483,9 @@ parts:
           as the outcome. Each driver's own [direction: ...] note above states what its sign
           means in plain English -- use that stated direction rather than assuming a negative
           rho is a negative finding. A driver with a null value in the JSON is suppressed --
-          show "SUPPRESSED" in the table. worth_premium and renewal_intent each have a smaller
-          N than the other drivers, reflecting their restricted populations (see each driver's
-          population note above) -- do not describe this as missing or suppressed data.
+          show "SUPPRESSED" in the table. A driver with a smaller N than the others reflects a
+          restricted population (see that driver's population note above, if present) -- do
+          not describe this as missing or suppressed data.
 
       insight:
         word_limit: 120
@@ -502,7 +510,7 @@ parts:
         sig_path: "parts.part_5.caregiver_comparison.metrics.financial_stress_high.significance.p_value"
         caregiver_sup: "parts.part_5.caregiver_comparison.metrics.financial_stress_high.caregiver.suppressed"
         non_caregiver_sup: "parts.part_5.caregiver_comparison.metrics.financial_stress_high.non_caregiver.suppressed"
-        population: "All surveyed clients (same base as Part 3's financial stress metric) — not restricted to those who experienced an insured event"
+        population: "All surveyed clients (same base as Part 3's financial stress metric); not restricted to those who experienced an insured event"
       - key: healthcare_access
         label: "Healthcare Access Improved"
         fmt: "pct"
@@ -527,63 +535,63 @@ parts:
             p_path: "parts.part_5.drivers.financial_stress.p_value"
             n_path: "parts.part_5.drivers.financial_stress.n_valid"
             suppressed_path: "parts.part_5.drivers.financial_stress.suppressed"
-            direction: "Raw code: 1=stress significantly reduced (best) to 5=significantly increased (worst). A negative rho here means higher stress correlates with lower child wellbeing — the expected, negative real-world relationship."
+            direction: "Raw code: 1=stress significantly reduced (best) to 5=significantly increased (worst). A negative rho here means higher stress correlates with lower child wellbeing, the expected, negative real-world relationship."
           coverage_understanding:
             rho_path: "parts.part_5.drivers.coverage_understanding.value"
             p_path: "parts.part_5.drivers.coverage_understanding.p_value"
             n_path: "parts.part_5.drivers.coverage_understanding.n_valid"
             suppressed_path: "parts.part_5.drivers.coverage_understanding.suppressed"
-            direction: "Raw code: 1=very good understanding (best) to 4=very poor (worst). A negative rho here means better coverage understanding correlates with better child wellbeing — a positive real-world relationship, despite the negative sign."
+            direction: "Raw code: 1=very good understanding (best) to 4=very poor (worst). A negative rho here means better coverage understanding correlates with better child wellbeing, a positive real-world relationship, despite the negative sign."
           claim_process_understanding:
             rho_path: "parts.part_5.drivers.claim_process_understanding.value"
             p_path: "parts.part_5.drivers.claim_process_understanding.p_value"
             n_path: "parts.part_5.drivers.claim_process_understanding.n_valid"
             suppressed_path: "parts.part_5.drivers.claim_process_understanding.suppressed"
-            direction: "Raw code: 1=very good understanding (best) to 4=very poor (worst). A negative rho here means better claims-process understanding correlates with better child wellbeing — a positive real-world relationship, despite the negative sign."
+            direction: "Raw code: 1=very good understanding (best) to 4=very poor (worst). A negative rho here means better claims-process understanding correlates with better child wellbeing, a positive real-world relationship, despite the negative sign."
           worth_premium:
             rho_path: "parts.part_5.drivers.worth_premium.value"
             p_path: "parts.part_5.drivers.worth_premium.p_value"
             n_path: "parts.part_5.drivers.worth_premium.n_valid"
             suppressed_path: "parts.part_5.drivers.worth_premium.suppressed"
-            population: "Health & credit-life clients only — Vietnam's crop-insurance clients were not asked this question, so they are excluded from this correlation"
-            direction: "Raw code: 1=definitely worth it (best) to 5=definitely not worth it (worst). A negative rho here means feeling the premium is worth it correlates with better child wellbeing — a positive real-world relationship, despite the negative sign."
+            population: "Health & credit-life clients only; Vietnam's crop-insurance clients were not asked this question, so they are excluded from this correlation"
+            direction: "Raw code: 1=definitely worth it (best) to 5=definitely not worth it (worst). A negative rho here means feeling the premium is worth it correlates with better child wellbeing, a positive real-world relationship, despite the negative sign."
           renewal_intent:
             rho_path: "parts.part_5.drivers.renewal_intent.value"
             p_path: "parts.part_5.drivers.renewal_intent.p_value"
             n_path: "parts.part_5.drivers.renewal_intent.n_valid"
             suppressed_path: "parts.part_5.drivers.renewal_intent.suppressed"
-            population: "Vietnam's crop-insurance clients only — its lower N compared to other drivers (each driver's N is shown alongside it above) reflects this smaller population, not suppressed/missing data — not asked of health or credit-life clients in any country"
-            direction: "Raw code: 1=definitely would renew (best) to 5=definitely would not renew (worst). A negative rho here means STRONGER renewal intent correlates with BETTER child wellbeing — a positive real-world relationship. Do not describe this as renewal intent being bad for wellbeing; the negative sign is an artifact of the 1=best coding, not a negative finding."
+            population: "Vietnam's crop-insurance clients only; its lower N compared to other drivers (each driver's N is shown alongside it above) reflects this smaller population, not suppressed/missing data; not asked of health or credit-life clients in any country"
+            direction: "Raw code: 1=definitely would renew (best) to 5=definitely would not renew (worst). A negative rho here means STRONGER renewal intent correlates with BETTER child wellbeing, a positive real-world relationship. Do not describe this as renewal intent being bad for wellbeing; the negative sign is an artifact of the 1=best coding, not a negative finding."
           confidence_pay:
             rho_path: "parts.part_5.drivers.confidence_pay.value"
             p_path: "parts.part_5.drivers.confidence_pay.p_value"
             n_path: "parts.part_5.drivers.confidence_pay.n_valid"
             suppressed_path: "parts.part_5.drivers.confidence_pay.suppressed"
-            direction: "Raw code: 1=very confident (best) to 5=not confident at all (worst). A negative rho here means higher confidence correlates with better child wellbeing — a positive real-world relationship, despite the negative sign."
+            direction: "Raw code: 1=very confident (best) to 5=not confident at all (worst). A negative rho here means higher confidence correlates with better child wellbeing, a positive real-world relationship, despite the negative sign."
           nps_score:
             rho_path: "parts.part_5.drivers.nps_score.value"
             p_path: "parts.part_5.drivers.nps_score.p_value"
             n_path: "parts.part_5.drivers.nps_score.n_valid"
             suppressed_path: "parts.part_5.drivers.nps_score.suppressed"
-            direction: "Raw score: 0=worst to 10=best (NOT reverse-coded, unlike the other drivers here). A positive rho here means higher NPS correlates with better child wellbeing — the sign and the real-world relationship point the same direction."
+            direction: "Raw score: 0=worst to 10=best (NOT reverse-coded, unlike the other drivers here). A positive rho here means higher NPS correlates with better child wellbeing, with the sign and the real-world relationship pointing the same direction."
         drivers_table:
           headers: ["Driver", "ρ (Spearman)", "p-value", "N"]
           # See Part 4's identical comment -- full methodology text lives once
           # in the document's Methodology Notes appendix, not duplicated here.
         note: >
           All correlations are Spearman rank correlations computed directly on each question's
-          raw ordinal code (Likert 1-5/1-4, or NPS 0-10) — no top_two_box/bottom_two_box
+          raw ordinal code (Likert 1-5/1-4, or NPS 0-10); no top_two_box/bottom_two_box
           transformation is applied in this section (unlike the Part 6/7 scorecards, which do
           transform these same questions into % positive-response figures; do not assume the two
           calculations use the same input values).
           Each driver's own [direction: ...] note above states what its sign means in plain
-          English — use that stated direction rather than assuming a negative rho is a negative
+          English; use that stated direction rather than assuming a negative rho is a negative
           finding; several of these are negative precisely because the underlying scale runs
-          1=best. A driver with a null value in the JSON is suppressed — show "SUPPRESSED" in
+          1=best. A driver with a null value in the JSON is suppressed; show "SUPPRESSED" in
           the table.
           The worth_premium driver's lower N compared to other drivers (each driver's N is shown
           alongside it above) reflects its smaller population (see worth_premium's population
-          note) — do not describe this as missing or suppressed data.
+          note); do not describe this as missing or suppressed data.
 
       s5_2:
         label: "Healthcare Access and Medical Cost"
@@ -654,7 +662,7 @@ parts:
         sig_path: "parts.part_6.metrics.worth_premium.significance.p_value"
         claimant_sup: "parts.part_6.metrics.worth_premium.claimant.suppressed"
         non_claimant_sup: "parts.part_6.metrics.worth_premium.non_claimant.suppressed"
-        population: "Health & credit-life clients only, within each claimant/non-claimant group — Vietnam's crop-insurance clients were not asked this question"
+        population: "Health & credit-life clients only, within each claimant/non-claimant group; Vietnam's crop-insurance clients were not asked this question"
       - key: renewal_intent
         label: "Renewal Intent"
         fmt: "pct"
@@ -663,7 +671,7 @@ parts:
         sig_path: "parts.part_6.metrics.renewal_intent.significance.p_value"
         claimant_sup: "parts.part_6.metrics.renewal_intent.claimant.suppressed"
         non_claimant_sup: "parts.part_6.metrics.renewal_intent.non_claimant.suppressed"
-        population: "Vietnam's crop-insurance clients only, within each claimant/non-claimant group — not asked of health or credit-life clients in any country"
+        population: "Vietnam's crop-insurance clients only, within each claimant/non-claimant group; not asked of health or credit-life clients in any country"
       - key: negative_coping
         label: "Negative Coping (↓ better)"
         fmt: "pct"
@@ -696,7 +704,7 @@ parts:
         sig_path: "parts.part_6.metrics.nps.significance.p_value"
         claimant_sup: "parts.part_6.metrics.nps.claimant.suppressed"
         non_claimant_sup: "parts.part_6.metrics.nps.non_claimant.suppressed"
-        sig_test_note: "Significance for this row uses a Mann-Whitney U test on each group's underlying 0-10 scores, not the two-proportion z-test (chi-squared/Fisher's exact) used elsewhere in this table — NPS itself isn't a proportion."
+        sig_test_note: "Significance for this row uses a Mann-Whitney U test on each group's underlying 0-10 scores, not the two-proportion z-test (chi-squared/Fisher's exact) used elsewhere in this table; NPS itself isn't a proportion."
       - key: child_wellbeing
         label: "Child Wellbeing Improved"
         fmt: "pct"
@@ -705,7 +713,7 @@ parts:
         sig_path: "parts.part_6.metrics.child_wellbeing.significance.p_value"
         claimant_sup: "parts.part_6.metrics.child_wellbeing.claimant.suppressed"
         non_claimant_sup: "parts.part_6.metrics.child_wellbeing.non_claimant.suppressed"
-        population: "Clients with children in the household (child wellbeing base), within each claimant/non-claimant group — narrower than the full claimant/non-claimant sample used by the other rows in this table"
+        population: "Clients with children in the household (child wellbeing base), within each claimant/non-claimant group; narrower than the full claimant/non-claimant sample used by the other rows in this table"
     sections:
       narrative:
         word_limit: 100
@@ -713,13 +721,13 @@ parts:
           Significance threshold: p < 0.05 = statistically significant, mark with *.
           The note about negative_coping and financial_stress_high being on the claimant
           base (not both groups equally) should be mentioned if relevant.
-          worth_premium and renewal_intent each have their own population (see each
-          row's population note in the scorecard table) — do not imply the same clients
-          answered both. The Net Promoter Score row is tested differently from every other
-          row (see that row's note) — do not describe it as "significant" or "not significant"
+          Any row with its own population note in the scorecard table describes a
+          restricted population; do not imply the same clients answered every row.
+          The Net Promoter Score row is tested differently from every other
+          row (see that row's note); do not describe it as "significant" or "not significant"
           using the same p<0.05-chi-squared framing as the % rows; state its own p-value/test
           if mentioning it. Child Wellbeing Improved uses a narrower population than the rest
-          of the table (see its population note) — do not imply it was asked of every
+          of the table (see its population note); do not imply it was asked of every
           claimant/non-claimant.
       insight:
         word_limit: 120
@@ -758,7 +766,7 @@ parts:
         sig_path: "parts.part_7.metrics.worth_premium.significance.p_value"
         female_sup: "parts.part_7.metrics.worth_premium.female.suppressed"
         male_sup: "parts.part_7.metrics.worth_premium.male.suppressed"
-        population: "Health & credit-life clients only, within each gender group — Vietnam's crop-insurance clients were not asked this question"
+        population: "Health & credit-life clients only, within each gender group; Vietnam's crop-insurance clients were not asked this question"
       - key: renewal_intent
         label: "Renewal Intent"
         fmt: "pct"
@@ -767,7 +775,7 @@ parts:
         sig_path: "parts.part_7.metrics.renewal_intent.significance.p_value"
         female_sup: "parts.part_7.metrics.renewal_intent.female.suppressed"
         male_sup: "parts.part_7.metrics.renewal_intent.male.suppressed"
-        population: "Vietnam's crop-insurance clients only, within each gender group — not asked of health or credit-life clients in any country"
+        population: "Vietnam's crop-insurance clients only, within each gender group; not asked of health or credit-life clients in any country"
       - key: negative_coping
         label: "Negative Coping (↓ better)"
         fmt: "pct"
@@ -798,9 +806,8 @@ parts:
         note: >
           Significance threshold: p < 0.05 = statistically significant, mark with *.
           The female sample is the large majority of respondents; note this if relevant.
-          worth_premium and renewal_intent each have their own population (see each
-          row's population note in the scorecard table) — do not imply the same clients
-          answered both.
+          Any row with its own population note in the scorecard table describes a
+          restricted population; do not imply the same clients answered every row.
       insight:
         word_limit: 120
         verbatim_section: "part7"
@@ -896,29 +903,161 @@ parts:
         fmt: "pct"
     sections:
       narrative:
-        word_limit: 100
+        word_limit: 130
+        metrics:
+          new_country_n:
+            path: "parts.part_10.sample_composition.n_new_country"
+            fmt: "count"
+          new_country_share:
+            path: "parts.part_10.sample_composition.new_country_share"
+            fmt: "pct"
         note: >
+          State the sample composition change ONCE, near the start of this section, before
+          any indicator's figures: the Dominican Republic is new to this wave, contributing
+          new_country_n clients (new_country_share of this wave's sample) with no 2025-wave
+          counterpart -- do not repeat this fact for each indicator below.
+
           Compares this wave's 5 headline indicators against a prior wave's own snapshot
           of the same 5 indicators (see the TREND TABLE) -- if TREND AVAILABLE is false,
           state plainly that this is the first comparable wave for this dataset rather
-          than describing or implying a trend that doesn't exist. client_satisfaction_nps
-          is a POINT delta (NPS runs -100 to +100), not a percentage-point delta like the
-          other four indicators -- never call an NPS change "percentage points." product_understanding
-          is defined as the single most positive response option only (a stricter bar than
-          a typical top-2-box), so do not describe it as "top-2-box" or imply a broader
-          definition. Significance threshold: p < 0.05 = statistically significant, mark
-          with *; the NPS row has no significance test (see the table note) since NPS
-          isn't a proportion -- do not describe an NPS row as "significant" or "not
-          significant" using the same framing as the other four rows. This comparison is
-          between two INDEPENDENT cross-sectional survey waves -- each wave is its own
-          fresh random sample of clients, not the same individuals tracked over time --
-          so never describe the change as something that happened "to" clients or use
-          language implying a panel/longitudinal study (e.g. not "clients' understanding
-          improved" but "understanding was higher among this wave's respondents"). If any
-          row's table note says "DEFINITION MISMATCH," state plainly that this specific
-          indicator's comparison may not be apples-to-apples between waves (a changed
-          question, scale, or population base) and do not draw a conclusion from its
-          delta -- this caveat does not apply to rows without that note.
+          than describing or implying a trend that doesn't exist.
+
+          Only 2 of the 5 indicators (first_time_access, client_satisfaction_nps) are
+          actually comparable between waves -- the survey instrument changed for the other
+          3. A row whose "Prior Wave" table value reads "NOT COMPARABLE" has a table note
+          stating why (a changed question, scale, or option set) -- present that
+          indicator's Current Wave figure as a NEW BASELINE ONLY, in one sentence
+          mentioning the instrument change from its table note. NEVER use a comparative
+          verb (rose, fell, improved, declined, increased, decreased, up, down, since last
+          year) for a NOT COMPARABLE row -- this is a hard rule, not a style preference.
+
+          For the 2 comparable indicators, the delta/significance test was computed on the
+          five countries surveyed in both waves, NOT on the Current Wave figure shown in
+          the table (which is this wave's full six-country figure, matching every other
+          number in this report) -- each comparable row's table note states the
+          five-country figure the test actually used; use THAT number, not the table's
+          Current Wave column, when stating the delta (e.g. "NPS is +48.3 across LACRO. On
+          the five countries surveyed in both waves it is +46.2, against +36.3 in 2025." --
+          not "NPS rose from 36.3 to 48.3").
+
+          client_satisfaction_nps is a POINT delta (NPS runs -100 to +100), not a
+          percentage-point delta like the other four indicators -- never call an NPS
+          change "percentage points." product_understanding is defined as the single most
+          positive response option only (a stricter bar than a typical top-2-box), so do
+          not describe it as "top-2-box" or imply a broader definition. Significance
+          threshold: p < 0.05 = statistically significant, mark with *; the NPS row has no
+          significance test (see the table note) since NPS isn't a proportion -- do not
+          describe an NPS row as "significant" or "not significant" using the same framing
+          as the other rows. This comparison is between two INDEPENDENT cross-sectional
+          survey waves -- each wave is its own fresh random sample of clients, not the same
+          individuals tracked over time -- so never describe a comparable indicator's
+          change as something that happened "to" clients or use language implying a panel/
+          longitudinal study (e.g. not "clients' understanding improved" but "understanding
+          was higher among this wave's respondents"). If a comparable row's table note also
+          says "DEFINITION MISMATCH," state plainly that its comparison may not be
+          apples-to-apples between waves and do not draw a conclusion from its delta.
       insight:
         word_limit: 120
         verbatim_section: "part10"
+
+  # ───────────────────────────────────────────────────────────────────
+  # PART 11 — Credit Life Module (africa report_scope only, see
+  # run_analysis.py's build_sections() -- Enhanced Credit Life is an
+  # Africa-only product; LACRO's insurance_type is 100% Health)
+  # ───────────────────────────────────────────────────────────────────
+  part_11:
+    title: "Credit Life Module"
+    sections:
+      s11_1:
+        label: "Other Benefits Used"
+        word_limit: 90
+        metrics:
+          other_benefits_base:
+            path: "parts.part_11.other_benefits_used.n_base"
+            fmt: "count"
+            population: "Enhanced Credit Life clients only -- not asked of Health or Crop insurance clients"
+        distribution_path: "parts.part_11.other_benefits_used.headline.ranked"
+        note: >
+          Non-loan-payoff benefits bundled with the Enhanced Credit Life product (help
+          with medical costs, weather-affected income, damaged property) -- distinct from
+          the base loan-payoff cover and from the claims-payout benefits covered elsewhere
+          in this report. The distribution is measured on ALL Credit Life clients, not a
+          subset -- explicitly state this denominator in your sentence (e.g. "among all N
+          Enhanced Credit Life clients," using other_benefits_base) rather than leaving it
+          implied. Report the actual distribution shown in the data without characterizing
+          it as high, low, expected, or concerning -- that judgment belongs to the reader.
+
+      s11_2:
+        label: "Value of Additional Benefits"
+        word_limit: 90
+        metrics:
+          awareness:
+            path: "parts.part_11.additional_value.awareness.value"
+            fmt: "pct"
+            n_path: "parts.part_11.additional_value.awareness.n_valid"
+            suppressed_path: "parts.part_11.additional_value.awareness.suppressed"
+            population: "Enhanced Credit Life clients only"
+          valuable_share:
+            path: "parts.part_11.additional_value.valuable_share.result.value"
+            fmt: "pct"
+            n_path: "parts.part_11.additional_value.valuable_share.result.n_valid"
+            suppressed_path: "parts.part_11.additional_value.valuable_share.result.suppressed"
+            population: "Only Credit Life clients who are aware of the additional benefits (see awareness above) -- clients who said they are not aware did not rate a value, so are excluded from this denominator"
+        note: >
+          Two separate, non-overlapping findings, each with its own base -- do not
+          contrast them as if describing the same clients. awareness is the share of ALL
+          Credit Life clients who are aware these additional benefits exist (base:
+          other_benefits_base). valuable_share is the share who rate them "Very valuable"
+          or "Somewhat valuable" AMONG ONLY the aware subgroup (a smaller base than
+          awareness's own -- state this subgroup's own N in your sentence, e.g. "among the
+          N clients aware of these benefits," never implying it is out of all Credit Life
+          clients).
+
+      insight:
+        word_limit: 120
+        verbatim_section: "part11"
+
+  # ───────────────────────────────────────────────────────────────────
+  # PART 12 — Crop Module (africa report_scope only, see run_analysis.py's
+  # build_sections() -- crop insurance is a Vietnam-only product; every
+  # metric in this part MUST be labelled Vietnam crop clients only)
+  # ───────────────────────────────────────────────────────────────────
+  part_12:
+    title: "Crop Module"
+    sections:
+      s12_1:
+        label: "Weather-Shock Recovery"
+        word_limit: 90
+        metrics:
+          recovery_speed:
+            path: "parts.part_12.recovery_speed.value"
+            fmt: "pct"
+            n_path: "parts.part_12.recovery_speed.n_valid"
+            suppressed_path: "parts.part_12.recovery_speed.suppressed"
+            population: "Vietnam's crop-insurance clients only -- crop insurance is not sold in any other country in this report's scope"
+        note: >
+          Share of crop-insurance clients who recovered and continued earning income
+          within 3 months of a weather shock, since having the insurance. This is a
+          Vietnam-only product -- state this population explicitly in your sentence (e.g.
+          "among Vietnam's N crop-insurance clients") rather than describing it as if it
+          applied to the wider surveyed population.
+
+      s12_2:
+        label: "Farming Approach Change"
+        word_limit: 90
+        metrics:
+          farming_change:
+            path: "parts.part_12.farming_change.value"
+            fmt: "pct"
+            n_path: "parts.part_12.farming_change.n_valid"
+            suppressed_path: "parts.part_12.farming_change.suppressed"
+            population: "Vietnam's crop-insurance clients only -- crop insurance is not sold in any other country in this report's scope"
+        note: >
+          Share of crop-insurance clients whose farming approach (choice of crops, input
+          investment, or planting practices) has improved since having crop insurance.
+          Same Vietnam-only population as Weather-Shock Recovery above -- state this
+          explicitly, do not imply it describes the wider surveyed population.
+
+      insight:
+        word_limit: 120
+        verbatim_section: "part12"

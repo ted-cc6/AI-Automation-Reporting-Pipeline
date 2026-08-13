@@ -24,6 +24,7 @@ import pandas as pd
 from qualitative.prepare_payload import load_config, build_payload, print_payload_stats
 from qualitative.llm_call import call_gemini
 from qualitative.parse_results import parse_and_save
+from data_quality_flags import flagged_countries
 
 logging.basicConfig(
     level=logging.INFO,
@@ -74,12 +75,27 @@ def main():
             print("\n[dry-run] Payload built successfully. Exiting without Gemini call.")
             return
 
+        # Reuse the analysis engine's already-computed data_quality_flags
+        # (analysis_results.json), if this run has already gone through
+        # run_analysis.py -- same lookup dashboard/api/pipeline_runner.py
+        # does, best-effort here since this standalone CLI path doesn't
+        # otherwise know a run_id's report_scope.
+        excluded_countries = []
+        analysis_results_path = ROOT / "runs" / run_id / "analysis_results.json"
+        if analysis_results_path.exists():
+            try:
+                stage2_result = json.loads(analysis_results_path.read_text(encoding="utf-8"))
+                excluded_countries = flagged_countries(stage2_result.get("data_quality_flags") or [])
+            except json.JSONDecodeError as exc:
+                log.warning(f"Could not parse analysis_results.json for data quality flags: {exc}")
+
         # Phase 2 — Call Gemini
         log.info(f"Phase 2 — Calling {config['model']}...")
         raw_gemini = call_gemini(
             payload=payload,
             raw_response_path=raw_response_path,
             model=config["model"],
+            excluded_countries=excluded_countries,
         )
         log.info("Gemini call complete.")
 

@@ -71,7 +71,7 @@ class TestAssembleCoverPage:
         period = assembler.format_period_label("no_meta_run")
         paras = self._cover_paragraphs(out)
         assert paras[0] == "VisionFund International"
-        assert paras[1] == f"Insurance Impact Report — Global Portfolio, {period}"
+        assert paras[1] == f"Insurance Impact Report: Global Portfolio, {period}"
 
     def test_default_country_matches_original_hardcoded_global_cover(self, tmp_path, monkeypatch):
         monkeypatch.setattr(assembler, "ROOT", tmp_path)
@@ -89,7 +89,7 @@ class TestAssembleCoverPage:
         assemble([], {}, "vietnam_run", out)
         paras = self._cover_paragraphs(out)
         period = assembler.format_period_label("vietnam_run")
-        assert paras[1] == f"Insurance Impact Report — Vietnam, {period}"
+        assert paras[1] == f"Insurance Impact Report: Vietnam, {period}"
         assert paras[2] == "Covering 154 client responses from Vietnam."
         assert "Global Portfolio" not in paras[1]
 
@@ -117,7 +117,7 @@ class TestAssembleCoverPage:
         out = tmp_path / "out.docx"
         assemble([], {}, "ecuador_run", out)
         paras = self._cover_paragraphs(out)
-        assert paras[1] == f"Insurance Impact Report — Ecuador, {assembler.format_period_label('ecuador_run')}"
+        assert paras[1] == f"Insurance Impact Report: Ecuador, {assembler.format_period_label('ecuador_run')}"
         assert "LARCO" not in paras[1]
 
     def test_missing_n_total_omits_subtitle_paragraph_in_both_scopes(self, tmp_path, monkeypatch):
@@ -230,11 +230,14 @@ class TestMethodologyAppendix:
 
 _FLAGS = [
     {"id": "row_0011", "flag_type": "unfair_claim_denial", "severity": "high",
-     "reason": "Client says claim was denied without explanation."},
+     "reason": "Client says claim was denied without explanation.",
+     "profile": {"client_id": "CI-00011", "branch": "Branch A"}},
     {"id": "row_0042", "flag_type": "staff_misconduct", "severity": "medium",
-     "reason": "Client reports unresponsive branch staff."},
+     "reason": "Client reports unresponsive branch staff.",
+     "profile": {"client_id": "CI-00042", "branch": "Branch B"}},
     {"id": "row_0099", "flag_type": "staff_misconduct", "severity": "low",
-     "reason": "Minor communication friction reported."},
+     "reason": "Minor communication friction reported.",
+     "profile": {"client_id": "CI-00099", "branch": "Branch C"}},
 ]
 
 
@@ -257,7 +260,7 @@ class TestProtectionSignalsSummary:
         assert "Appendix: Client Protection Signals" in body
         # The full per-case reason text must NOT leak into the short summary.
         assert "Client says claim was denied without explanation." not in body
-        assert "client ref. #11" not in body
+        assert "CI-00011" not in body
 
     def test_singular_wording_for_exactly_one_flag(self):
         body = "\n".join(self._paragraphs(_FLAGS[:1]))
@@ -278,9 +281,18 @@ class TestProtectionSignalsAnnex:
         body = "\n".join(self._paragraphs(_FLAGS))
         assert "Appendix: Client Protection Signals" in body
         assert "High severity" in body
-        assert "Unfair claim denial: Client says claim was denied without explanation. (client ref. #11)" in body
-        assert "Staff misconduct: Client reports unresponsive branch staff. (client ref. #42)" in body
-        assert "Staff misconduct: Minor communication friction reported. (client ref. #99)" in body
+        assert "Unfair claim denial: Client says claim was denied without explanation. (CI-00011, Branch A)" in body
+        assert "Staff misconduct: Client reports unresponsive branch staff. (CI-00042, Branch B)" in body
+        assert "Staff misconduct: Minor communication friction reported. (CI-00099, Branch C)" in body
+
+    def test_falls_back_to_row_id_when_profile_unresolved(self):
+        # A flag whose row_id no longer maps into the survey dataframe (e.g.
+        # a stale re-run) must still render something traceable rather than
+        # silently dropping the reference.
+        flags = [{"id": "row_0007", "flag_type": "coercion", "severity": "high",
+                  "reason": "Unresolved case.", "profile": {}}]
+        body = "\n".join(self._paragraphs(flags))
+        assert "(row_0007)" in body
 
     def test_severity_order_high_medium_low(self):
         paras = self._paragraphs(_FLAGS)
@@ -304,7 +316,7 @@ class TestAssembleProtectionSignalsRouting:
         assemble([package], {}, "flags_run", out)
         body = self._doc_text(out)
         assert "Appendix: Client Protection Signals" in body
-        assert "Client says claim was denied without explanation. (client ref. #11)" in body
+        assert "Client says claim was denied without explanation. (CI-00011, Branch A)" in body
         # Part 2's own inline section shows only the short summary.
         assert "3 client-reported protection concerns" in body
 

@@ -145,7 +145,7 @@ def _add_insight_box(doc, insight_text: str, verbatims: list):
         except KeyError:
             p = doc.add_paragraph(f'"{text}"')
             p.paragraph_format.left_indent = Inches(0.5)
-        attr = doc.add_paragraph(f"— {profile}")
+        attr = doc.add_paragraph(f"({profile})")
         attr.paragraph_format.left_indent = Inches(0.5)
         if attr.runs:
             attr.runs[0].italic = True
@@ -193,13 +193,13 @@ def _add_image_or_placeholder(doc, visual_info: dict):
             p.alignment = WD_ALIGN_PARAGRAPH.CENTER
         except Exception:
             p = doc.add_paragraph(
-                f'[VISUAL — could not insert: {visual_info["file"]} — {visual_info.get("caption", "")}]'
+                f'[VISUAL: could not insert {visual_info["file"]} ({visual_info.get("caption", "")})]'
             )
             if p.runs:
                 p.runs[0].italic = True
     else:
         p = doc.add_paragraph(
-            f'[VISUAL PENDING: {visual_info["file"]} — {visual_info.get("caption", "")}]'
+            f'[VISUAL PENDING: {visual_info["file"]} ({visual_info.get("caption", "")})]'
         )
         if p.runs:
             p.runs[0].italic = True
@@ -224,14 +224,22 @@ def _add_bold_paragraph(doc, text: str) -> None:
     run.bold = True
 
 
-def _protection_flag_ref(row_id: str) -> str:
-    """Convert an internal 'row_0011'-style ID into a reader-friendly client
-    reference that's still traceable back to the same row for follow-up."""
-    try:
-        n = int(row_id.split("_")[1])
-        return f"client ref. #{n}"
-    except (IndexError, ValueError):
-        return row_id
+def _protection_flag_ref(flag: dict) -> str:
+    """Reader-friendly, actually-traceable reference for a protection-flag
+    case: client_id plus branch, matching how the client protection team
+    looks up a client in their own systems -- a row_id/row-index number
+    means nothing to them and doesn't survive re-runs of the pipeline
+    (row order can shift; client_id doesn't)."""
+    profile = flag.get("profile") or {}
+    client_id = profile.get("client_id")
+    branch = profile.get("branch")
+    if client_id and branch:
+        return f"{client_id}, {branch}"
+    if client_id:
+        return client_id
+    # Fall back to the internal id only when no profile could be resolved
+    # (e.g. a row_id that no longer maps into the survey dataframe).
+    return flag.get("id", "") or "unknown"
 
 
 def _add_protection_signals_summary(doc, protection_flags: list) -> None:
@@ -289,27 +297,27 @@ def _add_protection_signals_annex(doc, protection_flags: list) -> None:
             flag_type = flag.get("flag_type", "")
             label = _PROTECTION_FLAG_LABELS.get(flag_type, flag_type.replace("_", " ").capitalize())
             reason = (flag.get("reason") or "").strip()
-            ref = _protection_flag_ref(flag.get("id", ""))
+            ref = _protection_flag_ref(flag)
             _add_paragraph(doc, f"{label}: {reason} ({ref})", style="List Bullet")
 
 
 _SPEARMAN_METHODOLOGY_NOTE = (
     "ρ (rho) is the Spearman rank correlation coefficient, a value from -1 to +1 showing "
-    "how strongly two things move together — values near +1 or -1 indicate a strong "
+    "how strongly two things move together: values near +1 or -1 indicate a strong "
     "relationship, values near 0 indicate little to none. Spearman correlation is "
     "calculated on the rank order of responses rather than their raw values, which makes "
     "it well suited to Likert-scale survey questions like the ones in Parts 4 and 5. p "
     "(the p-value) shows how likely a correlation this strong could appear by chance alone "
     "if no real relationship existed; p<0.05 is the conventional threshold for statistical "
-    "significance. N is the number of respondents included in each specific calculation — "
+    "significance. N is the number of respondents included in each specific calculation; "
     "it varies by driver because not every question was asked of every client (for example, "
     "in the Africa/Vietnam portfolio, Renewal Intent was asked only of Vietnam's "
     "crop-insurance clients).\n\n"
     "Financial Stress, Coverage Understanding, Claim Process Understanding, Worth Premium, "
     "Renewal Intent, and Confidence in Payout are all scored so that a LOWER number is the "
     "more positive response (e.g. 1 = \"Definitely would renew\"). A negative correlation "
-    "with the outcome variable — client satisfaction (NPS) in Part 4, child wellbeing in "
-    "Part 5 — for any of these drivers therefore reflects a POSITIVE real-world "
+    "with the outcome variable (client satisfaction, NPS, in Part 4; child wellbeing in "
+    "Part 5) for any of these drivers therefore reflects a POSITIVE real-world "
     "relationship (e.g. stronger renewal intent aligning with a better outcome), not a "
     "negative one. NPS itself runs the opposite way (0=worst, 10=best): when NPS appears as "
     "the outcome (Part 4), a negative correlation with it is what reflects the positive "
@@ -375,7 +383,77 @@ def _add_executive_summary(doc, analysis: dict, qual: dict):
         )
 
 
-def _add_about_survey_section(doc, about: dict):
+def _add_data_notes_subsection(doc, data_notes: "dict | None", quality_flags: "list | None" = None):
+    """Short, deterministic "Data Notes" subsection stating exclusion counts,
+    the dedup rule, and any active data-quality flags -- surfaced inside the
+    report itself, not only in the side screening_report.md diagnostic file
+    nobody reading the report ever sees. Source: data_loader_screening.py's
+    build_screening_summary() (the "data_notes" key) and data_quality_flags.
+    get_flags() (the "data_quality_flags" key), both top-level in
+    analysis_results.json. None of the dedup/exclusion counts were ever a
+    correctness bug (exact-content duplicates are genuinely dropped,
+    client-ID reuse is genuinely kept and flagged) -- the report stating
+    nothing about it is what made it look like one.
+    """
+    if not data_notes and not quality_flags:
+        return
+    _add_heading(doc, "Data Notes", level=3)
+
+    data_notes = data_notes or {}
+    removed = data_notes.get("removed", {})
+    n_start = data_notes.get("n_start")
+    n_end = data_notes.get("n_end")
+    lines = []
+    if n_start is not None and n_end is not None:
+        lines.append(f"{n_start:,} client responses were exported; {n_end:,} are covered by this report.")
+    if removed.get("duplicate_submission"):
+        lines.append(
+            f"{removed['duplicate_submission']} duplicate-submission row(s) removed "
+            f"({data_notes.get('rules', {}).get('duplicate_submission', '')})"
+        )
+    if removed.get("non_consenting"):
+        lines.append(f"{removed['non_consenting']} row(s) removed for declining consent.")
+    if removed.get("test_qa"):
+        lines.append(f"{removed['test_qa']} test/QA row(s) removed.")
+    if removed.get("unselected_region"):
+        lines.append(
+            f"{removed['unselected_region']:,} row(s) outside this report's scope "
+            f"({data_notes.get('report_scope')!r}) removed."
+        )
+    if removed.get("unselected_country"):
+        lines.append(
+            f"{removed['unselected_country']:,} row(s) outside the selected country "
+            f"({data_notes.get('target_country')!r}) removed."
+        )
+    for line in lines:
+        _add_paragraph(doc, line)
+
+    n_warn = data_notes.get("client_id_reuse_warnings", 0)
+    if n_warn:
+        _add_paragraph(
+            doc,
+            f"{n_warn} client ID(s) appear more than once with different answers "
+            f"({data_notes.get('rules', {}).get('client_id_reuse_not_dropped', '')}) "
+            "Both records are kept as-is pending field-team reconciliation."
+        )
+
+    uuid_pairs = data_notes.get("uuid_duplicate_pairs") or []
+    if uuid_pairs:
+        n_high = sum(1 for p in uuid_pairs if p.get("severity") == "high")
+        _add_paragraph(
+            doc,
+            f"{len(uuid_pairs)} pair(s) of records share a device-assigned ID but are not "
+            f"identical ({n_high} at high similarity, suggesting partial answer carryover "
+            "between two interviews on the same device). Both records in each pair are kept "
+            "as-is pending field-team reconciliation."
+        )
+
+    for flag in (quality_flags or []):
+        _add_paragraph(doc, f"Data quality flag ({flag.get('id')}): {flag.get('note', '')}")
+
+
+def _add_about_survey_section(doc, about: dict, data_notes: "dict | None" = None,
+                               quality_flags: "list | None" = None):
     """Renders analysis_engine/sections/about_survey.py's output directly --
     no LLM call, no report_spec.yaml entry, no orchestrator.py package. Pure
     descriptive statistics (country/product/age/sex/fieldwork dates), so
@@ -417,7 +495,7 @@ def _add_about_survey_section(doc, about: dict):
         _add_heading(doc, "Age", level=3)
         _add_paragraph(
             doc,
-            f"Mean age {age['mean']:.1f} years (range {age['min']}–{age['max']}), "
+            f"Mean age {age['mean']:.1f} years (range {age['min']} to {age['max']}), "
             f"based on {age['n_valid']:,} respondents with a recorded age."
         )
 
@@ -429,10 +507,12 @@ def _add_about_survey_section(doc, about: dict):
             [[row["sex"], row["n"], f"{row['pct'] * 100:.1f}%"] for row in by_sex],
         )
 
+    _add_data_notes_subsection(doc, data_notes, quality_flags)
+
 
 def _add_generation_failure_notice(doc, error: str):
     p = doc.add_paragraph(
-        f"[NARRATIVE GENERATION FAILED — Gemini call did not succeed after retries "
+        f"[NARRATIVE GENERATION FAILED: Gemini call did not succeed after retries "
         f"({error}). This section requires manual write-up before publishing.]"
     )
     if p.runs:
@@ -808,6 +888,60 @@ def build_part_10(doc, package: dict, texts: dict):
 
 
 # ---------------------------------------------------------------------------
+# Part 11 — Credit Life Module (renders whenever analysis_results.json has a
+# parts.part_11 block -- see run_analysis.py's build_sections(), gated to
+# report_scope=="africa")
+# ---------------------------------------------------------------------------
+
+def build_part_11(doc, package: dict, texts: dict):
+    _add_heading(doc, f"Part 11: {package['title']}", level=1)
+    sections = package.get("sections", {})
+    visuals  = package.get("visuals", [])
+
+    s11_1 = sections.get("s11_1", {})
+    _add_heading(doc, s11_1.get("label", "Other Benefits Used"), level=2)
+    _add_paragraph(doc, texts.get("s11_1", ""))
+    dist = s11_1.get("distributions", {}).get("main", [])
+    if dist:
+        rows = [[d.get("option", d.get("value", "")), d.get("n", ""),
+                 f"{d.get('pct', 0) * 100:.1f}%" if d.get("pct") is not None else ""]
+                for d in dist]
+        _add_table(doc, ["Benefit", "N", "%"], rows)
+    if visuals:
+        _add_image_or_placeholder(doc, visuals[0])
+
+    s11_2 = sections.get("s11_2", {})
+    _add_heading(doc, s11_2.get("label", "Value of Additional Benefits"), level=2)
+    _add_paragraph(doc, texts.get("s11_2", ""))
+
+    _add_insight_box(doc, texts.get("insight", ""), sections.get("insight", {}).get("verbatims", []))
+
+
+# ---------------------------------------------------------------------------
+# Part 12 — Crop Module (renders whenever analysis_results.json has a
+# parts.part_12 block -- see run_analysis.py's build_sections(), gated to
+# report_scope=="africa"). Every figure here is Vietnam crop clients only.
+# ---------------------------------------------------------------------------
+
+def build_part_12(doc, package: dict, texts: dict):
+    _add_heading(doc, f"Part 12: {package['title']}", level=1)
+    sections = package.get("sections", {})
+    visuals  = package.get("visuals", [])
+
+    s12_1 = sections.get("s12_1", {})
+    _add_heading(doc, s12_1.get("label", "Weather-Shock Recovery"), level=2)
+    _add_paragraph(doc, texts.get("s12_1", ""))
+    if visuals:
+        _add_image_or_placeholder(doc, visuals[0])
+
+    s12_2 = sections.get("s12_2", {})
+    _add_heading(doc, s12_2.get("label", "Farming Approach Change"), level=2)
+    _add_paragraph(doc, texts.get("s12_2", ""))
+
+    _add_insight_box(doc, texts.get("insight", ""), sections.get("insight", {}).get("verbatims", []))
+
+
+# ---------------------------------------------------------------------------
 # Main assembly
 # ---------------------------------------------------------------------------
 
@@ -833,15 +967,15 @@ def assemble(packages: list, written_texts: dict, run_id: str, output_path: Path
     doc.add_heading("VisionFund International", level=0)
     if country and country != DEFAULT_COUNTRY:
         country_label = meta.get("country_label") or country.title()
-        doc.add_heading(f"Insurance Impact Report — {country_label}, {period_label}", level=1)
+        doc.add_heading(f"Insurance Impact Report: {country_label}, {period_label}", level=1)
         if n_total:
             doc.add_paragraph(f"Covering {n_total:,} client responses from {country_label}.")
     elif _is_larco_rollup(meta):
-        doc.add_heading(f"Insurance Impact Report — LARCO Regional Portfolio, {period_label}", level=1)
+        doc.add_heading(f"Insurance Impact Report: LARCO Regional Portfolio, {period_label}", level=1)
         if n_total:
             doc.add_paragraph(f"Covering {n_total:,} client responses across VisionFund's LARCO (Latin America and Caribbean) insurance portfolio.")
     else:
-        doc.add_heading(f"Insurance Impact Report — Global Portfolio, {period_label}", level=1)
+        doc.add_heading(f"Insurance Impact Report: Global Portfolio, {period_label}", level=1)
         if n_total:
             doc.add_paragraph(f"Covering {n_total:,} client responses across the VisionFund insurance portfolio.")
     doc.add_paragraph(f"Generated: {datetime.now().strftime('%d %B %Y')}")
@@ -855,7 +989,11 @@ def assemble(packages: list, written_texts: dict, run_id: str, output_path: Path
 
     about_survey = _load_analysis_part(run_id, "about_survey")
     if about_survey:
-        _add_about_survey_section(doc, about_survey)
+        _add_about_survey_section(
+            doc, about_survey,
+            data_notes=full_analysis.get("data_notes"),
+            quality_flags=full_analysis.get("data_quality_flags"),
+        )
         doc.add_page_break()
 
     # part_8 (Kling Index) has no builder -- intentionally dashboard-only, never
@@ -870,6 +1008,8 @@ def assemble(packages: list, written_texts: dict, run_id: str, output_path: Path
         "part_7": build_part_7,
         "part_9": build_part_9,
         "part_10": build_part_10,
+        "part_11": build_part_11,
+        "part_12": build_part_12,
     }
 
     # Part 10 (Trend Comparison, when present) moves to the front of the

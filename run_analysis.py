@@ -23,9 +23,12 @@ import functools
 
 from data_loader.data_loader_api import load_survey_data
 from analysis_engine.country_config import load_country_config, DEFAULT_COUNTRY
+from report_scopes import REPORT_SCOPES
+from data_quality_flags import get_flags
 from analysis_engine.segments import describe_segments, get_all_segment_masks
 from analysis_engine.sections import (
     about_survey, part_1, part_2, part_3, part_4, part_5, part_6, part_7, part_8, part_9, part_10,
+    part_11, part_12,
 )
 from analysis_engine.stats import LOW_N_THRESHOLD
 
@@ -38,13 +41,16 @@ SCHEMA_VERSION = "1.5"   # was "1.4" — inverted Likert scale corrected:
 
 # Registry of section calculators shared by every dataset schema — add a new
 # section here only; nothing else changes. Parts 9/10 are gated in
-# build_sections() below: Part 9 stays LARCO-schema-only (Africa/Vietnam's
-# copy of its source columns is ~0.4% filled — see part_9.py); Part 10
-# activates whenever a --prior-run-id is given, LARCO-schema or not, since
-# 2026 folded LARCO into the africa_vietnam schema and a LARCO country's
-# 2025-vs-2026 trend comparison is now an africa_vietnam-schema run with a
-# larco-schema prior (see country_configs/ecuador.yaml etc. and
-# project_larco_2026_pivot memory).
+# build_sections() below on report_scope=="lacro" (the LACRO region-scoped
+# report, see report_scopes.py) -- OR'd with dataset_schema=="larco" so
+# reprocessing the 2025 LARCO-instrument export as a trend-comparison
+# baseline (a run with no report_scope at all, just dataset_schema="larco")
+# still gets both sections too. Part 9's Africa/Vietnam copy of its source
+# columns is ~0.4% filled (see part_9.py) so it stays LACRO-only regardless
+# of scope; Part 10 additionally activates whenever a --prior-run-id is
+# given, any scope, so a LACRO-scoped 2026 run can trend-compare against its
+# 2025 larco-schema baseline (see country_configs/ecuador.yaml etc. and
+# project_larco_2026_pivot / project_region_scoping memory).
 SECTIONS = [
     ("about_survey", "About This Survey",                 about_survey),
     ("part_1", "Client Understanding & Value Perception", part_1),
@@ -61,8 +67,9 @@ SECTIONS = [
     ("part_8", "Kling Index — Product Outcomes",         part_8),
 ]
 
-def build_sections(dataset_schema: str = "africa_vietnam", prior_run_id: "str | None" = None) -> list:
-    """Return [(key, label, calculate_fn), ...] for this dataset_schema.
+def build_sections(dataset_schema: str = "africa_vietnam", prior_run_id: "str | None" = None,
+                    report_scope: "str | None" = None) -> list:
+    """Return [(key, label, calculate_fn), ...] for this dataset_schema/report_scope.
 
     calculate_fn always has signature (ds, segment_masks) -> dict -- Part
     10 additionally needs prior_run_id, bound here via functools.partial so
@@ -71,26 +78,40 @@ def build_sections(dataset_schema: str = "africa_vietnam", prior_run_id: "str | 
     `calculate_fn(ds, segment_masks)` regardless of which sections are
     active, rather than special-casing part_10 in the loop itself.
 
-    Part 9 and Part 10 are gated independently:
-    - Part 9 (Additional Services) only ever has real data on a
-      dataset_schema="larco" run (the 2025 LARCO-instrument export) --
-      unchanged.
-    - Part 10 (Trend Comparison) activates whenever prior_run_id is given,
-      regardless of schema, PLUS unconditionally on a "larco" run even with
-      no prior_run_id (a first-wave LARCO run still needs to store its own
-      "current" snapshot for some future wave to compare against -- see
-      part_10.py's module docstring). This is what lets a 2026
-      africa_vietnam-schema run (e.g. a LARCO country's own report) trend-
-      compare against its 2025 larco-schema baseline.
+    Part 9 and Part 10 are gated independently, both keyed on
+    report_scope=="lacro" (the LACRO region-scoped report -- module manifest
+    requirement: these two sections never render for a report whose clients
+    were never asked their questions) OR'd with dataset_schema=="larco" (so
+    a run with no report_scope at all -- reprocessing the 2025
+    LARCO-instrument export as a trend-comparison baseline -- still gets
+    both, needed to produce that baseline's own stored snapshot):
+    - Part 9 (Additional Services) only ever has real data for LACRO
+      clients (Africa/Vietnam's copy of its source columns is ~0.4% filled
+      -- see part_9.py).
+    - Part 10 (Trend Comparison) additionally activates whenever
+      prior_run_id is given, any scope -- this is what lets a LACRO-scoped
+      2026 run trend-compare against its 2025 larco-schema baseline.
+
+    Part 11 (Credit Life Module) and Part 12 (Crop Module) are gated on
+    report_scope=="africa" -- both products are Africa/Vietnam-exclusive
+    (LACRO's insurance_type is 100% Health; see data_loader_larco/
+    column_mapping.csv), so both would come back not_applicable on a
+    LACRO-scoped run. Unlike Part 9/10, these have no dataset_schema=="larco"
+    fallback -- they only ever have real data on the africa_vietnam schema,
+    there is no larco-schema equivalent to reprocess.
     """
+    is_lacro_report = report_scope == "lacro" or dataset_schema == "larco"
     sections = [(key, label, module.calculate) for key, label, module in SECTIONS]
-    if dataset_schema == "larco":
+    if is_lacro_report:
         sections.append(("part_9", "Additional Services", part_9.calculate))
-    if dataset_schema == "larco" or prior_run_id:
+    if is_lacro_report or prior_run_id:
         sections.append((
             "part_10", "Trend Comparison",
             functools.partial(part_10.calculate, prior_run_id=prior_run_id),
         ))
+    if report_scope == "africa":
+        sections.append(("part_11", "Credit Life Module", part_11.calculate))
+        sections.append(("part_12", "Crop Module", part_12.calculate))
     return sections
 
 
@@ -186,24 +207,50 @@ def main() -> int:
     run_dir     = PROJECT_ROOT / "runs" / run_id
     output_path = run_dir / "analysis_results.json"
 
-    # 2. Read run metadata to determine country config + dataset schema
+    # 2. Read run metadata to determine country config + dataset schema + report scope
     metadata_path = run_dir / "run_metadata.yaml"
     if metadata_path.exists():
         with open(metadata_path, encoding="utf-8") as f:
             run_metadata = yaml.safe_load(f) or {}
         country = run_metadata.get("country", DEFAULT_COUNTRY)
         dataset_schema = run_metadata.get("dataset_schema", "africa_vietnam")
+        report_scope = run_metadata.get("report_scope")
     else:
         log.warning("run_metadata.yaml not found — using default country config")
         country = DEFAULT_COUNTRY
         dataset_schema = "africa_vietnam"
+        report_scope = None
 
-    sections = build_sections(dataset_schema, prior_run_id=args.prior_run_id)
+    report_scope_label = REPORT_SCOPES[report_scope]["label"] if report_scope else None
+
+    # data_notes: screening_summary.json (written by data_loader_screening.py)
+    # surfaced into analysis_results.json so the generated .docx can state
+    # exclusion counts and the dedup rule itself, not only in the side
+    # screening_report.md diagnostic file (see project_region_scoping memory).
+    data_notes = None
+    screening_summary_path = run_dir / "screening_summary.json"
+    if screening_summary_path.exists():
+        try:
+            data_notes = json.loads(screening_summary_path.read_text(encoding="utf-8"))
+        except json.JSONDecodeError as exc:
+            log.warning(f"Could not parse {screening_summary_path}: {exc}")
+
+    # data_quality_flags: hand-entered overrides plus whatever auto-derives
+    # from this run's own duration_outliers finding (see
+    # data_quality_flags.py's module docstring) -- read from data_notes
+    # rather than re-running find_duration_outliers() a second time here.
+    duration_outliers = (data_notes or {}).get("duration_outliers") or []
+    quality_flags = get_flags(report_scope, duration_outliers)
+    if quality_flags:
+        log.info(f"Data quality flags active: {[f['id'] for f in quality_flags]}")
+
+    sections = build_sections(dataset_schema, prior_run_id=args.prior_run_id, report_scope=report_scope)
     active_keys = {key for key, _, _ in sections}
+    is_lacro_report = report_scope == "lacro" or dataset_schema == "larco"
     if "part_9" in active_keys:
-        log.info("dataset_schema='larco' — added part_9 (Additional Services)")
+        log.info(f"report_scope={report_scope!r}, dataset_schema={dataset_schema!r} — added part_9 (Additional Services)")
     if "part_10" in active_keys:
-        reason = "dataset_schema='larco'" if dataset_schema == "larco" else f"--prior-run-id={args.prior_run_id!r}"
+        reason = "lacro-scoped report" if is_lacro_report else f"--prior-run-id={args.prior_run_id!r}"
         log.info(f"Part 10 (Trend Comparison) active — {reason}")
 
     country_config = load_country_config(country)
@@ -252,6 +299,8 @@ def main() -> int:
             "country_label":          country_config.label,
             "report_context":         country_config.report_context,
             "dataset_schema":         dataset_schema,
+            "report_scope":           report_scope,
+            "report_scope_label":     report_scope_label,
             "metric_notes": {
                 name: {
                     "note":                note.note,
@@ -266,6 +315,8 @@ def main() -> int:
             "section_errors":         section_errors,
         },
         "segments_summary": seg_desc,
+        "data_notes": data_notes,
+        "data_quality_flags": quality_flags,
         "parts": parts,
     }
 

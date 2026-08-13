@@ -17,8 +17,43 @@ from generation.orchestrator import (
     _build_trend_data,
     _check_metric_coverage,
     _not_applicable_path,
+    default_parts_filter,
     extract_metrics,
 )
+
+
+# ---------------------------------------------------------------------------
+# default_parts_filter -- regression coverage for a real bug: this used to
+# hardcode ("part_9", "part_10") as the only "conditionally gated" parts, so
+# adding Part 11/12 (also conditionally gated, on report_scope=="africa")
+# silently passed the filter on EVERY run regardless of whether analysis_
+# results.json actually had that part's data -- caught against real
+# LACRO-scope output, where Part 11/12 have zero credit-life/crop clients.
+# ---------------------------------------------------------------------------
+
+class TestDefaultPartsFilter:
+    def test_only_includes_parts_present_in_analysis_results(self):
+        spec = {"parts": {"part_1": {}, "part_9": {}, "part_11": {}}}
+        analysis = {"parts": {"part_1": {}, "part_9": {}}}  # part_11 absent
+        assert default_parts_filter(spec, analysis) == ["part_1", "part_9"]
+
+    def test_generalizes_to_a_hypothetical_future_conditional_part(self):
+        # Must not require hardcoding new part names as they're added --
+        # any part_spec key absent from analysis["parts"] is excluded,
+        # regardless of what it's called.
+        spec = {"parts": {"part_1": {}, "part_99": {}}}
+        analysis = {"parts": {"part_1": {}}}  # part_99 absent
+        assert default_parts_filter(spec, analysis) == ["part_1"]
+
+    def test_empty_parts_dict_excludes_everything(self):
+        spec = {"parts": {"part_1": {}, "part_2": {}}}
+        analysis = {"parts": {}}
+        assert default_parts_filter(spec, analysis) == []
+
+    def test_missing_parts_key_in_analysis_excludes_everything(self):
+        spec = {"parts": {"part_1": {}}}
+        analysis = {}
+        assert default_parts_filter(spec, analysis) == []
 
 
 # ---------------------------------------------------------------------------
@@ -103,7 +138,17 @@ class TestExtractMetrics:
         result = extract_metrics(analysis, section_spec)
         assert result["foo"] == "40.0%"
 
-    def test_driver_loop_within_extract_metrics_handles_not_applicable(self):
+    def test_driver_loop_within_extract_metrics_omits_not_applicable_entirely(self):
+        # Regression test: this loop used to lack the `continue` the metrics
+        # loop above it (and _build_drivers_data()) already had, so a
+        # not_applicable driver's key survived into the flat dict with a
+        # "NOT APPLICABLE" string value -- reaching writer.py's "Metrics"
+        # prompt section even though the correctly-filtered "Drivers"
+        # section already omitted the same driver. A region-scoped report
+        # whose clients were never asked a driver's question (e.g.
+        # renewal_intent for a LACRO-scoped run) must not see that driver's
+        # key at all, not just a masked value -- see project_region_scoping
+        # memory.
         analysis = {"parts": {"part_4": {"drivers": {"renewal_intent": {
             "value": None, "n_valid": 0, "suppressed": True, "not_applicable": True,
             "p_value": None,
@@ -115,9 +160,28 @@ class TestExtractMetrics:
             "suppressed_path": "parts.part_4.drivers.renewal_intent.suppressed",
         }}}
         result = extract_metrics(analysis, section_spec)
-        assert result["renewal_intent_rho"] == "NOT APPLICABLE"
-        assert result["renewal_intent_p"] == "NOT APPLICABLE"
-        assert result["renewal_intent_n"] == "NOT APPLICABLE"
+        assert "renewal_intent_rho" not in result
+        assert "renewal_intent_p" not in result
+        assert "renewal_intent_n" not in result
+
+    def test_driver_loop_within_extract_metrics_still_marks_suppressed(self):
+        # A driver that WAS asked but has too few responses (suppressed,
+        # not not_applicable) must still appear, marked SUPPRESSED -- only
+        # not_applicable drivers are omitted entirely.
+        analysis = {"parts": {"part_4": {"drivers": {"worth_premium": {
+            "value": None, "n_valid": 12, "suppressed": True, "not_applicable": False,
+            "p_value": None,
+        }}}}}
+        section_spec = {"drivers": {"worth_premium": {
+            "rho_path": "parts.part_4.drivers.worth_premium.value",
+            "p_path": "parts.part_4.drivers.worth_premium.p_value",
+            "n_path": "parts.part_4.drivers.worth_premium.n_valid",
+            "suppressed_path": "parts.part_4.drivers.worth_premium.suppressed",
+        }}}
+        result = extract_metrics(analysis, section_spec)
+        assert result["worth_premium_rho"] == "SUPPRESSED"
+        assert result["worth_premium_p"] == "SUPPRESSED"
+        assert result["worth_premium_n"] == "SUPPRESSED"
 
 
 # ---------------------------------------------------------------------------
@@ -323,6 +387,10 @@ def _trend_analysis(definition_match) -> dict:
         }},
         "prior_available": True,
         "comparison": {"first_time_access": {
+            "comparable": True,
+            "current_common_scope": {
+                "value": 0.79, "n_valid": 300, "n_total": 300, "suppressed": False, "not_applicable": False,
+            },
             "prior": {"value": 0.7, "n_valid": 480, "n_total": 480, "suppressed": False, "not_applicable": False},
             "significance": {"p_value": 0.02},
             "definition_match": definition_match,
@@ -335,13 +403,18 @@ class TestBuildTrendDataDefinitionMismatch:
         rows = _build_trend_data(_trend_analysis(False), _TREND_SPEC)
         assert "DEFINITION MISMATCH" in rows[0]["sig_test_note"]
 
-    def test_match_adds_no_note(self):
+    def test_match_adds_no_mismatch_warning(self):
+        # A comparable indicator always carries the common-country footnote
+        # (see _build_trend_data()'s docstring) -- only the DEFINITION
+        # MISMATCH warning is conditional on definition_match.
         rows = _build_trend_data(_trend_analysis(True), _TREND_SPEC)
-        assert rows[0]["sig_test_note"] is None
+        assert "DEFINITION MISMATCH" not in rows[0]["sig_test_note"]
+        assert "five countries surveyed in both waves" in rows[0]["sig_test_note"]
 
-    def test_unknown_match_adds_no_note(self):
+    def test_unknown_match_adds_no_mismatch_warning(self):
         rows = _build_trend_data(_trend_analysis(None), _TREND_SPEC)
-        assert rows[0]["sig_test_note"] is None
+        assert "DEFINITION MISMATCH" not in rows[0]["sig_test_note"]
+        assert "five countries surveyed in both waves" in rows[0]["sig_test_note"]
 
     def test_mismatch_note_appends_to_existing_nps_note_not_overwrites(self):
         analysis = _trend_analysis(False)

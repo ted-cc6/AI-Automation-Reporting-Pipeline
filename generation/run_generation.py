@@ -19,6 +19,7 @@ import yaml
 from generation.orchestrator import preflight_check, orchestrate
 from generation.writer import write_all_parts
 from generation.assembler import assemble
+from generation.validate_output import load_in_scope_countries, validate_report
 
 logging.basicConfig(
     level=logging.INFO,
@@ -102,6 +103,23 @@ def main():
         if isinstance(texts, dict) and texts.get("_generation_failed")
     ]
     log.info(f"{len(packages) - len(failed_parts)}/{len(packages)} parts written successfully.")
+
+    # Phase 3.5: Validate (advisory -- never blocks assembly; see
+    # generation/validate_output.py's module docstring)
+    log.info("Phase 3.5 — Validating written text...")
+    in_scope_countries = load_in_scope_countries(run_id, runs_dir=ROOT / "runs")
+    findings = validate_report(written_texts, packages, in_scope_countries)
+    validation_path = ROOT / "runs" / run_id / "validation_report.json"
+    validation_path.write_text(json.dumps(findings, indent=2), encoding="utf-8")
+    n_reject = sum(1 for f in findings if f["severity"] == "reject")
+    n_warn = sum(1 for f in findings if f["severity"] == "warn")
+    if findings:
+        log.warning(
+            f"Validation found {n_reject} reject-severity and {n_warn} warn-severity "
+            f"issue(s). Full detail: {validation_path}"
+        )
+    else:
+        log.info("Validation found no issues.")
 
     if args.skip_assembly:
         print("\n[skip-assembly] Exiting before .docx build.")

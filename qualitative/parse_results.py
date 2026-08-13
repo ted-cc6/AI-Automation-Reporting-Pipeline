@@ -103,6 +103,7 @@ def _lookup_profile(row_id: str, df: pd.DataFrame) -> dict:
 
     row = df.loc[idx]
     return {
+        "client_id": str(row.get("client_id", "")) or None,
         "sex": str(row.get("q_sex", "")) or None,
         "age": (None if pd.isna(row.get("q_client_age"))
                 else int(row["q_client_age"])),

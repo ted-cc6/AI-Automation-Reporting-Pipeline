@@ -186,18 +186,33 @@ def extract_metrics(analysis: dict, section_spec: dict) -> dict:
         if population:
             result[m_key + "_population"] = population
 
-    # Driver rho/p/n for Part 5 sections
+    # Driver rho/p/n for Part 4/5 sections. This flat "metrics" dict is a
+    # SEPARATE representation of the same drivers _build_drivers_data() below
+    # already renders correctly (that one omits not_applicable rows from the
+    # table entirely) -- writer.py's "Metrics" prompt section iterates THIS
+    # dict, not drivers_data, so a not_applicable driver must be skipped here
+    # too or its label (e.g. "renewal_intent_rho: NOT APPLICABLE") still
+    # reaches the model, redundant with the correctly-filtered DRIVERS
+    # section right below it in the same prompt and a violation of "omit
+    # silently, don't note that a module doesn't apply" for a region-scoped
+    # report (e.g. LACRO, which never asks q_renewal_intent at all -- see
+    # project_region_scoping memory). Confirmed real: this loop previously
+    # had no continue, unlike the metrics loop above it in this same
+    # function and _build_drivers_data() below, both of which already omit.
     for d_key, d_cfg in section_spec.get("drivers", {}).items():
         sup_path = d_cfg.get("suppressed_path", "")
         sup   = bool(get_nested(analysis, sup_path, default=False))
         not_app = bool(get_nested(analysis, _not_applicable_path(sup_path), default=False))
+        if not_app:
+            continue
         rho   = get_nested(analysis, d_cfg["rho_path"])
         p_val = get_nested(analysis, d_cfg["p_path"])
         n_val = get_nested(analysis, d_cfg["n_path"])
-        marker = "NOT APPLICABLE" if not_app else "SUPPRESSED"
-        result[d_key + "_rho"] = format_value(rho, "rho", suppressed=sup, not_applicable=not_app)
-        result[d_key + "_p"]   = format_p_value(p_val) if (p_val is not None and not sup) else marker
-        result[d_key + "_n"]   = format_value(n_val, "count") if (n_val is not None and not sup) else marker
+        # not_app already continue'd above, so a driver reaching here is
+        # never not_applicable -- only "SUPPRESSED" (small sample) remains.
+        result[d_key + "_rho"] = format_value(rho, "rho", suppressed=sup, not_applicable=False)
+        result[d_key + "_p"]   = format_p_value(p_val) if (p_val is not None and not sup) else "SUPPRESSED"
+        result[d_key + "_n"]   = format_value(n_val, "count") if (n_val is not None and not sup) else "SUPPRESSED"
 
     return result
 
@@ -328,7 +343,7 @@ def _build_scorecard_7(analysis: dict, scorecard_spec: list) -> list:
 
 
 def _build_trend_data(analysis: dict, trend_spec: list) -> list:
-    """Part 10's wave-over-wave trend rows, shaped exactly like
+    """Part 10's wave-over-wave trend rows, shaped like
     _build_scorecard_6/7()'s output (label/group_a_*/group_b_*/sig_p/
     significant/population/sig_test_note) so writer.py's existing
     scorecard-table prompt builder and assembler.py's existing
@@ -339,6 +354,19 @@ def _build_trend_data(analysis: dict, trend_spec: list) -> list:
     already fully pre-computed by analysis_engine/sections/part_10.py itself
     (it reads the prior run's own JSON at analysis time) -- this just
     formats what's already there, it doesn't re-derive anything.
+
+    Comparability (see part_10.py's _COMPARABLE table): "Current Wave"
+    always shows the FULL six-country figure (group_a_value), matching
+    every other figure in the report -- but for the two comparable
+    indicators, the delta/significance test underneath was computed on the
+    five-country COMMON base (Dominican Republic excluded, since it has no
+    2025 counterpart), not the full-scope figure shown in the table. A
+    footnote states that common-country figure explicitly, so a reader
+    scanning just the table sees the number the significance test actually
+    used, not just the two headline numbers either side of it. Non-
+    comparable rows get "Prior Wave" = "NOT COMPARABLE" plus a footnote
+    naming the instrument change, never a fabricated or silently-omitted
+    prior value.
     """
     part_10 = get_nested(analysis, "parts.part_10", default=None) or {}
     current = part_10.get("current", {})
@@ -360,28 +388,59 @@ def _build_trend_data(analysis: dict, trend_spec: list) -> list:
         sig_note = None
         if prior_available and key in comparison:
             comp = comparison[key]
-            prior = comp.get("prior", {})
-            val_b = format_value(
-                prior.get("value"), fmt,
-                suppressed=bool(prior.get("suppressed", False)),
-                not_applicable=bool(prior.get("not_applicable", False)),
-            )
-            sig = comp.get("significance") or {}
-            sig_p = sig.get("p_value")
-            if key == "client_satisfaction_nps":
-                sig_note = sig.get("test")
 
-            # Definition-match mismatch (see analysis_engine/sections/
-            # part_10.py's _compare_indicator()) overrides/extends whatever
-            # sig_note already says -- a changed question/scale/base between
-            # waves needs to be flagged prominently, not compared silently.
-            if comp.get("definition_match") is False:
-                mismatch = (
-                    "DEFINITION MISMATCH: this indicator's underlying question, scale, "
-                    "or population base differs between the current and prior wave -- "
-                    "the comparison above may not be measuring the same thing both times."
+            if not comp.get("comparable", True):
+                val_b = "NOT COMPARABLE"
+                reason = comp.get("incomparability_reason")
+                sig_note = (
+                    f"Not comparable to the prior wave: {reason}. This wave's figure is a "
+                    "new baseline, not a change from 2025 -- do not use comparative language "
+                    "(rose, fell, improved, declined, increased, decreased, up, down, since "
+                    "last year) for this indicator." if reason else
+                    "Not comparable to the prior wave (instrument changed) -- new baseline only."
                 )
-                sig_note = f"{sig_note} {mismatch}" if sig_note else mismatch
+            else:
+                prior = comp.get("prior") or {}
+                val_b = format_value(
+                    prior.get("value"), fmt,
+                    suppressed=bool(prior.get("suppressed", False)),
+                    not_applicable=bool(prior.get("not_applicable", False)),
+                )
+                sig = comp.get("significance") or {}
+                sig_p = sig.get("p_value")
+                if key == "client_satisfaction_nps":
+                    sig_note = sig.get("test")
+
+                # The delta/significance test above was computed on the
+                # common-country base, not the full-scope val_a shown in
+                # this same row -- state that number explicitly (see
+                # function docstring).
+                common = comp.get("current_common_scope") or {}
+                common_val = format_value(
+                    common.get("value"), fmt,
+                    suppressed=bool(common.get("suppressed", False)),
+                    not_applicable=bool(common.get("not_applicable", False)),
+                )
+                common_note = (
+                    f"The delta/significance test above compares the five countries surveyed "
+                    f"in both waves only (Dominican Republic excluded -- new in 2026, no 2025 "
+                    f"counterpart): {common_val} in this wave on those five countries, "
+                    f"against {val_b} in 2025."
+                )
+                sig_note = f"{sig_note} {common_note}" if sig_note else common_note
+
+                # Definition-match mismatch (see analysis_engine/sections/
+                # part_10.py's _compare_indicator()) overrides/extends
+                # whatever sig_note already says -- a changed question/
+                # scale/base between waves needs to be flagged prominently,
+                # not compared silently.
+                if comp.get("definition_match") is False:
+                    mismatch = (
+                        "DEFINITION MISMATCH: this indicator's underlying question, scale, "
+                        "or population base differs between the current and prior wave -- "
+                        "the comparison above may not be measuring the same thing both times."
+                    )
+                    sig_note = f"{sig_note} {mismatch}" if sig_note else mismatch
 
         rows.append({
             "label":         label,
@@ -526,26 +585,37 @@ def build_part_package(part_key: str, analysis: dict, qual: dict,
 # Main orchestration
 # ---------------------------------------------------------------------------
 
+def default_parts_filter(spec: dict, analysis: dict) -> list:
+    """Which report_spec.yaml part keys have real analysis data for this run.
+
+    report_spec.yaml lists every part (including the conditionally-gated
+    ones -- Parts 9-12), but a part only has real data when
+    run_analysis.py's build_sections() actually computed it for this run
+    (Part 9/10: report_scope=="lacro" or dataset_schema=="larco", Part 10
+    additionally on --prior-run-id; Part 11/12: report_scope=="africa" --
+    see run_analysis.py). Deriving the filter from analysis_results.json's
+    own `parts` keys, instead of re-deriving those conditions a second time
+    here (or hardcoding which part keys are "the conditional ones" -- a
+    list that has to be remembered and updated every time a new
+    conditionally-gated part is added, which this filter itself missed for
+    Part 11/12 until caught against real LACRO-scope output), keeps every
+    part in lockstep with build_sections() by construction. The always-on
+    parts (about_survey, Parts 1-8) are unconditionally in `available` too,
+    since build_sections() always includes them -- this one rule covers
+    both cases uniformly.
+    """
+    available = set(analysis.get("parts", {}))
+    return [k for k in spec["parts"] if k in available]
+
+
 def orchestrate(run_id: str, parts_filter: list = None) -> list:
     spec = yaml.safe_load(SPEC_PATH.read_text(encoding="utf-8"))
     analysis, qual = load_data(run_id)
 
+    # An explicit parts_filter (e.g. run_generation.py's --parts) always
+    # bypasses default_parts_filter() and is used as-is.
     if parts_filter is None:
-        # report_spec.yaml lists Parts 9/10 alongside the shared Parts 1-8,
-        # but they only have real data when run_analysis.py's
-        # build_sections() actually computed them for this run (Part 9:
-        # dataset_schema="larco" only; Part 10: dataset_schema="larco", or
-        # any schema given a --prior-run-id -- see run_analysis.py). Deriving
-        # the default filter from analysis_results.json's own `parts` keys,
-        # instead of re-deriving that same schema/prior_run_id condition a
-        # second time here, keeps the two in lockstep by construction --
-        # this used to be hand-duplicated in both dashboard/api/
-        # pipeline_runner.py and this module's CLI (run_generation.py) and
-        # had to be updated in both places whenever the condition changed.
-        # An explicit parts_filter (e.g. run_generation.py's --parts) always
-        # bypasses this and is used as-is.
-        available = set(analysis.get("parts", {}))
-        parts_filter = [k for k in spec["parts"] if k not in ("part_9", "part_10") or k in available]
+        parts_filter = default_parts_filter(spec, analysis)
 
     packages = []
     for part_key, part_spec in spec["parts"].items():

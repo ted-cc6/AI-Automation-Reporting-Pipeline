@@ -8,9 +8,10 @@ Run: pytest tests/test_parse_results.py -v
 """
 from __future__ import annotations
 
+import pandas as pd
 import pytest
 
-from qualitative.parse_results import REQUIRED_TOP_KEYS, _validate
+from qualitative.parse_results import REQUIRED_TOP_KEYS, _lookup_profile, _validate
 
 
 def _base_raw(**overrides) -> dict:
@@ -54,3 +55,34 @@ class TestValidate:
         del raw["top_actions"]
         with pytest.raises(ValueError, match="top_actions"):
             _validate(raw)
+
+
+class TestLookupProfile:
+    def _df(self):
+        return pd.DataFrame({
+            "client_id": ["CI-00042"],
+            "q_sex": ["Female"],
+            "q_client_age": [34],
+            "branch": ["Branch A"],
+            "country": ["Bolivia"],
+            "flag_paid_claimant": [False],
+            "flag_child_wellbeing_denominator": [True],
+        }, index=[42])
+
+    def test_profile_carries_client_id_for_traceable_appendix_refs(self):
+        # generation/assembler.py's _protection_flag_ref() needs client_id
+        # (plus branch) to render a reference the client protection team can
+        # actually look up -- a row_id/row-index number means nothing to them
+        # and doesn't survive a re-run of the pipeline.
+        profile = _lookup_profile("row_0042", self._df())
+        assert profile["client_id"] == "CI-00042"
+        assert profile["branch"] == "Branch A"
+
+    def test_missing_client_id_column_returns_none(self):
+        df = self._df().drop(columns=["client_id"])
+        profile = _lookup_profile("row_0042", df)
+        assert profile["client_id"] is None
+
+    def test_unresolvable_row_id_returns_empty_profile(self):
+        profile = _lookup_profile("row_9999", self._df())
+        assert profile == {}

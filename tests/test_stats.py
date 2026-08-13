@@ -278,6 +278,31 @@ class TestClaimsFunnel:
         assert result["claim_paid"]["not_applicable"] is True
         assert result["payout_adequacy"]["not_applicable"] is True
 
+    def test_experienced_event_denominator_excludes_skip_logic_nulls(self):
+        # Regression test for the confirmed production bug: a schema where
+        # q_insured_event_12m EXISTS for everyone (unlike the whole-column-
+        # absent LARCO case above) but is genuinely null for a sub-population
+        # who was never asked due to per-row skip logic (e.g. Vietnam's crop
+        # clients in the 2026 unified schema) -- the denominator must be
+        # "respondents actually asked" (notna), not len(df), or the reported
+        # rate is diluted by rows that were never asked at all. A pooled run
+        # previously reported "3,812 surveyed, 481 (12.6%) experienced an
+        # insured event" using len(df) as the denominator; the correct rate
+        # excluding never-asked crop clients is 13.1%.
+        df = pd.DataFrame({
+            "q_insured_event_12m": pd.array(
+                [True, False, True, None, None, None], dtype="boolean"
+            ),
+            "q_claim_submitted": pd.array(
+                [True, False, False, None, None, None], dtype="boolean"
+            ),
+        })
+        result = claims_funnel(df)
+        assert result["experienced_event"]["n"] == 2
+        assert result["experienced_event"]["n_total"] == 3  # asked, not len(df)==6
+        assert result["experienced_event"]["pct_of_total"] == pytest.approx(2 / 3)
+        assert result["experienced_event"]["base_description"] is not None
+
     def test_larco_schema_claim_paid_present_without_event_gate(self):
         # Defensive case: a schema with claim-outcome columns but no event
         # gate should still compute claim_paid normally against the claimant

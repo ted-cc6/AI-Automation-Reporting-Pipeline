@@ -111,7 +111,7 @@ Report EVERY instance, even one. These are surfaced as signals, not quantified.
 Include: id, flag_type, severity ("high"|"medium"|"low"),
 reason (1 sentence quoting or paraphrasing the key phrase).
 
-SEVERITY RUBRIC (apply these impact criteria to the specific case FIRST — do
+SEVERITY RUBRIC (apply these impact criteria to the specific case FIRST; do
 not just default to a flag_type's typical tier below when the actual
 described impact points elsewhere):
   high:   direct financial loss to the client (claim wrongly denied, premium
@@ -134,13 +134,13 @@ to medium; staff_misconduct defaults to medium but should be downgraded to
 low for pure communication friction with no suggestion of harm."""
 
 _REPORT_SECTIONS_BLOCK = """Sections:
-  part1 — Product Understanding: coverage/claims knowledge gaps, education
-  part2 — Claims Experience: filing experience, challenges, coping
-  part3 — Financial Inclusion: first insurance access, safety net
-  part4 — Client Voice: NPS drivers, promoter/detractor reasons, value
-  part5 — Child Wellbeing: impact on children, family, caregivers
-  part6 — Claimant Outcomes: lived experience of making a claim
-  part7 — Gender: gendered experience, female or male-specific challenges"""
+  part1 (Product Understanding): coverage/claims knowledge gaps, education
+  part2 (Claims Experience): filing experience, challenges, coping
+  part3 (Financial Inclusion): first insurance access, safety net
+  part4 (Client Voice): NPS drivers, promoter/detractor reasons, value
+  part5 (Child Wellbeing): impact on children, family, caregivers
+  part6 (Claimant Outcomes): lived experience of making a claim
+  part7 (Gender): gendered experience, female or male-specific challenges"""
 
 _VERBATIM_CRITERIA_BLOCK = """Selection criteria:
   - Text must be substantive: it names a specific reason, detail, or experience --
@@ -166,12 +166,12 @@ _VERBATIM_CRITERIA_BLOCK = """Selection criteria:
 _MULTI_COUNTRY_FRAMING = (
     "This survey spans multiple country programmes (mostly\n"
     "in Africa, plus a Vietnam crop-insurance programme and a small Latin America\n"
-    "sample) analyzed together as one combined client portfolio — it is not a\n"
+    "sample) analyzed together as one combined client portfolio; it is not a\n"
     "single-country survey."
 )
 
 _SINGLE_COUNTRY_FRAMING = (
-    "This report is scoped to a single country programme for this run — "
+    "This report is scoped to a single country programme for this run; "
     "every response below is from that one country."
 )
 
@@ -244,15 +244,15 @@ All responses are already in English.
 
 ## YOUR TASKS (for every record in this batch)
 
-### TASK 1 — NPS Theme Tagging
+### TASK 1: NPS Theme Tagging
 For each response assign 1-3 theme codes from the THEME TAXONOMY below.
 Return compact arrays: ["row_id", ["theme1", "theme2"]], bucketed by each
 record's own nps_group into "promoters"/"passives"/"detractors".
 
-### TASK 2 — Protection Flag Scan
+### TASK 2: Protection Flag Scan
 Scan every response in this batch for the PROTECTION FLAG TAXONOMY below.
 
-### TASK 3 — Verbatim Candidate Shortlist
+### TASK 3: Verbatim Candidate Shortlist
 For EACH of the 7 report sections below, shortlist up to {_CANDIDATES_PER_SECTION_PER_BATCH}
 candidate row IDs from THIS BATCH that could be a good quote for that
 section (a shortlist, not the final pick -- a later synthesis pass chooses
@@ -266,7 +266,7 @@ For each candidate, include a one-sentence "note" explaining why it fits
 the section -- the synthesis pass will use this note (not just the id) to
 make its final choice without re-reading your reasoning.
 
-### TASK 4 — "Not Worth It" Classification
+### TASK 4: "Not Worth It" Classification
 For every record in this batch with not_worth_it=true, classify it as
 "pricing" (concerns about premium cost or value perception) or "service"
 (concerns about claims process, delays, unclear coverage, staff), with a
@@ -279,6 +279,12 @@ own records, not deciding the final theme list.
 {_PROTECTION_FLAG_TAXONOMY_BLOCK}
 
 {_REPORT_SECTIONS_BLOCK}
+
+## STYLE
+
+In every free-text field you write (reason, note, one_line_reason), never use
+an em dash or en dash. Use a comma, colon, semicolon, parentheses, or a new
+sentence instead.
 
 ## OUTPUT SCHEMA
 
@@ -308,9 +314,37 @@ Return ONLY valid JSON. No markdown, no explanation, no extra keys.
 # Synthesis prompt (whole-payload-view tasks, run once)
 # ---------------------------------------------------------------------------
 
-def _build_synthesis_prompt(is_single_country: bool) -> str:
+def _build_data_quality_flag_block(excluded_countries: "list[str] | None") -> str:
+    """See data_quality_flags.py's module docstring: a flagged country's
+    data stays in every aggregate figure, but is excluded from quote
+    selection and from headline-claim citation pending human review.
+    Empty string (no block at all) when no flags are active, so a normal
+    run's prompt isn't cluttered with a section about nothing."""
+    if not excluded_countries:
+        return ""
+    countries_str = ", ".join(excluded_countries)
+    return f"""
+## DATA QUALITY FLAG
+
+The following countries have an active data-quality flag on this run: {countries_str}.
+Their responses still count normally in nps_theme_counts and every aggregate
+figure you were given -- do NOT exclude them from tagging, theme counts, or
+sub-theme clustering; do NOT mention that a flag exists in your prose. However:
+  - Do NOT select a row_id from these countries for section_verbatims, even
+    from claim_no_reason_other/claim_challenges_other_support/sparse_other
+    below -- pick the next-best candidate instead.
+  - Do NOT cite these countries by name, or describe a specific finding
+    sourced from them, in top_findings, executive_summary, or top_actions --
+    a data quality concern flags their INDIVIDUAL responses for exclusion
+    from headline/example use pending human review, though their data
+    remains in every aggregate statistic you were given.
+"""
+
+
+def _build_synthesis_prompt(is_single_country: bool, excluded_countries: "list[str] | None" = None) -> str:
     framing = _SINGLE_COUNTRY_FRAMING if is_single_country else _MULTI_COUNTRY_FRAMING
     diversity = _SINGLE_COUNTRY_FINAL_PICK_DIVERSITY if is_single_country else _MULTI_COUNTRY_FINAL_PICK_DIVERSITY
+    flag_block = _build_data_quality_flag_block(excluded_countries)
 
     return f"""
 You are an expert microinsurance survey analyst for VisionFund International,
@@ -352,10 +386,10 @@ Each claim_no_reason_other / claim_challenges_other_support /
 sparse_other record has: id, text, source_column, sex, client_age, branch,
 country, is_claimant, is_caregiver, is_female (sparse_other additionally has
 question_context).
-
+{flag_block}
 ## YOUR TASKS
 
-### TASK 1 — Claims Other Tagging
+### TASK 1: Claims Other Tagging
 Read every response in claim_no_reason_other and claim_challenges_other_support.
 For each assign:
   - 1-3 theme codes from the THEME TAXONOMY below
@@ -363,7 +397,7 @@ For each assign:
   - protection_flag: one flag code from the PROTECTION FLAG TAXONOMY below, or null
 Return full objects (not compact arrays) because volume is low.
 
-### TASK 2 — "Not Worth It" Sub-themes
+### TASK 2: "Not Worth It" Sub-themes
 Cluster not_worth_it_candidates (every one already classified pricing vs
 service by the earlier pass) into the top improvement themes, separately
 for "pricing" and "service". Return up to 5 themes total with: label, type
@@ -371,14 +405,14 @@ for "pricing" and "service". Return up to 5 themes total with: label, type
 IDs drawn from not_worth_it_candidates). If fewer than 3 candidates exist,
 return what you have.
 
-### TASK 3 — "Other" Column Sub-themes
+### TASK 3: "Other" Column Sub-themes
 For claim_no_reason_other and claim_challenges_other_support, identify sub-themes.
 Use RAW COUNTS not percentages (volume is low).
 Flag claim_challenges sub-themes that suggest client protection or staff conduct
 concerns with is_protection_concern: true.
 Return: label, count, is_protection_concern, representative_ids (1-2 row IDs).
 
-### TASK 4 — Final Verbatim Selection + Section Insights
+### TASK 4: Final Verbatim Selection + Section Insights
 
 For EACH of the 7 report sections below, do two things:
 
@@ -406,12 +440,12 @@ nps_theme_counts:
 
 {_REPORT_SECTIONS_BLOCK}
 
-### TASK 5 — Protection Flags (remaining groups)
+### TASK 5: Protection Flags (remaining groups)
 Scan claim_no_reason_other, claim_challenges_other_support, and sparse_other
 (NOT the NPS groups -- those were already scanned) for the PROTECTION FLAG
 TAXONOMY below.
 
-### TASK 6 — Executive Summary
+### TASK 6: Executive Summary
 Write 3-5 sentences covering:
   1. What do promoters most value? (use nps_theme_counts + verbatim_candidates)
   2. What are detractors' main pain points? (use nps_theme_counts + verbatim_candidates)
@@ -429,11 +463,21 @@ Also produce, separately from the prose above:
     VisionFund, ranked most important first, each one clearly traceable to
     one of your top_findings or a protection flag -- concrete and
     operational (e.g. "Retrain branch staff on X"), not vague aspirations
-    (e.g. not "improve communication").
+    (e.g. not "improve communication"). If an action names a specific
+    country, it must be one this survey actually covers (see the opening
+    paragraph above); never recommend an action for a country this survey
+    does not cover.
 
 {_THEME_TAXONOMY_BLOCK}
 
 {_PROTECTION_FLAG_TAXONOMY_BLOCK}
+
+## STYLE
+
+In every free-text field you write (reason, summary, theme_summary,
+executive_summary, top_findings, top_actions, label), never use an em dash
+or en dash. Use a comma, colon, semicolon, parentheses, or a new sentence
+instead.
 
 ## OUTPUT SCHEMA
 
@@ -529,6 +573,41 @@ def _chunk(items: list, size: int) -> list:
     return [items[i:i + size] for i in range(0, len(items), size)]
 
 
+_SEVERITY_RANK = {"high": 3, "medium": 2, "low": 1}
+
+
+def _dedupe_protection_flags(flags: list) -> list:
+    """Collapse duplicate protection flags on the same (id, flag_type).
+
+    The synthesis call is handed nps_protection_flags_found (flags the batch
+    phase already scanned out of the NPS records) as context for its own
+    whole-payload protection scan -- but nothing stops it from re-emitting
+    the same case in its own protection_flags list, sometimes at a different
+    severity than the batch phase assigned. Left unmerged, that produces the
+    same client counted twice in the report's totals (once per source list),
+    occasionally in two different severity tiers for the same underlying
+    complaint. A genuinely distinct second concern about the same respondent
+    (a different flag_type) is kept -- only the same (id, flag_type) pair is
+    collapsed, keeping the higher-severity copy (ties keep whichever was
+    seen first, which is the batch-phase copy since it's concatenated
+    first).
+    """
+    best: dict[tuple, dict] = {}
+    order: list[tuple] = []
+    for flag in flags:
+        key = (flag.get("id"), flag.get("flag_type"))
+        existing = best.get(key)
+        if existing is None:
+            best[key] = flag
+            order.append(key)
+            continue
+        existing_rank = _SEVERITY_RANK.get((existing.get("severity") or "").lower(), 0)
+        new_rank = _SEVERITY_RANK.get((flag.get("severity") or "").lower(), 0)
+        if new_rank > existing_rank:
+            best[key] = flag
+    return [best[key] for key in order]
+
+
 # ---------------------------------------------------------------------------
 # Orchestration
 # ---------------------------------------------------------------------------
@@ -541,6 +620,7 @@ def call_gemini(
     retry_delay_seconds: int = 30,
     provider: str = "gemini",
     api_key: "str | None" = None,
+    excluded_countries: "list[str] | None" = None,
 ) -> dict:
     """
     Run the qualitative-tagging pipeline: batch-tag NPS responses, then
@@ -562,6 +642,17 @@ def call_gemini(
         api_key:            API key for the chosen provider. Falls back to the
                              GEMINI_API_KEY env var when provider="gemini" and
                              no key is passed, for standalone CLI use.
+        excluded_countries: Countries with an active data_quality_flags.py
+                             flag on this run (see that module's docstring).
+                             Their tagging/theme-count contribution is
+                             unaffected -- only quote/verbatim eligibility.
+                             NPS-sourced candidate pools are filtered here in
+                             Python (deterministic, not dependent on the
+                             model following an instruction); the small
+                             claims_other/sparse_other groups are sent to
+                             synthesis un-filtered (still tagged normally)
+                             with an explicit instruction not to quote from
+                             them -- see _build_data_quality_flag_block().
 
     Returns:
         Final dict matching parse_results.REQUIRED_TOP_KEYS, unchanged shape
@@ -580,6 +671,9 @@ def call_gemini(
 
     raw_response_path.parent.mkdir(parents=True, exist_ok=True)
     single_country = _is_single_country_payload(payload)
+    excluded_set = set(excluded_countries or [])
+    if excluded_set:
+        log.info(f"Data quality flags active -- excluding from quote selection: {sorted(excluded_set)}")
 
     # ---- Phase 1: batch-tag the NPS responses -----------------------------
     all_nps = payload.get("nps_promoters", []) + payload.get("nps_passives", []) + payload.get("nps_detractors", [])
@@ -629,14 +723,14 @@ def call_gemini(
                 continue
             for cand in candidates:
                 rec = by_id.get(cand.get("id"))
-                if rec is None:
-                    continue
+                if rec is None or rec.get("country") in excluded_set:
+                    continue  # data-quality-flagged countries are never quote candidates
                 pooled_candidates[section].append({**rec, "note": cand.get("note", "")})
 
         for nwi in batch_result.get("not_worth_it_candidates", []):
             rec = by_id.get(nwi.get("id"))
-            if rec is None:
-                continue
+            if rec is None or rec.get("country") in excluded_set:
+                continue  # same exclusion -- representative_ids are quote-like citations
             pooled_not_worth_it.append({
                 **rec,
                 "type_guess": nwi.get("type_guess"),
@@ -666,7 +760,7 @@ def call_gemini(
         nps_theme_counts[grp] = dict(counter.most_common())
 
     # ---- Phase 2: synthesis -------------------------------------------------
-    synthesis_prompt = _build_synthesis_prompt(single_country)
+    synthesis_prompt = _build_synthesis_prompt(single_country, excluded_countries=sorted(excluded_set) or None)
     synthesis_input = {
         "claim_no_reason_other": payload.get("claim_no_reason_other", []),
         "claim_challenges_other_support": payload.get("claim_challenges_other_support", []),
@@ -702,7 +796,9 @@ def call_gemini(
         "other_subthemes": synthesis.get("other_subthemes", {}),
         "section_verbatims": synthesis.get("section_verbatims", {}),
         "section_insights": synthesis.get("section_insights", {}),
-        "protection_flags": nps_protection_flags + synthesis.get("protection_flags", []),
+        "protection_flags": _dedupe_protection_flags(
+            nps_protection_flags + synthesis.get("protection_flags", [])
+        ),
         "executive_summary": synthesis.get("executive_summary", ""),
         "top_findings": synthesis.get("top_findings", []),
         "top_actions": synthesis.get("top_actions", []),
