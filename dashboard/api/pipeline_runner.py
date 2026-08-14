@@ -377,10 +377,11 @@ def execute(run_id: str, csv_path: Path, country: str, llm: LlmConfig, dry_run: 
     a LARCO country, compared against its 2025 larco-schema baseline).
     report_scope: a named region group (see report_scopes.py, e.g. "lacro"
     or "africa") to scope this run to, instead of the full multi-region
-    portfolio. Not yet exposed in the dashboard UI/API request model --
-    plumbing only, wired through so the dashboard path stays consistent
-    with the CLI (run_pipeline.py --report-scope), which is the supported
-    entrypoint for region-scoped reports today.
+    portfolio. Exposed via StartRunRequest.report_scope / the dashboard's
+    report-scope picker (see CupboardWeekApp.tsx), which sends country=
+    "default" alongside it -- the frontend treats the two as mutually
+    exclusive, though this function itself just applies whichever filters
+    are non-default.
     """
     state = RUNS[run_id]
     run_dir = RUNS_DIR / run_id

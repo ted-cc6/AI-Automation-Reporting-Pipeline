@@ -8,6 +8,7 @@ import { useRunEvents } from "./state/useRunEvents";
 import {
   listUploadCountries,
   listLarcoPriorCandidates,
+  listReportScopes,
   uploadCsv,
   validateLlmKey,
   startRun,
@@ -20,6 +21,7 @@ import type {
   DatasetSchema,
   LlmValidateResponse,
   PriorRunCandidate,
+  ReportScopeOption,
   Provider,
   ReportType,
   VisualSlotInfo,
@@ -41,7 +43,8 @@ export function CupboardWeekApp({
   reportType: ReportType;
   onReportTypeChange: (t: ReportType) => void;
 }) {
-  const [countries, setCountries] = useState<CountryOption[]>([DEFAULT_COUNTRY_OPTION]);
+  const [uploadCountries, setUploadCountries] = useState<CountryOption[]>([]);
+  const [reportScopeOptions, setReportScopeOptions] = useState<ReportScopeOption[]>([]);
   const [country, setCountry] = useState("default");
   const [year, setYear] = useState(CURRENT_YEAR);
   const [quarter, setQuarter] = useState(2);
@@ -60,6 +63,23 @@ export function CupboardWeekApp({
   const [priorRunOptions, setPriorRunOptions] = useState<PriorRunCandidate[]>([]);
 
   const resolvedSchema: DatasetSchema | null = schemaOverride ?? csvUpload?.detected_schema ?? null;
+
+  // Report-scope options (LACRO / Africa+Asia) only apply to the 2026+
+  // unified schema, which is the only one that pools every region's
+  // respondents into one upload (see report_scopes.py's module docstring) --
+  // a legacy per-country "larco" schema upload is already scoped to one
+  // country, so the option wouldn't do anything meaningful there.
+  const scopeOptionsForSchema = resolvedSchema === "africa_vietnam" ? reportScopeOptions : [];
+  const countries = useMemo(
+    () => [DEFAULT_COUNTRY_OPTION, ...scopeOptionsForSchema, ...uploadCountries],
+    [scopeOptionsForSchema, uploadCountries],
+  );
+  // "lacro" is both a report_scope value (see report_scopes.py) and,
+  // separately, the LEGACY dataset_schema value for the pre-2026 per-country
+  // LARCO export -- Part 10's trend comparison applies to a current run in
+  // EITHER case (see run_analysis.py's build_sections() is_lacro_report
+  // check), so the prior-run picker must key off both, not just the schema.
+  const isLacroRun = resolvedSchema === "larco" || country === "lacro";
 
   const [provider, setProvider] = useState<Provider>("gemini");
   const [apiKey, setApiKey] = useState("");
@@ -80,22 +100,30 @@ export function CupboardWeekApp({
     [runIdOverride, country, year, quarter],
   );
 
+  // Report scopes are static/config-driven (not upload-dependent) -- fetch once.
+  useEffect(() => {
+    listReportScopes()
+      .then(setReportScopeOptions)
+      .catch(() => setReportScopeOptions([]));
+  }, []);
+
   useEffect(() => {
     if (!csvUpload) {
-      setCountries([DEFAULT_COUNTRY_OPTION]);
+      setUploadCountries([]);
       return;
     }
     listUploadCountries(csvUpload.upload_id)
-      .then((opts) => {
-        const merged = [DEFAULT_COUNTRY_OPTION, ...opts];
-        setCountries(merged);
-        // If the previously-selected country isn't in this upload's data
-        // (e.g. a new file was uploaded), fall back to the full portfolio
-        // rather than silently keeping a now-nonexistent selection.
-        setCountry((prev) => (merged.some((o) => o.value === prev) ? prev : "default"));
-      })
-      .catch(() => setCountries([DEFAULT_COUNTRY_OPTION]));
+      .then(setUploadCountries)
+      .catch(() => setUploadCountries([]));
   }, [csvUpload]);
+
+  // If the previously-selected country/scope isn't a valid option for this
+  // upload (e.g. a new file was uploaded, or it switched away from the
+  // unified schema a report-scope pick needs), fall back to the full
+  // portfolio rather than silently keeping a now-nonexistent selection.
+  useEffect(() => {
+    setCountry((prev) => (countries.some((o) => o.value === prev) ? prev : "default"));
+  }, [countries]);
 
   // A manual override only makes sense for the upload it was picked for --
   // a new file gets a fresh detection, not the previous file's override.
@@ -104,7 +132,7 @@ export function CupboardWeekApp({
   }, [csvUpload?.upload_id]);
 
   useEffect(() => {
-    if (resolvedSchema !== "larco") {
+    if (!isLacroRun) {
       setPriorRunOptions([]);
       setPriorRunId("");
       return;
@@ -112,7 +140,7 @@ export function CupboardWeekApp({
     listLarcoPriorCandidates()
       .then(setPriorRunOptions)
       .catch(() => setPriorRunOptions([]));
-  }, [resolvedSchema]);
+  }, [isLacroRun]);
 
   useEffect(() => {
     getVisualSlots(computedRunId)
@@ -156,16 +184,23 @@ export function CupboardWeekApp({
     setStarting(true);
     setStartError(null);
     try {
+      // The Country field doubles as a report-scope picker (see the
+      // `countries` useMemo above) -- a selected value that matches a
+      // report_scope option means "scope to this region group", not "scope
+      // to this single country", so it's sent as report_scope with country
+      // reset to the no-filter sentinel instead.
+      const selectedScope = reportScopeOptions.find((s) => s.value === country);
       const res = await startRun({
         report_type: "cupboard_week",
         upload_id: csvUpload!.upload_id,
-        country,
+        country: selectedScope ? "default" : country,
+        report_scope: selectedScope ? selectedScope.value : undefined,
         year,
         quarter,
         run_id: runIdOverride.trim() || undefined,
         llm: { provider, api_key: apiKey },
         dataset_schema: resolvedSchema && resolvedSchema !== "unknown" ? resolvedSchema : undefined,
-        prior_run_id: resolvedSchema === "larco" && priorRunId ? priorRunId : undefined,
+        prior_run_id: isLacroRun && priorRunId ? priorRunId : undefined,
       });
       setRunId(res.run_id);
     } catch (err) {
@@ -218,7 +253,7 @@ export function CupboardWeekApp({
         schemaOverride={schemaOverride}
         onSchemaOverrideChange={setSchemaOverride}
         reconcileEndpointBase={resolvedSchema === "larco" ? "/reconcile-larco" : "/reconcile"}
-        showPriorRunPicker={resolvedSchema === "larco"}
+        showPriorRunPicker={isLacroRun}
         priorRunOptions={priorRunOptions}
         priorRunId={priorRunId}
         onPriorRunIdChange={setPriorRunId}

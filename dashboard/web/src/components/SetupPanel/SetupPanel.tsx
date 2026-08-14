@@ -155,7 +155,7 @@ export function SetupPanel(props: {
 
       <Card
         title="2. Report type & period"
-        subtitle="Choose which report to generate, then set the run identifier. Selecting a country scopes the analysis to that country's respondents only, instead of the full multi-country portfolio."
+        subtitle="Choose which report to generate, then set the run identifier. Selecting a country or region scopes the analysis to those respondents only, instead of the full multi-country portfolio."
       >
         <label className="field field--grow">
           <span>Report type</span>
@@ -170,7 +170,7 @@ export function SetupPanel(props: {
         </label>
         <div className="field-row">
           <label className="field">
-            <span>Country</span>
+            <span>Country / Region</span>
             <select
               value={props.country}
               disabled={props.disabled}

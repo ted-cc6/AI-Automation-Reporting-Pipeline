@@ -11,6 +11,13 @@ export interface CountryOption {
   count?: number;
 }
 
+// A named region group (see report_scopes.py) a run can be scoped to instead
+// of a single country or the full multi-region portfolio, e.g. "lacro".
+export interface ReportScopeOption {
+  value: string;
+  label: string;
+}
+
 // Which source-survey schema an upload matches, from diffing its header row
 // against each known schema's canonical column mapping (see
 // dashboard/api/schema_detection.py). "unknown" means neither matched well
@@ -177,6 +184,13 @@ export function listCountries(): Promise<CountryOption[]> {
   return req("/countries");
 }
 
+// report_scopes.py's REPORT_SCOPES, for the report-scope picker -- lets a
+// run be scoped to a named region group (e.g. LACRO) instead of a single
+// country or the full portfolio.
+export function listReportScopes(): Promise<ReportScopeOption[]> {
+  return req("/report-scopes");
+}
+
 // Countries actually present in a specific upload (with respondent counts),
 // discovered from the raw CSV -- lets the country picker reflect this
 // dataset's real population instead of only the statically-configured
@@ -237,6 +251,10 @@ export interface StartRunRequest {
   // LARCO only, optional -- a prior completed run_id for Part 10's trend
   // comparison. See listLarcoPriorCandidates().
   prior_run_id?: string;
+  // Optional -- a named region group (see report_scopes.py, e.g. "lacro" or
+  // "africa") to scope this run to. Sent alongside country="default" when
+  // set (see CupboardWeekApp.tsx's handleStart()).
+  report_scope?: string;
 }
 
 export interface PriorRunCandidate {

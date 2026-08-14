@@ -85,6 +85,7 @@ async def start_run(req: StartRunRequest) -> StartRunResponse:
             asyncio.to_thread(
                 pipeline_runner.execute, run_id, upload_path, req.country, req.llm, req.dry_run,
                 dataset_schema=dataset_schema, prior_run_id=req.prior_run_id,
+                report_scope=req.report_scope,
             )
         )
     _background_tasks.add(task)

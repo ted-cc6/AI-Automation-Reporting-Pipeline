@@ -31,6 +31,11 @@ class CountryOption(BaseModel):
     count: Optional[int] = None
 
 
+class ReportScopeOption(BaseModel):
+    value: str
+    label: str
+
+
 class LlmValidateRequest(BaseModel):
     provider: Literal["gemini", "anthropic", "openai"]
     api_key: str
@@ -81,6 +86,14 @@ class StartRunRequest(BaseModel):
     # comparison (see analysis_engine/sections/part_10.py). Ignored for
     # non-LARCO runs and for gender_study.
     prior_run_id: Optional[str] = None
+    # Cupboard Week only, optional -- a named region group (see
+    # report_scopes.py, e.g. "lacro" or "africa") to scope this run to,
+    # instead of a single country or the full multi-region portfolio. Mutually
+    # exclusive with a real single-country `country` value in practice (the
+    # frontend sends country="default" alongside a report_scope), but the
+    # backend doesn't enforce that -- pipeline_runner.execute() just applies
+    # whichever filters are non-default.
+    report_scope: Optional[str] = None
 
 
 class StartRunResponse(BaseModel):

@@ -25,7 +25,7 @@ all read from this module).
 
 REPORT_SCOPES = {
     "lacro": {
-        "label": "Latin America and Caribbean",
+        "label": "LACRO (Latin America and Caribbean)",
         "regions": ["LACRO"],
     },
     "africa": {
