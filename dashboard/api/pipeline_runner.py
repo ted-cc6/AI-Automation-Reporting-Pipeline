@@ -76,13 +76,14 @@ DATASET_SCHEMA_PATHS = {
 DEFAULT_DATASET_SCHEMA = "africa_vietnam"
 
 
-def _run_stage1(state, csv_path: Path, run_dir: Path, country: str,
-                 dataset_schema: str = DEFAULT_DATASET_SCHEMA,
-                 report_scope: "str | None" = None) -> None:
-    state.current_stage = 1
-    state.stage1 = {"status": "running"}
-    state.log("Stage 1/4 -- Loading and cleaning survey data...")
-
+def _load_and_clean(run_id: str, csv_path: Path, run_dir: Path, country: str,
+                     dataset_schema: str, report_scope: "str | None", log) -> None:
+    """Core data-cleaning logic (stage 1's actual work), parameterized by an
+    explicit run_id and a plain log callback instead of a shared RunState --
+    lets this run both for the tracked main run (via _run_stage1, which also
+    updates state.stage1 for the frontend's stage pills) and for an
+    untracked prior-wave baseline build (via _build_prior_baseline, which
+    only needs the resulting files on disk, not its own stage tracking)."""
     # "default" (DEFAULT_COUNTRY) is the sentinel for "no single country
     # selected" -- it means "use country_configs/default.yaml" (no segment
     # overrides), not an actual country to filter survey_clean.parquet down
@@ -94,7 +95,7 @@ def _run_stage1(state, csv_path: Path, run_dir: Path, country: str,
     run_metadata_path = run_dir / "run_metadata.yaml"
     with open(run_metadata_path, "w", encoding="utf-8") as f:
         yaml.dump(
-            {"run_id": state.run_id, "country": country,
+            {"run_id": run_id, "country": country,
              "country_filter_applied": filter_country is not None,
              "dataset_schema": dataset_schema,
              "report_scope": report_scope,
@@ -117,7 +118,7 @@ def _run_stage1(state, csv_path: Path, run_dir: Path, country: str,
     mapping_path = reconciled_mapping if reconciled_mapping.exists() else canonical_mapping_path
     value_map_path = reconciled_value_map if reconciled_value_map.exists() else canonical_value_map_path
     if mapping_path == reconciled_mapping:
-        state.log(f"  [stage 1] using reconciled column mapping for upload {upload_id}")
+        log(f"using reconciled column mapping for upload {upload_id}")
 
     shutil.copy2(mapping_path, run_dir / "column_mapping_used.csv")
     shutil.copy2(value_map_path, run_dir / "value_coding_map_used.yaml")
@@ -137,7 +138,7 @@ def _run_stage1(state, csv_path: Path, run_dir: Path, country: str,
             report_scope=report_scope)),
     ]
     for name, fn in steps:
-        state.log(f"  [stage 1] running {name}...")
+        log(f"running {name}...")
         try:
             fn()
         except SystemExit as exc:
@@ -146,19 +147,20 @@ def _run_stage1(state, csv_path: Path, run_dir: Path, country: str,
             code = exc.code
             if code not in (None, 0):
                 raise RuntimeError(f"data_loader step '{name}' failed (exit code {code})") from exc
-        state.log(f"  [stage 1] {name} complete.")
-
-    state.stage1 = {"status": "succeeded"}
-    state.log("Stage 1/4 complete.")
+        log(f"{name} complete.")
 
 
-def _run_stage2(state, run_dir: Path, country: str, dataset_schema: str = DEFAULT_DATASET_SCHEMA,
-                 prior_run_id: "str | None" = None, report_scope: "str | None" = None) -> None:
-    state.current_stage = 2
-    state.stage2 = {"status": "running", "section_timing": {}, "section_errors": {}}
-    state.log("Stage 2/4 -- Running analysis engine...")
-
-    ds = load_survey_data(run_id=state.run_id)
+def _analyze(run_id: str, run_dir: Path, country: str, dataset_schema: str,
+             prior_run_id: "str | None", report_scope: "str | None", log,
+             on_section=None) -> dict:
+    """Core analysis logic (stage 2's actual work) -- see _load_and_clean()'s
+    docstring for why this is split out from _run_stage2. on_section, if
+    given, is called after each section with (section_timing, section_errors)
+    so far, letting _run_stage2 mirror live per-section progress into
+    state.stage2 the same way it always has. Returns a small summary dict
+    (not the full analysis_results.json, which is written to disk either
+    way) so the caller can decide its own stage status."""
+    ds = load_survey_data(run_id=run_id)
     country_config = load_country_config(country)
     segment_masks = get_all_segment_masks(ds.df, country_config.segment_overrides)
     seg_desc = describe_segments(ds.df, country_config.segment_overrides)
@@ -172,12 +174,12 @@ def _run_stage2(state, run_dir: Path, country: str, dataset_schema: str = DEFAUL
         try:
             data_notes = json.loads(screening_summary_path.read_text(encoding="utf-8"))
         except json.JSONDecodeError as exc:
-            state.log(f"  [stage 2] warning: could not parse {screening_summary_path.name}: {exc}")
+            log(f"warning: could not parse {screening_summary_path.name}: {exc}")
 
     duration_outliers = (data_notes or {}).get("duration_outliers") or []
     quality_flags = get_data_quality_flags(report_scope, duration_outliers)
     if quality_flags:
-        state.log(f"  [stage 2] data quality flags active: {[f['id'] for f in quality_flags]}")
+        log(f"data quality flags active: {[f['id'] for f in quality_flags]}")
 
     now = datetime.now(timezone.utc)
     parts: dict = {}
@@ -189,19 +191,19 @@ def _run_stage2(state, run_dir: Path, country: str, dataset_schema: str = DEFAUL
         t0 = time.perf_counter()
         try:
             parts[key] = calculate_fn(ds, segment_masks)
-            state.log(f"  [stage 2] {key} ({label}) OK")
+            log(f"{key} ({label}) OK")
         except Exception as exc:
             section_errors[key] = {"error": str(exc), "type": type(exc).__name__}
             parts[key] = None
-            state.log(f"  [stage 2] {key} ({label}) FAILED: {exc}")
+            log(f"{key} ({label}) FAILED: {exc}")
         finally:
             section_timing[key] = round(time.perf_counter() - t0, 3)
-        state.stage2["section_timing"] = dict(section_timing)
-        state.stage2["section_errors"] = dict(section_errors)
+        if on_section:
+            on_section(dict(section_timing), dict(section_errors))
 
     result = {
         "meta": {
-            "run_id": state.run_id,
+            "run_id": run_id,
             "generated_at": now.isoformat(timespec="seconds"),
             "schema_version": ra.SCHEMA_VERSION,
             "n_total": ds.n,
@@ -232,8 +234,70 @@ def _run_stage2(state, run_dir: Path, country: str, dataset_schema: str = DEFAUL
     with open(output_path, "w", encoding="utf-8") as f:
         json.dump(result, f, indent=2, ensure_ascii=False, cls=ra._AnalysisEncoder)
 
-    state.stage2["status"] = "partial_failure" if section_errors else "succeeded"
-    state.log(f"Stage 2/4 complete ({len(section_errors)} section error(s)).")
+    return {"section_errors": section_errors, "section_timing": section_timing, "n_total": ds.n}
+
+
+def _run_stage1(state, csv_path: Path, run_dir: Path, country: str,
+                 dataset_schema: str = DEFAULT_DATASET_SCHEMA,
+                 report_scope: "str | None" = None) -> None:
+    state.current_stage = 1
+    state.stage1 = {"status": "running"}
+    state.log("Stage 1/4 -- Loading and cleaning survey data...")
+    _load_and_clean(state.run_id, csv_path, run_dir, country, dataset_schema, report_scope,
+                     log=lambda msg: state.log(f"  [stage 1] {msg}"))
+    state.stage1 = {"status": "succeeded"}
+    state.log("Stage 1/4 complete.")
+
+
+def _run_stage2(state, run_dir: Path, country: str, dataset_schema: str = DEFAULT_DATASET_SCHEMA,
+                 prior_run_id: "str | None" = None, report_scope: "str | None" = None) -> None:
+    state.current_stage = 2
+    state.stage2 = {"status": "running", "section_timing": {}, "section_errors": {}}
+    state.log("Stage 2/4 -- Running analysis engine...")
+
+    def on_section(timing, errors):
+        state.stage2["section_timing"] = timing
+        state.stage2["section_errors"] = errors
+
+    summary = _analyze(state.run_id, run_dir, country, dataset_schema, prior_run_id, report_scope,
+                        log=lambda msg: state.log(f"  [stage 2] {msg}"), on_section=on_section)
+    state.stage2["status"] = "partial_failure" if summary["section_errors"] else "succeeded"
+    state.log(f"Stage 2/4 complete ({len(summary['section_errors'])} section error(s)).")
+
+
+def _build_prior_baseline(state, prior_csv_path: Path, prior_run_id: str,
+                           prior_dataset_schema: str) -> bool:
+    """Runs stages 1-2 (data cleaning + analysis) for a standalone prior-wave
+    CSV (e.g. a 2025 LARCO export), producing analysis_results.json at
+    RUNS_DIR/prior_run_id -- used as Part 10's trend-comparison baseline for
+    the MAIN run this precedes (see execute()). Logged into the same run's
+    log stream, prefixed distinctly, but deliberately does NOT touch
+    state.stage1/state.stage2 -- those reflect the MAIN run's own progress,
+    and this preliminary step has no stage pill of its own.
+
+    Never raises: a failure here (a malformed prior CSV, an undetectable
+    schema, a genuine data error) should not block the main report from
+    generating -- it should just generate without a trend comparison,
+    exactly as if no prior CSV had been given at all. Returns True/False so
+    execute() knows whether to pass this run_id through as prior_run_id.
+    """
+    prior_run_dir = RUNS_DIR / prior_run_id
+    state.log(f"Building prior-wave baseline from the uploaded prior-year CSV ({prior_dataset_schema} schema)...")
+    try:
+        _load_and_clean(prior_run_id, prior_csv_path, prior_run_dir, country="default",
+                         dataset_schema=prior_dataset_schema, report_scope=None,
+                         log=lambda msg: state.log(f"  [prior baseline] {msg}"))
+        _analyze(prior_run_id, prior_run_dir, country="default", dataset_schema=prior_dataset_schema,
+                 prior_run_id=None, report_scope=None,
+                 log=lambda msg: state.log(f"  [prior baseline] {msg}"))
+        state.log("Prior-wave baseline ready -- this run's trend comparison will use it.")
+        return True
+    except Exception as exc:
+        state.log(
+            f"Could not build a prior-wave baseline from the uploaded CSV ({exc}) -- "
+            "continuing without a trend comparison for this run."
+        )
+        return False
 
 
 def _run_stage3(state, run_dir: Path, llm: LlmConfig, dry_run: bool) -> None:
@@ -368,7 +432,8 @@ def _run_stage4(state, run_dir: Path, llm: LlmConfig, dry_run: bool) -> None:
 
 def execute(run_id: str, csv_path: Path, country: str, llm: LlmConfig, dry_run: bool = False,
             dataset_schema: str = DEFAULT_DATASET_SCHEMA, prior_run_id: "str | None" = None,
-            report_scope: "str | None" = None) -> None:
+            report_scope: "str | None" = None, prior_csv_path: "Path | None" = None,
+            prior_dataset_schema: "str | None" = None) -> None:
     """Entry point run via asyncio.to_thread() from the /api/runs route.
 
     prior_run_id: a prior run_id for Part 10's trend comparison (see
@@ -382,10 +447,25 @@ def execute(run_id: str, csv_path: Path, country: str, llm: LlmConfig, dry_run: 
     "default" alongside it -- the frontend treats the two as mutually
     exclusive, though this function itself just applies whichever filters
     are non-default.
+    prior_csv_path/prior_dataset_schema: an alternative to prior_run_id --
+    a standalone prior-wave CSV (e.g. a 2025 LARCO export) uploaded
+    alongside the main CSV in the same request. When given, this run first
+    builds a baseline from it (see _build_prior_baseline()) and uses THAT
+    as the effective prior_run_id, overriding any literal prior_run_id also
+    passed. A failure building the baseline degrades to no trend comparison
+    rather than failing the whole run -- see _build_prior_baseline()'s
+    docstring.
     """
     state = RUNS[run_id]
     run_dir = RUNS_DIR / run_id
     state.status = "running"
+
+    effective_prior_run_id = prior_run_id
+    if prior_csv_path is not None:
+        candidate_prior_run_id = f"{run_id}__prior"
+        if _build_prior_baseline(state, prior_csv_path, candidate_prior_run_id,
+                                  prior_dataset_schema or "unknown"):
+            effective_prior_run_id = candidate_prior_run_id
 
     try:
         _run_stage1(state, csv_path, run_dir, country, dataset_schema=dataset_schema,
@@ -398,7 +478,7 @@ def execute(run_id: str, csv_path: Path, country: str, llm: LlmConfig, dry_run: 
         return
 
     try:
-        _run_stage2(state, run_dir, country, dataset_schema=dataset_schema, prior_run_id=prior_run_id,
+        _run_stage2(state, run_dir, country, dataset_schema=dataset_schema, prior_run_id=effective_prior_run_id,
                     report_scope=report_scope)
     except Exception as exc:
         state.stage2 = {"status": "failed", "error": str(exc)}

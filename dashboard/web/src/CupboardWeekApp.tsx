@@ -7,7 +7,6 @@ import { ResultsPanel } from "./components/ResultsPanel/ResultsPanel";
 import { useRunEvents } from "./state/useRunEvents";
 import {
   listUploadCountries,
-  listLarcoPriorCandidates,
   listReportScopes,
   uploadCsv,
   validateLlmKey,
@@ -20,7 +19,6 @@ import type {
   CsvUploadResponse,
   DatasetSchema,
   LlmValidateResponse,
-  PriorRunCandidate,
   ReportScopeOption,
   Provider,
   ReportType,
@@ -59,14 +57,16 @@ export function CupboardWeekApp({
   // manually (see SetupPanel's schema-override buttons) -- resolvedSchema
   // below is the single source of truth everything else reads from.
   const [schemaOverride, setSchemaOverride] = useState<DatasetSchema | null>(null);
-  const [priorRunId, setPriorRunId] = useState("");
-  const [priorRunOptions, setPriorRunOptions] = useState<PriorRunCandidate[]>([]);
+  // A second, standalone prior-wave CSV (e.g. a 2025 LARCO export) for Part
+  // 10's trend comparison -- just a selected File until handleStart()
+  // uploads it. The backend analyzes it and wires it in as this run's
+  // baseline automatically; there's no separate "build the baseline first"
+  // run or run-picking involved (see dashboard/api/pipeline_runner.py's
+  // _build_prior_baseline()).
+  const [priorCsvFile, setPriorCsvFile] = useState<File | null>(null);
   // Runs stages 1-2 only (data cleaning + analysis), producing
-  // analysis_results.json without any LLM calls -- used to build a
-  // prior-wave baseline (e.g. a standalone 2025 LARCO CSV) for Part 10's
-  // trend comparison without generating a full report for it. See
-  // dashboard/api/pipeline_runner.py's _run_stage3/_run_stage4 dry_run
-  // handling.
+  // analysis_results.json without any LLM calls -- lets a user preview the
+  // computed analysis before spending LLM cost on the full report.
   const [dryRun, setDryRun] = useState(false);
 
   const resolvedSchema: DatasetSchema | null = schemaOverride ?? csvUpload?.detected_schema ?? null;
@@ -146,22 +146,12 @@ export function CupboardWeekApp({
     if (reportType !== "cupboard_week") setDryRun(false);
   }, [reportType]);
 
-  // Also re-fetches whenever the current run's status changes (not just when
-  // isLacroRun toggles) -- otherwise a baseline built with "Analysis only"
-  // earlier in the SAME session (e.g. a prior-wave CSV run right before
-  // this one) would never appear here without a full page reload, since
-  // isLacroRun typically stays true/false throughout and never re-triggers
-  // this effect on its own.
+  // A prior-CSV selection only makes sense for the upload it was picked
+  // alongside -- a new main file gets a fresh isLacroRun determination, and
+  // an old prior selection could be stale or no longer relevant.
   useEffect(() => {
-    if (!isLacroRun) {
-      setPriorRunOptions([]);
-      setPriorRunId("");
-      return;
-    }
-    listLarcoPriorCandidates()
-      .then(setPriorRunOptions)
-      .catch(() => setPriorRunOptions([]));
-  }, [isLacroRun, snapshot?.status]);
+    setPriorCsvFile(null);
+  }, [csvUpload?.upload_id]);
 
   useEffect(() => {
     getVisualSlots(computedRunId)
@@ -205,6 +195,16 @@ export function CupboardWeekApp({
     setStarting(true);
     setStartError(null);
     try {
+      // If a prior-year CSV was selected, upload it now (a plain upload --
+      // no reconciliation/validation flow, no schema picking; the backend
+      // detects its schema and analyzes it as part of starting this run,
+      // degrading to no trend comparison if that fails for any reason).
+      let priorUploadId: string | undefined;
+      if (priorCsvFile) {
+        const priorUpload = await uploadCsv(priorCsvFile);
+        priorUploadId = priorUpload.upload_id;
+      }
+
       // The Country field doubles as a report-scope picker (see the
       // `countries` useMemo above) -- a selected value that matches a
       // report_scope option means "scope to this region group", not "scope
@@ -221,7 +221,7 @@ export function CupboardWeekApp({
         run_id: runIdOverride.trim() || undefined,
         llm: { provider, api_key: apiKey },
         dataset_schema: resolvedSchema && resolvedSchema !== "unknown" ? resolvedSchema : undefined,
-        prior_run_id: isLacroRun && priorRunId ? priorRunId : undefined,
+        prior_upload_id: priorUploadId,
         dry_run: dryRun,
       });
       setRunId(res.run_id);
@@ -275,10 +275,10 @@ export function CupboardWeekApp({
         schemaOverride={schemaOverride}
         onSchemaOverrideChange={setSchemaOverride}
         reconcileEndpointBase={resolvedSchema === "larco" ? "/reconcile-larco" : "/reconcile"}
-        showPriorRunPicker={isLacroRun}
-        priorRunOptions={priorRunOptions}
-        priorRunId={priorRunId}
-        onPriorRunIdChange={setPriorRunId}
+        showPriorCsvUpload={isLacroRun}
+        priorCsvFile={priorCsvFile}
+        onPriorCsvSelected={setPriorCsvFile}
+        onPriorCsvCleared={() => setPriorCsvFile(null)}
         dryRun={dryRun}
         onDryRunChange={setDryRun}
         powerbiMode={powerbiMode}

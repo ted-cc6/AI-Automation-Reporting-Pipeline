@@ -70,6 +70,20 @@ async def start_run(req: StartRunRequest) -> StartRunResponse:
                 "schema this file belongs to.",
             )
 
+    # Optional standalone prior-wave CSV (see StartRunRequest.prior_upload_id's
+    # docstring) -- schema detection failing here degrades to "no trend
+    # comparison" rather than rejecting the whole request the way the main
+    # upload's own detection failure does above, since this file is optional
+    # and pipeline_runner.execute()'s _build_prior_baseline() already handles
+    # a bad/undetectable schema as a graceful skip.
+    prior_csv_path = None
+    prior_dataset_schema = None
+    if req.report_type == "cupboard_week" and req.prior_upload_id:
+        prior_csv_path = UPLOADS_DIR / f"{req.prior_upload_id}.csv"
+        if not prior_csv_path.exists():
+            raise HTTPException(404, f"Prior-wave upload '{req.prior_upload_id}' not found -- upload it first.")
+        prior_dataset_schema = detect_dataset_schema(prior_csv_path)
+
     run_id = _default_run_id(req)
     try:
         start_new_run(run_id, req.report_type, req.country)
@@ -86,6 +100,7 @@ async def start_run(req: StartRunRequest) -> StartRunResponse:
                 pipeline_runner.execute, run_id, upload_path, req.country, req.llm, req.dry_run,
                 dataset_schema=dataset_schema, prior_run_id=req.prior_run_id,
                 report_scope=req.report_scope,
+                prior_csv_path=prior_csv_path, prior_dataset_schema=prior_dataset_schema,
             )
         )
     _background_tasks.add(task)

@@ -37,6 +37,19 @@
   color: var(--color-ink-soft);
 }
 
+.field-hint {
+  margin: 0.35rem 0 0;
+  font-size: var(--text-caption);
+  color: var(--color-ink-soft);
+  font-weight: 400;
+}
+
+.prior-csv-picker__result {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
 .schema-override {
   margin-top: 0.5rem;
 }

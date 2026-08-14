@@ -94,6 +94,16 @@ class StartRunRequest(BaseModel):
     # backend doesn't enforce that -- pipeline_runner.execute() just applies
     # whichever filters are non-default.
     report_scope: Optional[str] = None
+    # Cupboard Week only, optional -- upload_id of a SEPARATE, standalone
+    # prior-wave CSV (e.g. a 2025 LARCO export), uploaded via the same
+    # POST /api/csv/upload endpoint as the main upload. When given,
+    # run_routes.py auto-detects its schema and this run builds a trend-
+    # comparison baseline from it before its own stages run (see
+    # pipeline_runner.execute()'s prior_csv_path) -- the simpler, upload-
+    # based alternative to prior_run_id (which requires already knowing an
+    # existing run_id). A failure processing this file degrades to no trend
+    # comparison rather than failing the whole run.
+    prior_upload_id: Optional[str] = None
 
 
 class StartRunResponse(BaseModel):

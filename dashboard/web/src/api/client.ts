@@ -258,11 +258,14 @@ export interface StartRunRequest {
   // Cupboard Week only, optional -- runs stages 1-2 (data cleaning +
   // analysis) only, producing analysis_results.json without spending any
   // LLM calls on qualitative tagging or report writing (stages 3-4 are
-  // skipped). Used to build a prior-wave baseline for Part 10's trend
-  // comparison from a standalone prior-wave CSV (e.g. a 2025 LARCO export)
-  // without generating a full report for it. Not supported for
-  // gender_study/core_credit (see run_routes.py).
+  // skipped). Not supported for gender_study/core_credit (see run_routes.py).
   dry_run?: boolean;
+  // Cupboard Week only, optional -- upload_id of a SEPARATE prior-wave CSV
+  // (e.g. a 2025 LARCO export), uploaded via uploadCsv() same as the main
+  // file. The backend builds a trend-comparison baseline from it and uses
+  // that for this run automatically -- no separate run/upload_id picking
+  // needed. See CupboardWeekApp.tsx's handleStart().
+  prior_upload_id?: string;
 }
 
 export interface PriorRunCandidate {

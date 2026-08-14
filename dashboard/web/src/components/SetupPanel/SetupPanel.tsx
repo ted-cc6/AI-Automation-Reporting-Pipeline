@@ -7,7 +7,6 @@ import type {
   CountryOption,
   CsvUploadResponse,
   DatasetSchema,
-  PriorRunCandidate,
   Provider,
   ReportType,
   VisualSlotInfo,
@@ -54,16 +53,17 @@ export function SetupPanel(props: {
   onSchemaOverrideChange: (v: DatasetSchema | null) => void;
   reconcileEndpointBase: string;
 
-  // LARCO only -- Part 10's optional trend-comparison baseline.
-  showPriorRunPicker: boolean;
-  priorRunOptions: PriorRunCandidate[];
-  priorRunId: string;
-  onPriorRunIdChange: (v: string) => void;
+  // LARCO only -- Part 10's optional trend-comparison baseline. Uploading a
+  // second, standalone prior-wave CSV here is enough; the backend analyzes
+  // it and wires it in as the baseline automatically when this run starts,
+  // with no separate "build a baseline first" run or run-picking involved.
+  showPriorCsvUpload: boolean;
+  priorCsvFile: File | null;
+  onPriorCsvSelected: (file: File) => void;
+  onPriorCsvCleared: () => void;
 
   // Cupboard Week only -- runs data cleaning + analysis without spending
-  // any LLM calls, producing analysis_results.json without a report. Used
-  // to build a prior-wave baseline (e.g. a standalone prior CSV) for the
-  // prior-run picker above, without generating a full report for it.
+  // any LLM calls, producing analysis_results.json without a report.
   dryRun: boolean;
   onDryRunChange: (v: boolean) => void;
 
@@ -229,23 +229,21 @@ export function SetupPanel(props: {
           Run ID: <span className="mono">{props.computedRunId}</span>
         </p>
 
-        {props.showPriorRunPicker && (
-          <label className="field field--grow">
-            <span>Prior run for trend comparison (optional)</span>
-            <select
-              value={props.priorRunId}
+        {props.showPriorCsvUpload && (
+          <div className="field field--grow">
+            <span>Prior year's data for trend comparison (optional)</span>
+            <PriorCsvPicker
+              file={props.priorCsvFile}
+              onSelected={props.onPriorCsvSelected}
+              onCleared={props.onPriorCsvCleared}
               disabled={props.disabled}
-              onChange={(e) => props.onPriorRunIdChange(e.target.value)}
-            >
-              <option value="">None — this is the first comparable wave</option>
-              {props.priorRunOptions.map((r) => (
-                <option key={r.run_id} value={r.run_id}>
-                  {r.run_id}
-                  {r.country ? ` (${r.country})` : ""}
-                </option>
-              ))}
-            </select>
-          </label>
+            />
+            <p className="field-hint">
+              Upload last year's raw CSV here and this report will include a wave-over-wave trend
+              comparison automatically -- no separate step needed. Leave this empty for a
+              first-wave report with no trend comparison.
+            </p>
+          </div>
         )}
 
         {props.reportType === "cupboard_week" && (
@@ -258,9 +256,7 @@ export function SetupPanel(props: {
             />
             <span>
               Analysis only (skip report generation) -- cleans and analyzes this upload without
-              spending any LLM calls, producing no .docx. Use this to build a prior-wave baseline
-              (e.g. a standalone prior-year CSV) that shows up in "Prior run for trend comparison"
-              above on a later run.
+              spending any LLM calls, producing no .docx.
             </span>
           </label>
         )}
@@ -297,6 +293,49 @@ export function SetupPanel(props: {
         )}
       </Card>
     </>
+  );
+}
+
+function PriorCsvPicker({
+  file,
+  onSelected,
+  onCleared,
+  disabled,
+}: {
+  file: File | null;
+  onSelected: (f: File) => void;
+  onCleared: () => void;
+  disabled: boolean;
+}) {
+  const inputRef = useRef<HTMLInputElement>(null);
+  return (
+    <div className="prior-csv-picker">
+      <input
+        ref={inputRef}
+        type="file"
+        accept=".csv"
+        hidden
+        disabled={disabled}
+        onChange={(e: ChangeEvent<HTMLInputElement>) => {
+          const f = e.target.files?.[0];
+          if (f) onSelected(f);
+          e.target.value = "";
+        }}
+      />
+      {file ? (
+        <div className="prior-csv-picker__result">
+          <span className="badge badge--success">selected</span>
+          <strong>{file.name}</strong>
+          <Button variant="ghost" disabled={disabled} onClick={onCleared}>
+            Remove
+          </Button>
+        </div>
+      ) : (
+        <Button variant="secondary" disabled={disabled} onClick={() => inputRef.current?.click()}>
+          Choose prior-year CSV…
+        </Button>
+      )}
+    </div>
   );
 }
 
