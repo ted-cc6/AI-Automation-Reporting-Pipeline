@@ -146,6 +146,12 @@ export function CupboardWeekApp({
     if (reportType !== "cupboard_week") setDryRun(false);
   }, [reportType]);
 
+  // Also re-fetches whenever the current run's status changes (not just when
+  // isLacroRun toggles) -- otherwise a baseline built with "Analysis only"
+  // earlier in the SAME session (e.g. a prior-wave CSV run right before
+  // this one) would never appear here without a full page reload, since
+  // isLacroRun typically stays true/false throughout and never re-triggers
+  // this effect on its own.
   useEffect(() => {
     if (!isLacroRun) {
       setPriorRunOptions([]);
@@ -155,7 +161,7 @@ export function CupboardWeekApp({
     listLarcoPriorCandidates()
       .then(setPriorRunOptions)
       .catch(() => setPriorRunOptions([]));
-  }, [isLacroRun]);
+  }, [isLacroRun, snapshot?.status]);
 
   useEffect(() => {
     getVisualSlots(computedRunId)
