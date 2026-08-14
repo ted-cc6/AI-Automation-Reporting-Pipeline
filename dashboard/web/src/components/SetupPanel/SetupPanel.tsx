@@ -60,6 +60,13 @@ export function SetupPanel(props: {
   priorRunId: string;
   onPriorRunIdChange: (v: string) => void;
 
+  // Cupboard Week only -- runs data cleaning + analysis without spending
+  // any LLM calls, producing analysis_results.json without a report. Used
+  // to build a prior-wave baseline (e.g. a standalone prior CSV) for the
+  // prior-run picker above, without generating a full report for it.
+  dryRun: boolean;
+  onDryRunChange: (v: boolean) => void;
+
   powerbiMode: "manual" | "api";
   onPowerbiModeChange: (m: "manual" | "api") => void;
 
@@ -238,6 +245,23 @@ export function SetupPanel(props: {
                 </option>
               ))}
             </select>
+          </label>
+        )}
+
+        {props.reportType === "cupboard_week" && (
+          <label className="field field--checkbox">
+            <input
+              type="checkbox"
+              checked={props.dryRun}
+              disabled={props.disabled}
+              onChange={(e) => props.onDryRunChange(e.target.checked)}
+            />
+            <span>
+              Analysis only (skip report generation) -- cleans and analyzes this upload without
+              spending any LLM calls, producing no .docx. Use this to build a prior-wave baseline
+              (e.g. a standalone prior-year CSV) that shows up in "Prior run for trend comparison"
+              above on a later run.
+            </span>
           </label>
         )}
       </Card>

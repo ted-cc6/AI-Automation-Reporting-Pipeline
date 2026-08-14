@@ -111,6 +111,37 @@ class TestAssembleCoverPage:
         assert "Global Portfolio" not in paras[1]
         assert paras[2] == "Covering 1,355 client responses across VisionFund's LARCO (Latin America and Caribbean) insurance portfolio."
 
+    def test_report_scope_lacro_uses_larco_regional_title_not_global(self, tmp_path, monkeypatch):
+        # The real bug this guards against: a report_scope=="lacro" run on
+        # the unified schema (country="default") previously fell through to
+        # "Global Portfolio" since only dataset_schema=="larco" was checked.
+        monkeypatch.setattr(assembler, "ROOT", tmp_path)
+        _make_run(tmp_path, "lacro_scope_run", {
+            "country": "default", "dataset_schema": "africa_vietnam",
+            "report_scope": "lacro", "report_scope_label": "LACRO (Latin America and Caribbean)",
+            "n_total": 1721,
+        })
+        out = tmp_path / "out.docx"
+        assemble([], {}, "lacro_scope_run", out)
+        paras = self._cover_paragraphs(out)
+        assert "LARCO Regional Portfolio" in paras[1]
+        assert "Global Portfolio" not in paras[1]
+        assert paras[2] == "Covering 1,721 client responses across VisionFund's LARCO (Latin America and Caribbean) insurance portfolio."
+
+    def test_report_scope_africa_uses_its_own_label_in_title_and_subtitle(self, tmp_path, monkeypatch):
+        monkeypatch.setattr(assembler, "ROOT", tmp_path)
+        _make_run(tmp_path, "africa_scope_run", {
+            "country": "default", "dataset_schema": "africa_vietnam",
+            "report_scope": "africa", "report_scope_label": "Africa and Asia",
+            "n_total": 2091,
+        })
+        out = tmp_path / "out.docx"
+        assemble([], {}, "africa_scope_run", out)
+        paras = self._cover_paragraphs(out)
+        assert paras[1] == f"Insurance Impact Report: Africa and Asia Portfolio, {assembler.format_period_label('africa_scope_run')}"
+        assert paras[2] == "Covering 2,091 client responses across VisionFund's Africa and Asia insurance portfolio."
+        assert "Global Portfolio" not in paras[1]
+
     def test_larco_single_country_still_uses_country_label(self, tmp_path, monkeypatch):
         monkeypatch.setattr(assembler, "ROOT", tmp_path)
         _make_run(tmp_path, "ecuador_run", {"country": "ecuador", "country_label": "Ecuador", "dataset_schema": "larco", "n_total": 400})

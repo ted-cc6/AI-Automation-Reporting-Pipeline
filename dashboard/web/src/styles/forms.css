@@ -42,6 +42,22 @@
   min-width: 0;
 }
 
+.field--checkbox {
+  flex-direction: row;
+  align-items: flex-start;
+  gap: 0.6rem;
+  cursor: pointer;
+}
+.field--checkbox input {
+  min-width: 0;
+  margin-top: 0.2rem;
+  accent-color: var(--color-orange);
+}
+.field--checkbox span {
+  font-weight: 400;
+  line-height: 1.4;
+}
+
 .field-error {
   color: var(--color-error);
   font-size: var(--text-caption);

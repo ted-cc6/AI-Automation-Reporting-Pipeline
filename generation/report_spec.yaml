@@ -80,6 +80,14 @@ parts:
           a stricter bar than a typical top-2-box -- do not describe it as "top-2-box" or
           imply a broader definition if it is the one you are writing about.
 
+          The _claimant and _non_claimant figures are restricted to clients who experienced
+          an insured event in the past 12 months (claimant = filed, non_claimant = did not
+          file) -- NOT a comparison against clients who never had a claimable event. Phrase
+          this as "among clients who filed a claim" / "among clients who experienced an
+          event but did not file", never as "those who had not [filed]" on its own (which
+          reads as "clients overall, minus claimants") and never implying every respondent
+          falls into one of these two groups.
+
       s1_2:
         label: "Claim Process Understanding"
         word_limit: 90
@@ -115,6 +123,12 @@ parts:
           Do not invent a number, do not repeat the previous section's figure, and do not
           pad this section with generic commentary to reach the word limit.
 
+          The _claimant and _non_claimant figures are restricted to clients who experienced
+          an insured event in the past 12 months (claimant = filed, non_claimant = did not
+          file) -- NOT a comparison against clients who never had a claimable event. Phrase
+          this as "among clients who filed a claim" / "among clients who experienced an
+          event but did not file", never as "those who had not [filed]" on its own.
+
       s1_2b:
         label: "Preferred Claims Channel"
         word_limit: 70
@@ -146,7 +160,16 @@ parts:
             fmt: "pct"
             n_path: "parts.part_1.metrics.worth_premium.headline.n_valid"
             suppressed_path: "parts.part_1.metrics.worth_premium.headline.suppressed"
-            population: "Health & credit-life clients across the African country programmes only; Vietnam's crop-insurance clients pay no premium (grant-subsidized) and were not asked this question"
+            # Scope-conditional (see generation/orchestrator.py's
+            # _resolve_population()): LACRO's insurance_type is 100% Health,
+            # every client pays premium and was asked this question, so
+            # there is no exclusion to describe there at all -- omitted
+            # rather than a false "Health & credit-life clients only"
+            # caveat, which a real LACRO report showed even though its own
+            # products table read 100% Health / 0% Credit Life / 0% Crop.
+            population:
+              default: "Health & credit-life clients across the African country programmes only; Vietnam's crop-insurance clients pay no premium (grant-subsidized) and were not asked this question"
+              lacro: null
           renewal_intent:
             path: "parts.part_1.metrics.renewal_intent.headline.value"
             fmt: "pct"
@@ -453,7 +476,10 @@ parts:
             p_path: "parts.part_4.satisfaction_drivers.drivers.worth_premium.p_value"
             n_path: "parts.part_4.satisfaction_drivers.drivers.worth_premium.n_valid"
             suppressed_path: "parts.part_4.satisfaction_drivers.drivers.worth_premium.suppressed"
-            population: "Health & credit-life clients only; Vietnam's crop-insurance clients were not asked this question, so they are excluded from this correlation"
+            # Scope-conditional -- see the identical note on Part 1's worth_premium metric.
+            population:
+              default: "Health & credit-life clients only; Vietnam's crop-insurance clients were not asked this question, so they are excluded from this correlation"
+              lacro: null
             direction: "Raw code: 1=definitely worth it (best) to 5=definitely not worth it (worst); NPS runs 0=worst to 10=best. A negative rho here means feeling the premium is worth it correlates with a higher NPS, a positive real-world relationship, despite the negative sign."
           renewal_intent:
             rho_path: "parts.part_4.satisfaction_drivers.drivers.renewal_intent.value"
@@ -529,6 +555,14 @@ parts:
             path: "parts.part_4.child_wellbeing.headline.value"
             fmt: "pct"
             n_path: "parts.part_4.child_wellbeing.headline.n_valid"
+            # Without this, a real generated report opened Part 5 with "Across
+            # 1,313 health and credit-life clients, 36.1% reported improved
+            # child wellbeing" -- the model borrowed the nearby worth_premium
+            # driver's population note (the only one visible in this section)
+            # for a completely different metric's opening sentence. 1,313 is
+            # the child wellbeing base (clients with children in the
+            # household), unrelated to product type.
+            population: "Clients with children in the household (child wellbeing base)"
         drivers:
           financial_stress:
             rho_path: "parts.part_5.drivers.financial_stress.value"
@@ -553,7 +587,10 @@ parts:
             p_path: "parts.part_5.drivers.worth_premium.p_value"
             n_path: "parts.part_5.drivers.worth_premium.n_valid"
             suppressed_path: "parts.part_5.drivers.worth_premium.suppressed"
-            population: "Health & credit-life clients only; Vietnam's crop-insurance clients were not asked this question, so they are excluded from this correlation"
+            # Scope-conditional -- see the identical note on Part 1's worth_premium metric.
+            population:
+              default: "Health & credit-life clients only; Vietnam's crop-insurance clients were not asked this question, so they are excluded from this correlation"
+              lacro: null
             direction: "Raw code: 1=definitely worth it (best) to 5=definitely not worth it (worst). A negative rho here means feeling the premium is worth it correlates with better child wellbeing, a positive real-world relationship, despite the negative sign."
           renewal_intent:
             rho_path: "parts.part_5.drivers.renewal_intent.value"
@@ -633,10 +670,10 @@ parts:
   # PART 6 — Claimant vs Non-Claimant Comparison
   # ───────────────────────────────────────────────────────────────────
   part_6:
-    title: "Claimant vs. Non-Claimant Outcomes"
+    title: "Claimant vs. Non-Filer Outcomes"
     visuals:
       - file: "part6_scorecard.png"
-        caption: "Key Metrics: Claimants vs. Non-Claimants"
+        caption: "Key Metrics: Claimants vs. Non-Filers"
     scorecard_metrics:
       - key: coverage_understanding
         label: "Coverage Understanding"
@@ -662,7 +699,10 @@ parts:
         sig_path: "parts.part_6.metrics.worth_premium.significance.p_value"
         claimant_sup: "parts.part_6.metrics.worth_premium.claimant.suppressed"
         non_claimant_sup: "parts.part_6.metrics.worth_premium.non_claimant.suppressed"
-        population: "Health & credit-life clients only, within each claimant/non-claimant group; Vietnam's crop-insurance clients were not asked this question"
+        # Scope-conditional -- see the identical note on Part 1's worth_premium metric.
+        population:
+          default: "Health & credit-life clients only, within each claimant/non-filer group; Vietnam's crop-insurance clients were not asked this question"
+          lacro: null
       - key: renewal_intent
         label: "Renewal Intent"
         fmt: "pct"
@@ -671,7 +711,7 @@ parts:
         sig_path: "parts.part_6.metrics.renewal_intent.significance.p_value"
         claimant_sup: "parts.part_6.metrics.renewal_intent.claimant.suppressed"
         non_claimant_sup: "parts.part_6.metrics.renewal_intent.non_claimant.suppressed"
-        population: "Vietnam's crop-insurance clients only, within each claimant/non-claimant group; not asked of health or credit-life clients in any country"
+        population: "Vietnam's crop-insurance clients only, within each claimant/non-filer group; not asked of health or credit-life clients in any country"
       - key: negative_coping
         label: "Negative Coping (↓ better)"
         fmt: "pct"
@@ -713,22 +753,29 @@ parts:
         sig_path: "parts.part_6.metrics.child_wellbeing.significance.p_value"
         claimant_sup: "parts.part_6.metrics.child_wellbeing.claimant.suppressed"
         non_claimant_sup: "parts.part_6.metrics.child_wellbeing.non_claimant.suppressed"
-        population: "Clients with children in the household (child wellbeing base), within each claimant/non-claimant group; narrower than the full claimant/non-claimant sample used by the other rows in this table"
+        population: "Clients with children in the household (child wellbeing base), within each claimant/non-filer group; narrower than the full claimant/non-filer sample used by the other rows in this table"
     sections:
       narrative:
         word_limit: 100
         note: >
+          State ONCE, near the start of this section: both "Claimant" and "Non-Filer" in
+          this table are restricted to clients who experienced an insured event in the past
+          12 months -- Claimant is those who filed, Non-Filer is those who did not. This is
+          NOT a comparison against clients who never had a claimable event at all; do not
+          describe or imply that "Non-Filer" means "never claimed" or contrast its figures
+          against a portfolio-wide or whole-sample number computed over everyone (e.g. the
+          portfolio NPS in the Executive Summary/Part 4) as if they described the same
+          population.
+
           Significance threshold: p < 0.05 = statistically significant, mark with *.
-          The note about negative_coping and financial_stress_high being on the claimant
-          base (not both groups equally) should be mentioned if relevant.
-          Any row with its own population note in the scorecard table describes a
-          restricted population; do not imply the same clients answered every row.
-          The Net Promoter Score row is tested differently from every other
-          row (see that row's note); do not describe it as "significant" or "not significant"
-          using the same p<0.05-chi-squared framing as the % rows; state its own p-value/test
-          if mentioning it. Child Wellbeing Improved uses a narrower population than the rest
-          of the table (see its population note); do not imply it was asked of every
-          claimant/non-claimant.
+          Any row with its own population note in the scorecard table describes a further
+          restricted population on top of that shared insured-event base; do not imply the
+          same clients answered every row. The Net Promoter Score row is tested differently
+          from every other row (see that row's note); do not describe it as "significant" or
+          "not significant" using the same p<0.05-chi-squared framing as the % rows; state
+          its own p-value/test if mentioning it. Child Wellbeing Improved uses a narrower
+          population than the rest of the table (see its population note); do not imply it
+          was asked of every claimant/non-filer.
       insight:
         word_limit: 120
         verbatim_section: "part6"
@@ -766,7 +813,10 @@ parts:
         sig_path: "parts.part_7.metrics.worth_premium.significance.p_value"
         female_sup: "parts.part_7.metrics.worth_premium.female.suppressed"
         male_sup: "parts.part_7.metrics.worth_premium.male.suppressed"
-        population: "Health & credit-life clients only, within each gender group; Vietnam's crop-insurance clients were not asked this question"
+        # Scope-conditional -- see the identical note on Part 1's worth_premium metric.
+        population:
+          default: "Health & credit-life clients only, within each gender group; Vietnam's crop-insurance clients were not asked this question"
+          lacro: null
       - key: renewal_intent
         label: "Renewal Intent"
         fmt: "pct"
@@ -905,7 +955,15 @@ parts:
       narrative:
         word_limit: 130
         metrics:
-          new_country_n:
+          # NOT new_country_n -- writer.py's _build_sections_text() drops any
+          # metric key ending in "_n" on purpose (it means "the n-count for
+          # the metric named before the suffix," e.g. healthcare_access +
+          # healthcare_access_n), so a STANDALONE metric actually named
+          # new_country_n was silently invisible to the model entirely --
+          # the real cause of the "new_country_n clients" literal-text bug
+          # this note works around below, caught by rebuilding this exact
+          # prompt against real data and finding the metric simply missing.
+          new_country_count:
             path: "parts.part_10.sample_composition.n_new_country"
             fmt: "count"
           new_country_share:
@@ -913,14 +971,32 @@ parts:
             fmt: "pct"
         note: >
           State the sample composition change ONCE, near the start of this section, before
-          any indicator's figures: the Dominican Republic is new to this wave, contributing
-          new_country_n clients (new_country_share of this wave's sample) with no 2025-wave
-          counterpart -- do not repeat this fact for each indicator below.
+          any indicator's figures: using the new_country_count and new_country_share VALUES
+          given above (not their key names -- those are data labels, not words to use in
+          your sentence), write one sentence such as "The Dominican Republic is new to this
+          wave, contributing 270 clients (15.7% of this wave's sample) with no 2025-wave
+          counterpart." -- substituting the real numbers, not the literal text
+          "new_country_count" or "new_country_share". Do not repeat this fact for each
+          indicator below.
 
           Compares this wave's 5 headline indicators against a prior wave's own snapshot
-          of the same 5 indicators (see the TREND TABLE) -- if TREND AVAILABLE is false,
-          state plainly that this is the first comparable wave for this dataset rather
-          than describing or implying a trend that doesn't exist.
+          of the same 5 indicators (see the TREND TABLE). If TREND AVAILABLE is false,
+          state plainly and neutrally, in one sentence, that no prior wave is available for
+          comparison yet -- do not describe or imply a trend that doesn't exist, and do not
+          call this wave a "founding baseline," "the founding wave," or use any similar
+          self-important framing implying historic significance; it is simply the case that
+          no earlier comparable wave has been loaded for this dataset yet.
+
+          product_understanding's Current Wave value may itself read NOT APPLICABLE (not
+          merely NOT COMPARABLE) when this wave's survey format has no single combined
+          question to compute it from -- the 2026 unified instrument instead asks two
+          separate questions (coverage understanding, claims-process understanding), both
+          reported at length in Part 1. If product_understanding's Current Wave value is
+          NOT APPLICABLE, say so in one sentence pointing to Part 1's two split metrics --
+          never state or imply that product understanding "was not asked of this
+          population," since related understanding questions were asked and reported
+          elsewhere in this report, just not in the single-combined-question format this
+          specific indicator is defined from.
 
           Only 2 of the 5 indicators (first_time_access, client_satisfaction_nps) are
           actually comparable between waves -- the survey instrument changed for the other

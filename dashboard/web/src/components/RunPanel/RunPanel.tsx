@@ -27,20 +27,26 @@ export function RunPanel({
   onStart,
   snapshot,
   startError,
+  dryRun,
 }: {
   canStart: boolean;
   starting: boolean;
   onStart: () => void;
   snapshot: RunSnapshot | null;
   startError: string | null;
+  dryRun?: boolean;
 }) {
   return (
     <Card
       title="5. Generate the report"
-      subtitle="Runs all four stages end to end for the selected quarter."
+      subtitle={
+        dryRun
+          ? "Runs data cleaning and analysis only (stages 1-2) -- no LLM calls, no .docx."
+          : "Runs all four stages end to end for the selected quarter."
+      }
       right={
         <Button variant="primary" disabled={!canStart || starting} onClick={onStart}>
-          {starting ? "Starting…" : "Generate quarterly report"}
+          {starting ? "Starting…" : dryRun ? "Run analysis only" : "Generate quarterly report"}
         </Button>
       }
     >

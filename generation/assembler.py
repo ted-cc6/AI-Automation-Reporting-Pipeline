@@ -13,7 +13,7 @@ from docx.shared import Inches, Pt, RGBColor
 
 from analysis_engine.country_config import DEFAULT_COUNTRY
 from generation.executive_summary import data_availability_caveats, headline_numbers
-from generation.writer import _is_larco_rollup
+from generation.writer import _lacro_scoped
 from utils import format_period_label, format_p_value
 
 log = logging.getLogger(__name__)
@@ -301,7 +301,7 @@ def _add_protection_signals_annex(doc, protection_flags: list) -> None:
             _add_paragraph(doc, f"{label}: {reason} ({ref})", style="List Bullet")
 
 
-_SPEARMAN_METHODOLOGY_NOTE = (
+_SPEARMAN_METHODOLOGY_INTRO = (
     "ρ (rho) is the Spearman rank correlation coefficient, a value from -1 to +1 showing "
     "how strongly two things move together: values near +1 or -1 indicate a strong "
     "relationship, values near 0 indicate little to none. Spearman correlation is "
@@ -309,10 +309,23 @@ _SPEARMAN_METHODOLOGY_NOTE = (
     "it well suited to Likert-scale survey questions like the ones in Parts 4 and 5. p "
     "(the p-value) shows how likely a correlation this strong could appear by chance alone "
     "if no real relationship existed; p<0.05 is the conventional threshold for statistical "
-    "significance. N is the number of respondents included in each specific calculation; "
-    "it varies by driver because not every question was asked of every client (for example, "
-    "in the Africa/Vietnam portfolio, Renewal Intent was asked only of Vietnam's "
-    "crop-insurance clients).\n\n"
+    "significance. N is the number of respondents included in each specific calculation, "
+    "which can vary by driver because not every question was asked of every client{n_example}."
+)
+
+# The Renewal Intent/Vietnam example is only true, and only a driver at all,
+# for a report scope where renewal_intent actually appears in the drivers
+# table (Africa+Vietnam) -- LACRO never asks that question at all (see
+# report_scopes.py), so its drivers table never has a renewal_intent row to
+# illustrate the point with, and the example was flatly false for a LACRO
+# report ("in the Africa/Vietnam portfolio, Renewal Intent...") that has no
+# Africa or Vietnam clients in it at all.
+_SPEARMAN_N_EXAMPLE_DEFAULT = (
+    " (for example, in the Africa/Vietnam portfolio, Renewal Intent was asked only of "
+    "Vietnam's crop-insurance clients)"
+)
+
+_SPEARMAN_METHODOLOGY_SCORING_NOTE = (
     "Financial Stress, Coverage Understanding, Claim Process Understanding, Worth Premium, "
     "Renewal Intent, and Confidence in Payout are all scored so that a LOWER number is the "
     "more positive response (e.g. 1 = \"Definitely would renew\"). A negative correlation "
@@ -326,7 +339,13 @@ _SPEARMAN_METHODOLOGY_NOTE = (
 )
 
 
-def _add_methodology_appendix(doc):
+def _spearman_methodology_note(report_scope: "str | None") -> str:
+    n_example = "" if report_scope == "lacro" else _SPEARMAN_N_EXAMPLE_DEFAULT
+    intro = _SPEARMAN_METHODOLOGY_INTRO.format(n_example=n_example)
+    return f"{intro}\n\n{_SPEARMAN_METHODOLOGY_SCORING_NOTE}"
+
+
+def _add_methodology_appendix(doc, report_scope: "str | None" = None):
     """Single shared explanation of the Spearman ρ/p-value/N methodology used
     by both Part 4's satisfaction drivers table and Part 5's child wellbeing
     drivers table -- previously duplicated verbatim (~200 words) under each
@@ -334,7 +353,7 @@ def _add_methodology_appendix(doc):
     _add_drivers_table())."""
     doc.add_heading("Appendix: Methodology Notes", level=1)
     _add_heading(doc, "Spearman Rank Correlation (Parts 4 & 5 Drivers Tables)", level=2)
-    for para in _SPEARMAN_METHODOLOGY_NOTE.split("\n\n"):
+    for para in _spearman_methodology_note(report_scope).split("\n\n"):
         _add_paragraph(doc, para)
 
 
@@ -751,7 +770,7 @@ def build_part_6(doc, package: dict, texts: dict):
         groups = package.get("groups", {})
         headers = ["Metric",
                    _group_header(groups, "claimant", "Claimant"),
-                   _group_header(groups, "non_claimant", "Non-Claimant"),
+                   _group_header(groups, "non_claimant", "Non-Filer"),
                    "Sig.*"]
         rows, footnotes = [], []
         for row in scorecard:
@@ -950,19 +969,28 @@ def assemble(packages: list, written_texts: dict, run_id: str, output_path: Path
     _set_default_font(doc, "Calibri", 11)
     _apply_brand_heading_color(doc)
 
-    # Cover -- title reflects this run's actual scope, a 3-way split:
+    # Cover -- title reflects this run's actual scope, a 4-way split:
     #   1. Single country (meta["country"] != DEFAULT_COUNTRY): that country's label.
-    #   2. LARCO regional rollup (dataset_schema == "larco", no country filter):
-    #      all LARCO countries combined, but NOT the true global portfolio.
-    #   3. True Africa+Vietnam global portfolio (dataset_schema == "africa_vietnam",
-    #      no country filter) -- the original, still-default behavior.
-    # Previously this was unconditionally "Global Portfolio" whenever no country
-    # filter was applied, which was wrong for a LARCO rollup run once LARCO
-    # datasets could combine multiple countries in one analysis.
+    #   2. LARCO regional rollup -- either the legacy dataset_schema == "larco"
+    #      export, or report_scope == "lacro" filtering the unified schema
+    #      down to LACRO clients (see report_scopes.py and writer.py's
+    #      _lacro_scoped()) -- all LACRO countries combined, but NOT the true
+    #      global portfolio. Both mechanisms render identically.
+    #   3. Any other named report_scope (e.g. "africa" -- see
+    #      report_scopes.py): that scope's own label.
+    #   4. True Africa+Vietnam global portfolio (dataset_schema ==
+    #      "africa_vietnam", no country filter, no report_scope) -- the
+    #      original, still-default behavior.
+    # Previously only case 1 and the legacy half of case 2 were handled, so a
+    # report_scope == "lacro" run (country == "default", dataset_schema ==
+    # "africa_vietnam") fell all the way through to "Global Portfolio" here
+    # despite being correctly filtered to LACRO clients underneath -- caught
+    # from a real generated report titled "Global Portfolio" throughout.
     meta = _load_analysis_meta(run_id)
     period_label = format_period_label(run_id)
     n_total = meta.get("n_total")
     country = meta.get("country")
+    report_scope = meta.get("report_scope")
 
     doc.add_heading("VisionFund International", level=0)
     if country and country != DEFAULT_COUNTRY:
@@ -970,10 +998,15 @@ def assemble(packages: list, written_texts: dict, run_id: str, output_path: Path
         doc.add_heading(f"Insurance Impact Report: {country_label}, {period_label}", level=1)
         if n_total:
             doc.add_paragraph(f"Covering {n_total:,} client responses from {country_label}.")
-    elif _is_larco_rollup(meta):
+    elif _lacro_scoped(meta):
         doc.add_heading(f"Insurance Impact Report: LARCO Regional Portfolio, {period_label}", level=1)
         if n_total:
             doc.add_paragraph(f"Covering {n_total:,} client responses across VisionFund's LARCO (Latin America and Caribbean) insurance portfolio.")
+    elif report_scope:
+        scope_label = meta.get("report_scope_label") or report_scope
+        doc.add_heading(f"Insurance Impact Report: {scope_label} Portfolio, {period_label}", level=1)
+        if n_total:
+            doc.add_paragraph(f"Covering {n_total:,} client responses across VisionFund's {scope_label} insurance portfolio.")
     else:
         doc.add_heading(f"Insurance Impact Report: Global Portfolio, {period_label}", level=1)
         if n_total:
@@ -1043,7 +1076,7 @@ def assemble(packages: list, written_texts: dict, run_id: str, output_path: Path
 
     included_parts = {package["part"] for package in packages}
     if "part_4" in included_parts or "part_5" in included_parts:
-        _add_methodology_appendix(doc)
+        _add_methodology_appendix(doc, report_scope=meta.get("report_scope"))
 
     doc.save(str(output_path))
     log.info(f"Report saved: {output_path}")

@@ -17,6 +17,7 @@ from generation.orchestrator import (
     _build_trend_data,
     _check_metric_coverage,
     _not_applicable_path,
+    _resolve_population,
     default_parts_filter,
     extract_metrics,
 )
@@ -72,6 +73,37 @@ class TestNotApplicablePath:
 
     def test_path_not_ending_in_suppressed_returns_empty_string(self):
         assert _not_applicable_path("parts.part_1.metrics.worth_premium.headline.value") == ""
+
+
+# ---------------------------------------------------------------------------
+# _resolve_population -- a report_spec.yaml population note is usually a
+# plain string (shown for every scope), but some (worth_premium) describe an
+# Africa/Vietnam-specific product split that is simply false for a
+# LACRO-scoped report (100% Health product, no Vietnam/credit-life clients
+# to exclude) -- caught from a real generated LACRO report showing this
+# exact wrong caveat, even though its own products table read 100% Health.
+# ---------------------------------------------------------------------------
+
+class TestResolvePopulation:
+    def test_plain_string_passes_through_unchanged_regardless_of_scope(self):
+        assert _resolve_population("Some fixed caveat", "lacro") == "Some fixed caveat"
+        assert _resolve_population("Some fixed caveat", None) == "Some fixed caveat"
+
+    def test_none_passes_through_unchanged(self):
+        assert _resolve_population(None, "lacro") is None
+
+    def test_dict_resolves_named_scope_key(self):
+        pop = {"default": "Africa caveat", "lacro": None}
+        assert _resolve_population(pop, "lacro") is None
+        assert _resolve_population(pop, "africa") == "Africa caveat"
+
+    def test_dict_falls_back_to_default_for_unlisted_scope(self):
+        pop = {"default": "Africa caveat", "lacro": None}
+        assert _resolve_population(pop, None) == "Africa caveat"
+        assert _resolve_population(pop, "some_future_scope") == "Africa caveat"
+
+    def test_dict_with_no_default_and_unlisted_scope_returns_none(self):
+        assert _resolve_population({"lacro": None}, "africa") is None
 
 
 # ---------------------------------------------------------------------------
@@ -267,6 +299,54 @@ class TestBuildScorecard6:
         assert len(rows) == 1
         assert rows[0]["group_a_value"] == "NOT APPLICABLE"
         assert rows[0]["group_b_value"] == "64.0%"
+
+    def test_group_b_label_is_non_filer_not_non_claimant(self):
+        # _B (JSON key "non_claimant") is clients who experienced an insured
+        # event but did not file, not the full never-claimed population --
+        # "Non-Claimant" invited exactly that misreading in a real generated
+        # report (its NPS read as directly comparable to the whole-portfolio
+        # NPS, a different population). The JSON key stays "non_claimant"
+        # for path stability; only the display label changed.
+        analysis = {"parts": {"part_6": {"metrics": {"worth_premium": {
+            "claimant": {"value": 0.58, "suppressed": False, "not_applicable": False},
+            "non_claimant": {"value": 0.64, "suppressed": False, "not_applicable": False},
+            "significance": {"p_value": 0.02},
+        }}}}}
+        rows = _build_scorecard_6(analysis, self._SPEC)
+        assert rows[0]["group_a_label"] == "Claimant"
+        assert rows[0]["group_b_label"] == "Non-Filer"
+
+    def test_population_is_omitted_for_lacro_scope(self):
+        spec = [{**self._SPEC[0], "population": {
+            "default": "Health & credit-life clients only",
+            "lacro": None,
+        }}]
+        analysis = {
+            "meta": {"report_scope": "lacro"},
+            "parts": {"part_6": {"metrics": {"worth_premium": {
+                "claimant": {"value": 0.98, "suppressed": False, "not_applicable": False},
+                "non_claimant": {"value": 0.83, "suppressed": False, "not_applicable": False},
+                "significance": {"p_value": 0.02},
+            }}}},
+        }
+        rows = _build_scorecard_6(analysis, spec)
+        assert rows[0]["population"] is None
+
+    def test_population_default_used_for_africa_scope(self):
+        spec = [{**self._SPEC[0], "population": {
+            "default": "Health & credit-life clients only",
+            "lacro": None,
+        }}]
+        analysis = {
+            "meta": {"report_scope": "africa"},
+            "parts": {"part_6": {"metrics": {"worth_premium": {
+                "claimant": {"value": 0.98, "suppressed": False, "not_applicable": False},
+                "non_claimant": {"value": 0.83, "suppressed": False, "not_applicable": False},
+                "significance": {"p_value": 0.02},
+            }}}},
+        }
+        rows = _build_scorecard_6(analysis, spec)
+        assert rows[0]["population"] == "Health & credit-life clients only"
 
 
 def test_build_scorecard_5_wires_not_applicable():

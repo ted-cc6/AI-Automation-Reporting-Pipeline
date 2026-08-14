@@ -51,14 +51,35 @@ def _is_larco_rollup(meta: dict) -> bool:
     return meta.get("dataset_schema") == "larco" and not _is_single_country(meta)
 
 
+def _lacro_scoped(meta: dict) -> bool:
+    """True whenever this run represents a full LACRO regional rollup --
+    either the legacy dataset_schema=="larco" export (see _is_larco_rollup,
+    a 2025-wave LARCO-instrument CSV, its own dataset_schema) or the newer
+    report_scope=="lacro" region filter over the 2026+ unified schema (see
+    report_scopes.py). Both map to identical "LARCO Regional Portfolio"
+    title/subtitle wording -- the underlying mechanism differs (a distinct
+    source CSV/schema vs a Region-column filter on the shared one), but the
+    report itself should read identically either way. Without this check,
+    a report_scope=="lacro" run fell through to the "Global Portfolio"
+    branch below, since only dataset_schema was ever considered -- caught
+    from a real generated report titling itself "Global Portfolio" and
+    saying so throughout its prose despite being correctly filtered to
+    LACRO clients only underneath."""
+    return _is_larco_rollup(meta) or meta.get("report_scope") == "lacro"
+
+
 def _report_title(run_id: str, meta: "dict | None" = None) -> str:
     period = format_period_label(run_id)
     meta = meta or {}
     if _is_single_country(meta):
         label = meta.get("country_label") or meta["country"].title()
         return f"VisionFund International Insurance Impact Report: {label}, {period}"
-    if _is_larco_rollup(meta):
+    if _lacro_scoped(meta):
         return f"VisionFund International Insurance Impact Report: LARCO Regional Portfolio, {period}"
+    report_scope = meta.get("report_scope")
+    if report_scope:
+        label = meta.get("report_scope_label") or report_scope
+        return f"VisionFund International Insurance Impact Report: {label} Portfolio, {period}"
     return f"VisionFund International Insurance Impact Report: Global Portfolio, {period}"
 
 

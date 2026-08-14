@@ -61,6 +61,13 @@ export function CupboardWeekApp({
   const [schemaOverride, setSchemaOverride] = useState<DatasetSchema | null>(null);
   const [priorRunId, setPriorRunId] = useState("");
   const [priorRunOptions, setPriorRunOptions] = useState<PriorRunCandidate[]>([]);
+  // Runs stages 1-2 only (data cleaning + analysis), producing
+  // analysis_results.json without any LLM calls -- used to build a
+  // prior-wave baseline (e.g. a standalone 2025 LARCO CSV) for Part 10's
+  // trend comparison without generating a full report for it. See
+  // dashboard/api/pipeline_runner.py's _run_stage3/_run_stage4 dry_run
+  // handling.
+  const [dryRun, setDryRun] = useState(false);
 
   const resolvedSchema: DatasetSchema | null = schemaOverride ?? csvUpload?.detected_schema ?? null;
 
@@ -130,6 +137,14 @@ export function CupboardWeekApp({
   useEffect(() => {
     setSchemaOverride(null);
   }, [csvUpload?.upload_id]);
+
+  // dry_run is rejected outright for gender_study (see run_routes.py) --
+  // this component renders both report types, so switching away from
+  // cupboard_week must clear a dry-run selection rather than silently
+  // carrying it into a request the backend will 400 on.
+  useEffect(() => {
+    if (reportType !== "cupboard_week") setDryRun(false);
+  }, [reportType]);
 
   useEffect(() => {
     if (!isLacroRun) {
@@ -201,6 +216,7 @@ export function CupboardWeekApp({
         llm: { provider, api_key: apiKey },
         dataset_schema: resolvedSchema && resolvedSchema !== "unknown" ? resolvedSchema : undefined,
         prior_run_id: isLacroRun && priorRunId ? priorRunId : undefined,
+        dry_run: dryRun,
       });
       setRunId(res.run_id);
     } catch (err) {
@@ -257,6 +273,8 @@ export function CupboardWeekApp({
         priorRunOptions={priorRunOptions}
         priorRunId={priorRunId}
         onPriorRunIdChange={setPriorRunId}
+        dryRun={dryRun}
+        onDryRunChange={setDryRun}
         powerbiMode={powerbiMode}
         onPowerbiModeChange={setPowerbiMode}
         visualSlots={visualSlots}
@@ -264,7 +282,14 @@ export function CupboardWeekApp({
         disabled={setupDisabled}
       />
 
-      <RunPanel canStart={canStart} starting={starting} onStart={handleStart} snapshot={snapshot} startError={startError} />
+      <RunPanel
+        canStart={canStart}
+        starting={starting}
+        onStart={handleStart}
+        snapshot={snapshot}
+        startError={startError}
+        dryRun={dryRun}
+      />
 
       {runId && <LogPanel lines={logLines} />}
 

@@ -18,6 +18,7 @@ from generation.writer import (
     _house_voice_text,
     _is_larco_rollup,
     _is_single_country,
+    _lacro_scoped,
     _load_analysis_meta,
     _report_title,
     write_part,
@@ -111,10 +112,68 @@ class TestReportTitle:
         title = _report_title("2026_Q2", {"country": "default"})
         assert "Global Portfolio" in title
 
+    def test_report_scope_lacro_uses_larco_regional_title_not_global(self):
+        # The real bug this guards against: a report_scope=="lacro" run on
+        # the unified schema (country="default", dataset_schema=
+        # "africa_vietnam") previously fell through to "Global Portfolio"
+        # since only the legacy dataset_schema=="larco" path was checked.
+        title = _report_title("2026_Q2", {
+            "country": "default", "dataset_schema": "africa_vietnam",
+            "report_scope": "lacro", "report_scope_label": "LACRO (Latin America and Caribbean)",
+        })
+        assert "LARCO Regional Portfolio" in title
+        assert "Global Portfolio" not in title
+
+    def test_report_scope_africa_uses_its_own_label(self):
+        title = _report_title("2026_Q2", {
+            "country": "default", "dataset_schema": "africa_vietnam",
+            "report_scope": "africa", "report_scope_label": "Africa and Asia",
+        })
+        assert title == (
+            f"VisionFund International Insurance Impact Report: Africa and Asia Portfolio, "
+            f"{writer.format_period_label('2026_Q2')}"
+        )
+        assert "Global Portfolio" not in title
+
+    def test_report_scope_without_label_falls_back_to_raw_scope_key(self):
+        title = _report_title("2026_Q2", {
+            "country": "default", "dataset_schema": "africa_vietnam", "report_scope": "africa",
+        })
+        assert "africa Portfolio" in title
+
+    def test_single_country_wins_over_report_scope(self):
+        # Defensive ordering: if a caller somehow sets both country and
+        # report_scope, the more specific single-country title wins (the
+        # frontend never sends both, but the API model doesn't forbid it --
+        # see StartRunRequest.report_scope's docstring).
+        title = _report_title("2026_Q2", {
+            "country": "ecuador", "country_label": "Ecuador",
+            "dataset_schema": "africa_vietnam", "report_scope": "lacro",
+        })
+        assert title == f"VisionFund International Insurance Impact Report: Ecuador, {writer.format_period_label('2026_Q2')}"
+        assert "LARCO" not in title
+
 
 # ---------------------------------------------------------------------------
-# _is_larco_rollup
+# _is_larco_rollup / _lacro_scoped
 # ---------------------------------------------------------------------------
+
+class TestLacroScoped:
+    def test_legacy_larco_schema_rollup_is_scoped(self):
+        assert _lacro_scoped({"country": "default", "dataset_schema": "larco"}) is True
+
+    def test_report_scope_lacro_is_scoped(self):
+        assert _lacro_scoped({"country": "default", "dataset_schema": "africa_vietnam", "report_scope": "lacro"}) is True
+
+    def test_report_scope_africa_is_not_lacro_scoped(self):
+        assert _lacro_scoped({"country": "default", "dataset_schema": "africa_vietnam", "report_scope": "africa"}) is False
+
+    def test_no_scope_at_all_is_not_lacro_scoped(self):
+        assert _lacro_scoped({"country": "default", "dataset_schema": "africa_vietnam"}) is False
+
+    def test_single_country_larco_schema_is_not_a_rollup(self):
+        assert _lacro_scoped({"country": "ecuador", "dataset_schema": "larco"}) is False
+
 
 class TestIsLarcoRollup:
     def test_empty_meta_is_not_larco_rollup(self):
@@ -262,3 +321,46 @@ class TestBuildSectionsTextDrivers:
         })
         text = _build_sections_text(pkg)
         assert "Confidence in Payout: rho=+0.312, p=0.0010, n=1200" in text
+
+
+# ---------------------------------------------------------------------------
+# _build_sections_text -- the "_n"-suffix metric-key collision (a standalone
+# metric whose OWN name happens to end in "_n" is invisible to the model
+# entirely, since that suffix means "the n-count for the metric named before
+# it" everywhere else in this format -- e.g. healthcare_access paired with
+# healthcare_access_n). Caught for real on Part 10's report_spec.yaml
+# metric, once named "new_country_n": rebuilding the actual prompt against
+# real data showed the model was never shown its value at all, which is why
+# it echoed the literal key name into prose instead of a real number.
+# ---------------------------------------------------------------------------
+
+class TestBuildSectionsTextMetrics:
+    def _package(self, metrics: dict) -> dict:
+        return {"sections": {"s1_1": {
+            "label": "Section", "word_limit": 90, "metrics": metrics,
+            "distributions": {}, "qualitative": {}, "note": "",
+        }}}
+
+    def test_standalone_metric_ending_in_n_is_dropped(self):
+        # Documents the actual (surprising) behavior rather than asserting
+        # it's correct -- any report_spec.yaml metric key must avoid an "_n"
+        # suffix unless it's genuinely the n-count companion to another
+        # metric of the same name minus "_n".
+        pkg = self._package({"new_country_n": 270})
+        text = _build_sections_text(pkg)
+        assert "270" not in text
+        assert "new_country_n" not in text
+
+    def test_metric_key_avoiding_n_suffix_is_shown(self):
+        pkg = self._package({"new_country_count": 270})
+        text = _build_sections_text(pkg)
+        assert "new_country_count: 270" in text
+
+    def test_n_suffix_still_works_as_a_companion_count(self):
+        # The intended use of the "_n" convention: metrics.get(m_key + "_n")
+        # attaches as "(n=...)" to the metric it's named after, rather than
+        # appearing as its own line.
+        pkg = self._package({"healthcare_access": 0.339, "healthcare_access_n": 448})
+        text = _build_sections_text(pkg)
+        assert "healthcare_access: 0.339  (n=448)" in text
+        assert "healthcare_access_n:" not in text

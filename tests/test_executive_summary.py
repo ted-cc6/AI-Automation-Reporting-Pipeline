@@ -31,7 +31,10 @@ def _base_analysis(**overrides) -> dict:
             },
             "part_2": {
                 "claims_funnel": {
-                    "filed_claim": {"n": 100, "pct_of_event_base": 0.2, "suppressed": False, "not_applicable": False},
+                    "filed_claim": {
+                        "n": 100, "n_total": 500, "pct_of_event_base": 0.2,
+                        "suppressed": False, "not_applicable": False,
+                    },
                     "experienced_event": _metric(400, 500),
                     "claim_paid": _metric(0.7, 100),
                     "payout_adequacy": {"n_valid": 80, "suppressed": False, "not_applicable": False},
@@ -68,7 +71,13 @@ class TestHeadlineNumbers:
         assert rows["Net Promoter Score"]["value"] == "20.0"
         assert rows["Children's Wellbeing Improved"]["value"] == "35.0%"
         assert rows["Filed a Claim"]["value"] == "20.0%"
-        assert rows["Filed a Claim"]["n"] == 100
+        # "n" is the row's stated BASE (n_total = 500, the insured-event
+        # population this 20% is computed against), not the numerator (100
+        # clients who filed) -- a real generated report once showed "Filed a
+        # Claim | 44.4% | 55" where 55 was the numerator and the true base
+        # was 124, misleading a reader into thinking N=55 respondents were
+        # asked this question.
+        assert rows["Filed a Claim"]["n"] == 500
 
     def test_not_applicable_metric_omitted_not_shown_as_na(self):
         analysis = _base_analysis()

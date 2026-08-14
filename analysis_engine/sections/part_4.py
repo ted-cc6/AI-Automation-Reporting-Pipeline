@@ -36,6 +36,20 @@ _SATISFACTION_DRIVERS = [
 # Includes "Yes" for Q2 2026 (binary) and anticipated granular options in future waves.
 HEALTHCARE_ACCESS_POSITIVE_VALUES = ["Yes", "Yes, a lot", "Yes, somewhat"]
 
+# "Did not need care at all" -- a real, common response value (not a blank/
+# NaN cell, and not SCOPE_SENTINEL, which marks a question outside this
+# client's PRODUCT scope, not this skip-logic within an already-in-scope
+# health client) -- must be excluded from the base the same way
+# medical_cost_change's own sibling NA value already is below, or it
+# silently inflates n_valid with respondents this question was never really
+# asking. Confirmed in real production data: 1,273 of 1,721 LACRO health
+# clients hold this value, dropping the headline share from the correct
+# 152/448=33.9% (of clients who actually needed care) to a wrong
+# 152/1721=8.8% before this fix -- self-contradictory alongside the
+# "among clients who needed care" phrasing that (correctly) described the
+# intended narrower base all along.
+_HEALTHCARE_ACCESS_NA = "Not applicable (I/my family have not needed medical care)"
+
 # Medical cost change — string values treated as "improved" (lower costs)
 _MEDICAL_COST_IMPROVED = frozenset(["Much lower", "Slightly lower"])
 _MEDICAL_COST_NA       = "Not applicable (I have not needed medical care)"
@@ -103,10 +117,17 @@ def calculate(ds, segment_masks: dict) -> dict:
         ha_dist: list = []
     else:
         ha_series = ds.health[COL_HEALTHCARE_ACCESS]
+        # Full raw distribution (all 3 categories, including "did not need
+        # care") for diagnostic/dashboard use -- unlike ha_headline below,
+        # this is not currently rendered into the report itself.
         ha_dist = _dist(ha_series)
-        # Verify at least one positive value exists in the data before calling share_selecting
+        # The headline share's base is clients who actually needed care --
+        # exclude "did not need care" before checking for positive values or
+        # computing the share, the same way medical_cost_change's own
+        # sibling NA value is excluded just below.
+        ha_needed_care = ha_series[ha_series != _HEALTHCARE_ACCESS_NA]
         valid_str = set(
-            ha_series[ha_series.notna() & (ha_series != SCOPE_SENTINEL)].astype(str)
+            ha_needed_care[ha_needed_care.notna() & (ha_needed_care != SCOPE_SENTINEL)].astype(str)
         )
         if not any(v in valid_str for v in HEALTHCARE_ACCESS_POSITIVE_VALUES):
             log.warning(
@@ -119,7 +140,7 @@ def calculate(ds, segment_masks: dict) -> dict:
                 "matched_values": HEALTHCARE_ACCESS_POSITIVE_VALUES,
             }
         else:
-            ha_headline = share_selecting(ha_series, values=HEALTHCARE_ACCESS_POSITIVE_VALUES)
+            ha_headline = share_selecting(ha_needed_care, values=HEALTHCARE_ACCESS_POSITIVE_VALUES)
 
     # 4.4 Medical cost change — base: health respondents; lower string values = improved
     if COL_MEDICAL_COST_CHANGE not in ds.health.columns:

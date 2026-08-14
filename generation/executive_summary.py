@@ -31,7 +31,7 @@ _HEADLINE_METRICS = [
      "parts.part_3.metrics.no_prior_access.headline.value", "parts.part_3.metrics.no_prior_access.headline.n_valid",
      "parts.part_3.metrics.no_prior_access.headline.suppressed", "pct"),
     ("Filed a Claim",
-     "parts.part_2.claims_funnel.filed_claim.pct_of_event_base", "parts.part_2.claims_funnel.filed_claim.n",
+     "parts.part_2.claims_funnel.filed_claim.pct_of_event_base", "parts.part_2.claims_funnel.filed_claim.n_total",
      "parts.part_2.claims_funnel.filed_claim.suppressed", "pct"),
 ]
 

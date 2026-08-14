@@ -1,4 +1,19 @@
-"""analysis_engine/sections/part_6.py — Part 6: Claimant vs Non-Claimant Scorecard."""
+"""analysis_engine/sections/part_6.py — Part 6: Claimant vs Non-Filer Scorecard.
+
+_B's population ("non_claimant" internally -- the JSON key is unchanged for
+API/path stability, only its display label changed) is clients who
+experienced an insured event but did NOT file a claim, not the much larger
+population who simply never had a claimable event at all. q_claim_submitted
+is only ever asked of clients who experienced an insured event (a skip-logic
+gate matching claims_funnel()'s own design in stats.py), so both `_A ==
+True` and `_B == False` naturally land within that same insured_event_base
+subset -- pandas boolean comparisons against NaN are always False, so
+clients who were never asked (no insured event) match NEITHER mask and are
+silently excluded from this whole comparison, not folded into _B. A real
+generated report labelled _B "Non-Claimant" and showed its NPS (37.7)
+right next to the portfolio-wide NPS (48.3) as if they were directly
+comparable -- they describe different populations entirely.
+"""
 import logging
 
 from analysis_engine.stats import (
@@ -97,8 +112,13 @@ def calculate(ds, segment_masks: dict) -> dict:
 
     return {
         "groups": {
-            _A: {"label": "Claimant",     "n": n_a},
-            _B: {"label": "Non-Claimant", "n": n_b},
+            # Not "Non-Claimant": _B is clients who experienced an insured
+            # event but chose not to file (n = insured_event_base minus
+            # claimants), not the much larger population who simply never
+            # had a claimable event at all -- see generation/orchestrator.py's
+            # _build_scorecard_6() for the same relabeling and full rationale.
+            _A: {"label": "Claimant",  "n": n_a},
+            _B: {"label": "Non-Filer", "n": n_b},
         },
         "metrics": metrics,
     }

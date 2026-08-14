@@ -30,6 +30,33 @@ def _not_applicable_path(suppressed_path: str) -> str:
     return ""
 
 
+def _resolve_population(population, report_scope: "str | None"):
+    """A report_spec.yaml `population:` entry is usually a plain string
+    (unconditional, shown for every scope) -- but several of them (worth_
+    premium, renewal_intent) describe an Africa/Vietnam-specific product
+    split ("Health & credit-life clients only; Vietnam's crop-insurance
+    clients were not asked this question") that is simply FALSE for a
+    LACRO-scoped report, whose clients are 100% Health product with no
+    Vietnam or credit-life clients to exclude. A real generated LACRO
+    report showed this exact wrong caveat throughout Parts 1/4/5/6/7 and
+    the methodology appendix.
+
+    A `population:` entry may instead be a dict keyed by report_scope (plus
+    an optional "default" key for every scope not named explicitly), e.g.:
+        population:
+          default: "Health & credit-life clients only; ..."
+          lacro: null
+    Resolution order: this run's own report_scope key, else "default", else
+    None (population omitted entirely -- e.g. LACRO's null above, since
+    there is nothing to exclude and no caveat is needed at all).
+    """
+    if not isinstance(population, dict):
+        return population
+    if report_scope in population:
+        return population[report_scope]
+    return population.get("default")
+
+
 _DRIVER_LABELS = {
     "financial_stress":             "Financial Stress (High)",
     "coverage_understanding":       "Coverage Understanding",
@@ -160,6 +187,7 @@ def load_data(run_id: str) -> tuple:
 def extract_metrics(analysis: dict, section_spec: dict) -> dict:
     """Build a flat dict of formatted metric strings for one section."""
     result = {}
+    report_scope = analysis.get("meta", {}).get("report_scope")
 
     for m_key, m_cfg in section_spec.get("metrics", {}).items():
         v    = get_nested(analysis, m_cfg["path"])
@@ -182,7 +210,7 @@ def extract_metrics(analysis: dict, section_spec: dict) -> dict:
             n_val = get_nested(analysis, n_path)
             result[m_key + "_n"] = format_value(n_val, "count") if n_val is not None else "?"
 
-        population = m_cfg.get("population")
+        population = _resolve_population(m_cfg.get("population"), report_scope)
         if population:
             result[m_key + "_population"] = population
 
@@ -254,6 +282,7 @@ def check_visual(run_id: str, filename: str):
 def _build_drivers_data(analysis: dict, drivers_spec: dict) -> list:
     """Pre-compute the sorted drivers table rows for the assembler."""
     rows = []
+    report_scope = analysis.get("meta", {}).get("report_scope")
     for d_key, d_cfg in drivers_spec.items():
         sup_path = d_cfg.get("suppressed_path", "")
         sup   = bool(get_nested(analysis, sup_path, default=False))
@@ -274,7 +303,7 @@ def _build_drivers_data(analysis: dict, drivers_spec: dict) -> list:
             "n_valid":        n_val,
             "suppressed":     sup,
             "not_applicable": not_app,
-            "population":     d_cfg.get("population"),
+            "population":     _resolve_population(d_cfg.get("population"), report_scope),
             "direction":      d_cfg.get("direction"),
         })
     # Sort by abs(rho) descending; suppressed rows go to bottom
@@ -288,6 +317,7 @@ def _build_drivers_data(analysis: dict, drivers_spec: dict) -> list:
 
 def _build_scorecard_6(analysis: dict, scorecard_spec: list) -> list:
     rows = []
+    report_scope = analysis.get("meta", {}).get("report_scope")
     for m in scorecard_spec:
         sup_a = bool(get_nested(analysis, m["claimant_sup"], default=False))
         sup_b = bool(get_nested(analysis, m["non_claimant_sup"], default=False))
@@ -305,11 +335,18 @@ def _build_scorecard_6(analysis: dict, scorecard_spec: list) -> list:
             "label":         m["label"],
             "group_a_label": "Claimant",
             "group_a_value": val_a,
-            "group_b_label": "Non-Claimant",
+            # Not "Non-Claimant": this group is clients who experienced an
+            # insured event but chose not to file (n = insured_event_base
+            # minus claimants -- see part_6.py's calculate()), NOT the much
+            # larger population who simply never had a claimable event.
+            # "Non-Claimant" invited exactly that misreading in a real
+            # generated report (its NPS 37.7 read as directly comparable to
+            # the portfolio's own 48.3, which covers everyone).
+            "group_b_label": "Non-Filer",
             "group_b_value": val_b,
             "sig_p":         p_val,
             "significant":   sig,
-            "population":    m.get("population"),
+            "population":    _resolve_population(m.get("population"), report_scope),
             "sig_test_note": m.get("sig_test_note"),
         })
     return rows
@@ -317,6 +354,7 @@ def _build_scorecard_6(analysis: dict, scorecard_spec: list) -> list:
 
 def _build_scorecard_7(analysis: dict, scorecard_spec: list) -> list:
     rows = []
+    report_scope = analysis.get("meta", {}).get("report_scope")
     for m in scorecard_spec:
         sup_a = bool(get_nested(analysis, m["female_sup"], default=False))
         sup_b = bool(get_nested(analysis, m["male_sup"], default=False))
@@ -336,7 +374,7 @@ def _build_scorecard_7(analysis: dict, scorecard_spec: list) -> list:
             "group_b_value": val_b,
             "sig_p":         p_val,
             "significant":   sig,
-            "population":    m.get("population"),
+            "population":    _resolve_population(m.get("population"), report_scope),
             "sig_test_note": m.get("sig_test_note"),
         })
     return rows
@@ -459,6 +497,7 @@ def _build_trend_data(analysis: dict, trend_spec: list) -> list:
 def _build_scorecard_5(analysis: dict, scorecard_spec: list) -> list:
     """Part 5's caregiver vs non-caregiver comparison (financial stress & healthcare access)."""
     rows = []
+    report_scope = analysis.get("meta", {}).get("report_scope")
     for m in scorecard_spec:
         sup_a = bool(get_nested(analysis, m["caregiver_sup"], default=False))
         sup_b = bool(get_nested(analysis, m["non_caregiver_sup"], default=False))
@@ -478,7 +517,7 @@ def _build_scorecard_5(analysis: dict, scorecard_spec: list) -> list:
             "group_b_value": val_b,
             "sig_p":         p_val,
             "significant":   sig,
-            "population":    m.get("population"),
+            "population":    _resolve_population(m.get("population"), report_scope),
             "sig_test_note": m.get("sig_test_note"),
         })
     return rows

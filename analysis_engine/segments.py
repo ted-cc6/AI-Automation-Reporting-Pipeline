@@ -68,8 +68,15 @@ SEGMENT_REGISTRY: dict[str, dict] = {
         "mask_fn": lambda df: df[COL_CLAIM_SUBMITTED] == True,  # noqa: E712
     },
     "non_claimant": {
-        "label": "Non-Claimant",
-        "description": "Did not submit a claim (includes those with no insured event)",
+        "label": "Non-Filer",
+        # q_claim_submitted is only ever asked of clients who experienced an
+        # insured event (a skip-logic gate matching claims_funnel()'s own
+        # design in stats.py) -- pandas boolean comparisons against NaN are
+        # always False, so this mask (== False) matches clients who WERE
+        # asked and said no, not clients who were never asked at all. The
+        # previous description here ("includes those with no insured
+        # event") was simply wrong about its own mask's behavior.
+        "description": "Experienced an insured event but did not submit a claim",
         "required_columns": [COL_CLAIM_SUBMITTED],
         "available": True,
         "mask_fn": lambda df: df[COL_CLAIM_SUBMITTED] == False,  # noqa: E712

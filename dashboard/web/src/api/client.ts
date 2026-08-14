@@ -255,6 +255,14 @@ export interface StartRunRequest {
   // "africa") to scope this run to. Sent alongside country="default" when
   // set (see CupboardWeekApp.tsx's handleStart()).
   report_scope?: string;
+  // Cupboard Week only, optional -- runs stages 1-2 (data cleaning +
+  // analysis) only, producing analysis_results.json without spending any
+  // LLM calls on qualitative tagging or report writing (stages 3-4 are
+  // skipped). Used to build a prior-wave baseline for Part 10's trend
+  // comparison from a standalone prior-wave CSV (e.g. a 2025 LARCO export)
+  // without generating a full report for it. Not supported for
+  // gender_study/core_credit (see run_routes.py).
+  dry_run?: boolean;
 }
 
 export interface PriorRunCandidate {
