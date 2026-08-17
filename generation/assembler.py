@@ -339,13 +339,20 @@ _SPEARMAN_METHODOLOGY_SCORING_NOTE = (
 )
 
 
-def _spearman_methodology_note(report_scope: "str | None") -> str:
-    n_example = "" if report_scope == "lacro" else _SPEARMAN_N_EXAMPLE_DEFAULT
+def _spearman_methodology_note(meta: dict) -> str:
+    # Was gated on report_scope == "lacro" alone, which misses the legacy
+    # dataset_schema == "larco" upload path (the frontend never offers the
+    # report_scope picker for that schema -- CupboardWeekApp.tsx -- so a real
+    # run through it has report_scope == None). Use the same is-this-a-LARCO-
+    # report check every other LACRO-conditional branch in this codebase uses
+    # (_lacro_scoped(), writer.py; is_lacro_report, run_analysis.py) so this
+    # is the one place that can't drift back out of sync with the others.
+    n_example = "" if _lacro_scoped(meta) else _SPEARMAN_N_EXAMPLE_DEFAULT
     intro = _SPEARMAN_METHODOLOGY_INTRO.format(n_example=n_example)
     return f"{intro}\n\n{_SPEARMAN_METHODOLOGY_SCORING_NOTE}"
 
 
-def _add_methodology_appendix(doc, report_scope: "str | None" = None):
+def _add_methodology_appendix(doc, meta: "dict | None" = None):
     """Single shared explanation of the Spearman ρ/p-value/N methodology used
     by both Part 4's satisfaction drivers table and Part 5's child wellbeing
     drivers table -- previously duplicated verbatim (~200 words) under each
@@ -353,7 +360,7 @@ def _add_methodology_appendix(doc, report_scope: "str | None" = None):
     _add_drivers_table())."""
     doc.add_heading("Appendix: Methodology Notes", level=1)
     _add_heading(doc, "Spearman Rank Correlation (Parts 4 & 5 Drivers Tables)", level=2)
-    for para in _spearman_methodology_note(report_scope).split("\n\n"):
+    for para in _spearman_methodology_note(meta or {}).split("\n\n"):
         _add_paragraph(doc, para)
 
 
@@ -837,6 +844,20 @@ def build_part_7(doc, package: dict, texts: dict):
 
     _add_insight_box(doc, texts.get("insight", ""), sections.get("insight", {}).get("verbatims", []))
 
+    # Part 8 (Kling Index) is deliberately dashboard-only and never renders
+    # here (see analysis_engine/sections/part_8.py's module docstring) --
+    # without this line, a reader sees the part numbering jump straight from
+    # 7 to whatever comes next (9, or 10 when a trend comparison moved to the
+    # front) with nothing in the document itself explaining why 8 is
+    # missing. This note is unconditional (Part 7 renders in every Cupboard
+    # Week report), so the explanation appears regardless of which later
+    # parts this particular run includes.
+    _add_paragraph(
+        doc,
+        "Part 8 (Kling Index) is available on the analytics dashboard only and is not "
+        "included in this document."
+    )
+
 
 # ---------------------------------------------------------------------------
 # Part 9 — Additional Services (LARCO only)
@@ -1076,7 +1097,7 @@ def assemble(packages: list, written_texts: dict, run_id: str, output_path: Path
 
     included_parts = {package["part"] for package in packages}
     if "part_4" in included_parts or "part_5" in included_parts:
-        _add_methodology_appendix(doc, report_scope=meta.get("report_scope"))
+        _add_methodology_appendix(doc, meta=meta)
 
     doc.save(str(output_path))
     log.info(f"Report saved: {output_path}")

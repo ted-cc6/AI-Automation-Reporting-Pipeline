@@ -258,6 +258,39 @@ def _check_unstated_bases(text: str, part_key: str, text_key: str) -> list[dict]
     return findings
 
 
+# Mirrors generation/writer.py's _SENTIMENT_SPLIT_MIN_BASE_FOR_PCT -- kept as
+# a separate constant rather than importing writer's (would create a
+# writer<->validate_output import cycle, since writer already imports
+# _COMPARATIVE_VERBS from this module) but must be kept equal to it, since
+# this check's whole point is verifying writer.py's own instruction was
+# followed.
+_SENTIMENT_SPLIT_MIN_BASE_FOR_PCT = 10
+
+_PCT_PATTERN = re.compile(r"\(\s*\d{1,3}%\s*\)")
+
+
+def _check_tiny_sentiment_base_percentages(text: str, part_key: str, text_key: str,
+                                            sentiment_total: "int | None") -> list[dict]:
+    """Flags prose that states a "(NN%)" figure for a sentiment split whose
+    real base was below the threshold writer.py instructs it to report as
+    counts-only. Heuristic, not precise (can't prove which sentence in a
+    multi-sentence insight block the split described), so this is a "warn"
+    finding for a human to judge, the same severity class as the other
+    heuristic checks in this module -- not a hard reject, since a percentage
+    appearing here could legitimately belong to a different, larger figure
+    quoted elsewhere in the same block."""
+    if sentiment_total is None or sentiment_total >= _SENTIMENT_SPLIT_MIN_BASE_FOR_PCT:
+        return []
+    if not _PCT_PATTERN.search(text):
+        return []
+    return [_make_finding(
+        "warn", part_key, text_key, "percentage_on_tiny_sentiment_base",
+        f"sentiment split base is only {sentiment_total}, but this text states a percentage "
+        "for it; writer.py instructs counts-only below the threshold -- confirm the percentage "
+        "isn't describing that split before treating this as a false positive",
+    )]
+
+
 def _non_comparable_labels(package: dict) -> list:
     """Part 10 package's non-comparable indicator labels, read from the
     scorecard _build_trend_data() already built -- a row's "Prior Wave"
@@ -292,7 +325,13 @@ def validate_report(all_texts: dict, packages: list, in_scope_countries: set) ->
 
         numeric_candidates = _flatten_numeric_candidates(package)
         non_comparable_labels = _non_comparable_labels(package)
+        insight_summary = (package.get("sections") or {}).get("insight", {}).get("insight_summary") or {}
         insight_verbatims = (package.get("sections") or {}).get("insight", {}).get("verbatims", [])
+        sentiment_split = insight_summary.get("sentiment_split")
+        sentiment_total = (
+            sum(v for v in sentiment_split.values() if isinstance(v, (int, float)))
+            if sentiment_split else None
+        )
 
         for text_key, text in texts.items():
             if not isinstance(text, str) or not text:
@@ -305,5 +344,6 @@ def validate_report(all_texts: dict, packages: list, in_scope_countries: set) ->
             findings += _check_unstated_bases(text, part_key, text_key)
             if text_key == "insight":
                 findings += _check_unverified_quotes(text, part_key, text_key, insight_verbatims)
+                findings += _check_tiny_sentiment_base_percentages(text, part_key, text_key, sentiment_total)
 
     return findings

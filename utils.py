@@ -1,15 +1,30 @@
 """utils.py — Shared utilities for the VisionFund report generation pipeline."""
 import re
 
+_PERIOD_PATTERN = re.compile(r"(\d{4})[_-]?Q([1-4])", re.IGNORECASE)
+
 
 def format_period_label(run_id: str) -> str:
     """Extract a human-readable 'YYYY QN' label from a run_id like '2026_Q2',
     'default_2026_Q2', or 'Vietnam_2026_Q2'. Falls back to the raw run_id if
     no year/quarter pattern is found, so unusual run_ids never raise."""
-    m = re.search(r"(\d{4})[_-]?Q([1-4])", run_id, re.IGNORECASE)
+    m = _PERIOD_PATTERN.search(run_id)
     if m:
         return f"{m.group(1)} Q{m.group(2)}"
     return run_id
+
+
+def parse_period(run_id: str) -> "tuple[int | None, int | None]":
+    """Same pattern as format_period_label(), but returns (year, quarter) as
+    ints for callers that need to compare the entered period against
+    something else (see data_quality_flags.derive_period_mismatch_flag()),
+    rather than a display string. (None, None) if run_id has no
+    recognizable year/quarter, same no-raise guarantee as
+    format_period_label()."""
+    m = _PERIOD_PATTERN.search(run_id)
+    if not m:
+        return None, None
+    return int(m.group(1)), int(m.group(2))
 
 
 def get_nested(d: dict, path: str, default=None):

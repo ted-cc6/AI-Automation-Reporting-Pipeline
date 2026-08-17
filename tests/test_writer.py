@@ -364,3 +364,173 @@ class TestBuildSectionsTextMetrics:
         text = _build_sections_text(pkg)
         assert "healthcare_access: 0.339  (n=448)" in text
         assert "healthcare_access_n:" not in text
+
+
+# ---------------------------------------------------------------------------
+# Part 10's "no prior wave" hardening -- a real generated report once called
+# the current wave a "founding baseline" and claimed product understanding
+# "was not asked of this population" despite the prompt already forbidding
+# both (see docs/maintenance/known-issues-log.md). These tests cover the
+# code-level guard added on top of the prompt instruction: detection,
+# corrective retry, and the fixed fallback sentence.
+# ---------------------------------------------------------------------------
+
+class TestPart10TrendAvailable:
+    def test_true_when_any_row_has_a_real_prior_value(self):
+        package = {"scorecard": [
+            {"group_b_value": "N/A (no prior wave)"},
+            {"group_b_value": "73.6%"},
+        ]}
+        assert writer._part10_trend_available(package) is True
+
+    def test_false_when_every_row_has_no_prior_wave(self):
+        package = {"scorecard": [
+            {"group_b_value": "N/A (no prior wave)"},
+            {"group_b_value": "N/A (no prior wave)"},
+        ]}
+        assert writer._part10_trend_available(package) is False
+
+    def test_false_when_scorecard_is_empty_or_missing(self):
+        assert writer._part10_trend_available({"scorecard": []}) is False
+        assert writer._part10_trend_available({}) is False
+
+
+class TestPart10NarrativeViolations:
+    def test_clean_narrative_has_no_violations(self):
+        text = writer._PART10_NO_PRIOR_WAVE_FALLBACK
+        assert writer._part10_narrative_violations(text) == []
+
+    def test_founding_baseline_is_flagged(self):
+        text = ("This wave establishes the founding baseline for VisionFund's global "
+                "insurance portfolio.")
+        violations = writer._part10_narrative_violations(text)
+        assert any("founding baseline" in v for v in violations)
+
+    def test_founding_wave_is_flagged(self):
+        violations = writer._part10_narrative_violations("This is the founding wave for the dataset.")
+        assert any("founding wave" in v for v in violations)
+
+    def test_not_asked_of_population_is_flagged(self):
+        violations = writer._part10_narrative_violations(
+            "Product understanding was not asked of this population."
+        )
+        assert any("not asked of this population" in v for v in violations)
+
+    def test_comparative_verb_despite_no_trend_is_flagged(self):
+        violations = writer._part10_narrative_violations(
+            "Client satisfaction improved since last year despite no prior wave being loaded."
+        )
+        assert any("comparative language" in v for v in violations)
+
+    def test_non_string_or_empty_returns_no_violations(self):
+        assert writer._part10_narrative_violations(None) == []
+        assert writer._part10_narrative_violations("") == []
+
+
+class TestWriteAllPartsPart10Hardening:
+    _PACKAGE_NO_PRIOR = {
+        "part": "part_10", "title": "Trend Comparison",
+        "scorecard": [{"label": "First-Time Access", "group_a_value": "77.2%",
+                       "group_b_value": "N/A (no prior wave)", "significant": False, "sig_p": None}],
+        "sections": {"narrative": {"note": ""}, "insight": {"word_limit": 120, "verbatims": []}},
+    }
+
+    def _init_run_dir(self, tmp_path, monkeypatch, run_id: str):
+        monkeypatch.setattr(writer, "ROOT", tmp_path)
+        run_dir = tmp_path / "runs" / run_id
+        run_dir.mkdir(parents=True)
+        (run_dir / "analysis_results.json").write_text(json.dumps({"meta": {}}), encoding="utf-8")
+        return run_dir
+
+    def test_retries_once_and_accepts_a_clean_second_attempt(self, tmp_path, monkeypatch):
+        self._init_run_dir(tmp_path, monkeypatch, "run_a")
+        calls = []
+
+        def fake_call_llm(**kwargs):
+            calls.append(kwargs)
+            if len(calls) == 1:
+                narrative = "This is the founding baseline for VisionFund's global insurance portfolio."
+            else:
+                narrative = writer._PART10_NO_PRIOR_WAVE_FALLBACK
+            return json.dumps({"narrative": narrative, "insight": "ok"})
+
+        monkeypatch.setattr(writer, "call_llm", fake_call_llm)
+        texts = writer.write_all_parts([self._PACKAGE_NO_PRIOR], "run_a", model=None,
+                                       provider="gemini", api_key="fake-key",
+                                       max_retries=2, retry_delay=0)
+
+        assert len(calls) == 2
+        assert "CORRECTION REQUIRED" in calls[1]["user_content"]
+        assert "founding baseline" not in texts["part_10"]["narrative"]
+        assert texts["part_10"].get("_generation_failed") is None
+
+    def test_falls_back_to_fixed_sentence_after_exhausting_retries(self, tmp_path, monkeypatch):
+        self._init_run_dir(tmp_path, monkeypatch, "run_b")
+        calls = []
+
+        def fake_call_llm(**kwargs):
+            calls.append(kwargs)
+            return json.dumps({"narrative": "This wave is the founding baseline.", "insight": "ok"})
+
+        monkeypatch.setattr(writer, "call_llm", fake_call_llm)
+        texts = writer.write_all_parts([self._PACKAGE_NO_PRIOR], "run_b", model=None,
+                                       provider="gemini", api_key="fake-key",
+                                       max_retries=1, retry_delay=0)
+
+        assert len(calls) == 2  # max_retries=1 -> initial attempt + one retry, both bad
+        assert texts["part_10"]["narrative"] == writer._PART10_NO_PRIOR_WAVE_FALLBACK
+        # Guaranteed by substitution, not marked as a failed generation --
+        # the assembler must render this part normally, not as a manual
+        # write-up placeholder.
+        assert texts["part_10"].get("_generation_failed") is None
+
+    def test_no_check_at_all_when_a_real_trend_is_available(self, tmp_path, monkeypatch):
+        self._init_run_dir(tmp_path, monkeypatch, "run_c")
+        package = dict(self._PACKAGE_NO_PRIOR)
+        package["scorecard"] = [{"label": "First-Time Access", "group_a_value": "77.2%",
+                                 "group_b_value": "73.6%", "significant": False, "sig_p": None}]
+        calls = []
+
+        def fake_call_llm(**kwargs):
+            calls.append(kwargs)
+            # Deliberately uses banned phrasing to prove the check is SKIPPED
+            # (not just passed) once a real trend exists.
+            return json.dumps({"narrative": "This wave is the founding baseline.", "insight": "ok"})
+
+        monkeypatch.setattr(writer, "call_llm", fake_call_llm)
+        texts = writer.write_all_parts([package], "run_c", model=None,
+                                       provider="gemini", api_key="fake-key",
+                                       max_retries=2, retry_delay=0)
+
+        assert len(calls) == 1
+        assert texts["part_10"]["narrative"] == "This wave is the founding baseline."
+
+
+# ---------------------------------------------------------------------------
+# _fmt_insight_summary's tiny-sentiment-base handling -- percentages on a
+# base of 3 read as findings ("100%!"); below the threshold, instruct
+# counts-only instead (see also generation/validate_output.py's
+# _check_tiny_sentiment_base_percentages(), the advisory second line of
+# defense for this same rule).
+# ---------------------------------------------------------------------------
+
+class TestFmtInsightSummaryTinySentimentBase:
+    def test_small_base_instructs_counts_only(self):
+        summary = {"sentiment_split": {"positive": 2, "negative": 1, "neutral": 0}}
+        text = writer._fmt_insight_summary(summary)
+        assert "n=3, too small to state as percentages" in text
+        assert "do NOT" in text
+
+    def test_large_base_uses_the_approx_percent_instruction(self):
+        summary = {"sentiment_split": {"positive": 18, "negative": 9, "neutral": 3}}
+        text = writer._fmt_insight_summary(summary)
+        assert "approx." in text
+        assert "too small" not in text
+
+    def test_threshold_boundary_does_not_trigger_tiny_base_wording(self):
+        summary = {"sentiment_split": {"positive": 10, "negative": 0, "neutral": 0}}
+        text = writer._fmt_insight_summary(summary)
+        assert "too small" not in text
+
+    def test_no_sentiment_split_omits_the_line_entirely(self):
+        assert "SENTIMENT SPLIT" not in writer._fmt_insight_summary({"theme_summary": "x"})

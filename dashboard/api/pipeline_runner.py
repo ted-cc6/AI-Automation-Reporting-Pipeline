@@ -39,6 +39,7 @@ from data_loader.data_loader_api import load_survey_data
 from analysis_engine.country_config import DEFAULT_COUNTRY, load_country_config
 from report_scopes import REPORT_SCOPES
 from data_quality_flags import get_flags as get_data_quality_flags, flagged_countries
+from utils import parse_period
 from analysis_engine.segments import describe_segments, get_all_segment_masks
 from qualitative import llm_call
 from qualitative.llm_call import call_gemini
@@ -176,10 +177,11 @@ def _analyze(run_id: str, run_dir: Path, country: str, dataset_schema: str,
         except json.JSONDecodeError as exc:
             log(f"warning: could not parse {screening_summary_path.name}: {exc}")
 
+    # quality_flags' duration-outlier input is ready now; the period-mismatch
+    # input (fieldwork) isn't computed until about_survey's section runs
+    # below, so the actual get_data_quality_flags() call happens after that
+    # loop -- see run_analysis.py's CLI path for the same split.
     duration_outliers = (data_notes or {}).get("duration_outliers") or []
-    quality_flags = get_data_quality_flags(report_scope, duration_outliers)
-    if quality_flags:
-        log(f"data quality flags active: {[f['id'] for f in quality_flags]}")
 
     now = datetime.now(timezone.utc)
     parts: dict = {}
@@ -200,6 +202,14 @@ def _analyze(run_id: str, run_dir: Path, country: str, dataset_schema: str,
             section_timing[key] = round(time.perf_counter() - t0, 3)
         if on_section:
             on_section(dict(section_timing), dict(section_errors))
+
+    entered_year, entered_quarter = parse_period(run_id)
+    fieldwork = (parts.get("about_survey") or {}).get("fieldwork")
+    quality_flags = get_data_quality_flags(report_scope, duration_outliers,
+                                            entered_year=entered_year, entered_quarter=entered_quarter,
+                                            fieldwork=fieldwork)
+    if quality_flags:
+        log(f"data quality flags active: {[f['id'] for f in quality_flags]}")
 
     result = {
         "meta": {

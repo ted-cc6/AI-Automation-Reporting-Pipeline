@@ -18,12 +18,17 @@ from generation.validate_output import (
 )
 
 
-def _package(part="part_1", numeric_leaves=None, verbatims=None, scorecard=None):
+def _package(part="part_1", numeric_leaves=None, verbatims=None, scorecard=None,
+             sentiment_split=None):
     pkg = {"part": part, "title": "Test Part", "sections": {}}
     if numeric_leaves is not None:
         pkg["sections"]["s1_1"] = {"metrics": numeric_leaves}
     if verbatims is not None:
-        pkg["sections"]["insight"] = {"verbatims": verbatims}
+        pkg["sections"].setdefault("insight", {})["verbatims"] = verbatims
+    if sentiment_split is not None:
+        pkg["sections"].setdefault("insight", {})["insight_summary"] = {
+            "sentiment_split": sentiment_split
+        }
     if scorecard is not None:
         pkg["scorecard"] = scorecard
     return pkg
@@ -221,6 +226,45 @@ class TestUnstatedBase:
         texts = {"part_1": {"s1_1": "481 of 3,669 respondents (13.1%) experienced an insured event."}}
         findings = validate_report(texts, [pkg], set())
         assert not any(f["category"] == "unstated_base" for f in findings)
+
+
+class TestTinySentimentBasePercentage:
+    # Mirrors generation/writer.py's _SENTIMENT_SPLIT_MIN_BASE_FOR_PCT
+    # instruction (counts-only below the threshold) -- this is the advisory
+    # second line of defense: writer.py shapes the prompt so the model
+    # shouldn't state a percentage at all below the threshold, and this
+    # check flags it if one shows up anyway.
+    def test_percentage_on_tiny_base_is_flagged(self):
+        pkg = _package(sentiment_split={"positive": 2, "negative": 1, "neutral": 0})
+        texts = {"part_1": {"insight": "Sentiment was strongly positive (67%) among relevant responses."}}
+        findings = validate_report(texts, [pkg], set())
+        matches = [f for f in findings if f["category"] == "percentage_on_tiny_sentiment_base"]
+        assert len(matches) == 1
+        assert matches[0]["severity"] == "warn"
+
+    def test_counts_only_phrasing_on_tiny_base_is_not_flagged(self):
+        pkg = _package(sentiment_split={"positive": 2, "negative": 1, "neutral": 0})
+        texts = {"part_1": {"insight": "2 clients were positive and 1 was negative."}}
+        findings = validate_report(texts, [pkg], set())
+        assert not any(f["category"] == "percentage_on_tiny_sentiment_base" for f in findings)
+
+    def test_percentage_on_large_base_is_not_flagged(self):
+        pkg = _package(sentiment_split={"positive": 18, "negative": 9, "neutral": 3})
+        texts = {"part_1": {"insight": "Sentiment was mostly positive (60%) among relevant responses."}}
+        findings = validate_report(texts, [pkg], set())
+        assert not any(f["category"] == "percentage_on_tiny_sentiment_base" for f in findings)
+
+    def test_no_sentiment_split_is_never_flagged(self):
+        pkg = _package()
+        texts = {"part_1": {"insight": "Some findings mention 67% for an unrelated reason."}}
+        findings = validate_report(texts, [pkg], set())
+        assert not any(f["category"] == "percentage_on_tiny_sentiment_base" for f in findings)
+
+    def test_only_checked_on_insight_text_key(self):
+        pkg = _package(sentiment_split={"positive": 2, "negative": 1, "neutral": 0})
+        texts = {"part_1": {"s1_1": "An unrelated metric reads 67% here."}}
+        findings = validate_report(texts, [pkg], set())
+        assert not any(f["category"] == "percentage_on_tiny_sentiment_base" for f in findings)
 
 
 class TestLoadInScopeCountries:

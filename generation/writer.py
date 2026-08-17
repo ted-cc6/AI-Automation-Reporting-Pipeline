@@ -7,10 +7,12 @@ run_generation.py falls back to GEMINI_API_KEY for standalone use).
 """
 import json
 import logging
+import re
 import time
 from pathlib import Path
 
 from analysis_engine.country_config import DEFAULT_COUNTRY
+from generation.validate_output import _COMPARATIVE_VERBS
 from llm_providers import call_llm
 from utils import word_count, truncate_to_limit, format_period_label, format_p_value
 
@@ -194,6 +196,9 @@ VOICE RULES:
   package). The percentages across all categories you mention must sum to approximately 100%
   (allow ±1% for rounding only). If they do not, you have made an arithmetic error; recompute
   directly from the given counts before writing the sentence.
+  EXCEPTION: if a SENTIMENT SPLIT line itself says its base is "too small to state as
+  percentages," follow that line's own instruction instead: state the plain counts only (e.g.
+  "2 positive, 1 negative"), with no percentage at all, for that section.
 - If a quoted VERBATIM is not already in English (e.g. a Spanish response from a LARCO client),
   give a brief English gloss of its meaning FIRST, then the original-language text in parentheses
   immediately after, for example "the process was very slow" ("el proceso fue muy lento"), every
@@ -324,6 +329,15 @@ def _fmt_qual_value(key: str, value) -> str:
     return f"  {key}: {value}"
 
 
+# Below this many total coded responses, a percentage reads as a finding
+# ("100%!") when it's really just 3 out of 3. Deliberately much lower than
+# analysis_engine/stats.py's LOW_N_THRESHOLD=30, which suppresses whole
+# quantitative metrics outright -- qualitative sections legitimately run
+# small (a handful of coded verbatims per part is normal), so the fix here
+# is to report counts only below this floor, not to suppress the section.
+_SENTIMENT_SPLIT_MIN_BASE_FOR_PCT = 10
+
+
 def _fmt_insight_summary(summary: dict | None) -> str:
     """Format the section-scoped theme/driver/sentiment summary (qualitative
     Task 5B) that grounds an insight block in the aggregate response pool,
@@ -338,7 +352,19 @@ def _fmt_insight_summary(summary: dict | None) -> str:
     split = summary.get("sentiment_split")
     if split:
         split_str = ", ".join(f"{k}={v}" for k, v in split.items())
-        lines.append(f"  SENTIMENT SPLIT (approx., across all responses judged relevant to this section): {split_str}")
+        total = sum(v for v in split.values() if isinstance(v, (int, float)))
+        if total < _SENTIMENT_SPLIT_MIN_BASE_FOR_PCT:
+            lines.append(
+                f"  SENTIMENT SPLIT (n={total}, too small to state as percentages): {split_str} "
+                "-- report these as plain counts only (e.g. \"2 positive, 1 negative\"); do NOT "
+                "compute or state a percentage for this section, the base is too small for one "
+                "to be meaningful"
+            )
+        else:
+            lines.append(
+                "  SENTIMENT SPLIT (approx., across all responses judged relevant to this "
+                f"section): {split_str}"
+            )
     return "\n".join(lines) if lines else "  SECTION SUMMARY: (not available)"
 
 
@@ -436,7 +462,60 @@ def _build_scorecard_text(scorecard: list, group_a: str, group_b: str) -> str:
     return "\n".join(lines)
 
 
-def _build_part_prompt(package: dict, part_key: str, report_title: str) -> str:
+def _part10_trend_available(package: dict) -> bool:
+    """True when at least one Part 10 indicator has a real prior-wave value --
+    i.e. there is something to actually compare, not just an empty trend
+    table. Shared by _build_part_prompt() (tells the model whether a trend
+    exists at all) and _part10_narrative_violations() below (decides whether
+    the stricter no-prior-wave rules apply to the returned narrative)."""
+    return bool(package.get("scorecard")) and any(
+        row["group_b_value"] != "N/A (no prior wave)" for row in package.get("scorecard", [])
+    )
+
+
+# Phrases report_spec.yaml's part_10 prompt note explicitly forbids when no
+# prior wave is available -- reverse-engineered from a real generated report
+# that called the current wave a "founding baseline for VisionFund's global
+# insurance portfolio" and claimed product understanding "was not asked of
+# this population" despite Part 1 reporting it at length. The prompt already
+# instructs against both; this is the code-level guard so a report doesn't
+# ship with either fabrication if the model doesn't comply, per
+# docs/maintenance/known-issues-log.md's "fail loudly, not confidently
+# wrong" requirement for this section specifically.
+_PART10_BANNED_PATTERNS = [
+    re.compile(r"founding (?:baseline|wave)", re.IGNORECASE),
+    re.compile(r"not asked of (?:this|the) population", re.IGNORECASE),
+]
+
+_PART10_NO_PRIOR_WAVE_FALLBACK = (
+    "This is the first wave on record for this dataset. No prior wave is "
+    "available yet, so no wave-over-wave trend can be described for these "
+    "indicators."
+)
+
+
+def _part10_narrative_violations(narrative) -> list[str]:
+    """Checked only when _part10_trend_available() is False, i.e. the trend
+    table is genuinely empty. Returns a human-readable violation per banned
+    phrase or comparative verb found, or [] if the narrative is clean. An
+    empty/non-string narrative is not this function's concern (that's a
+    missing-key problem the existing JSON-schema handling already catches)."""
+    if not isinstance(narrative, str) or not narrative:
+        return []
+    violations = []
+    for pattern in _PART10_BANNED_PATTERNS:
+        m = pattern.search(narrative)
+        if m:
+            violations.append(f'uses banned phrasing "{m.group(0)}"')
+    lowered = narrative.lower()
+    for verb in _COMPARATIVE_VERBS:
+        if re.search(rf"\b{re.escape(verb)}\b", lowered):
+            violations.append(f'uses comparative language ("{verb}") despite no prior wave being available')
+            break
+    return violations
+
+
+def _build_part_prompt(package: dict, part_key: str, report_title: str, extra_instruction: str = "") -> str:
     part_num = part_key.replace("part_", "")
     title    = package["title"]
     schema   = _OUTPUT_SCHEMAS.get(part_key, {})
@@ -463,10 +542,7 @@ def _build_part_prompt(package: dict, part_key: str, report_title: str) -> str:
         lines.append(f"{table_label}:")
         lines.append(_build_scorecard_text(package.get("scorecard", []), group_a, group_b))
         if part_key == "part_10":
-            trend_available = bool(package.get("scorecard")) and any(
-                row["group_b_value"] != "N/A (no prior wave)" for row in package.get("scorecard", [])
-            )
-            lines.append(f"\nTREND AVAILABLE: {trend_available}")
+            lines.append(f"\nTREND AVAILABLE: {_part10_trend_available(package)}")
         lines.append("")
 
         # Narrative section note
@@ -504,6 +580,9 @@ def _build_part_prompt(package: dict, part_key: str, report_title: str) -> str:
     schema_lines.append("}")
     lines.append("\n".join(schema_lines))
 
+    if extra_instruction:
+        lines.append(f"\n\n{extra_instruction}")
+
     return "\n".join(lines)
 
 
@@ -531,8 +610,8 @@ def enforce_word_limits(texts: dict) -> dict:
 # ---------------------------------------------------------------------------
 
 def write_part(package: dict, part_key: str, provider: str, api_key: str, model: str | None,
-              report_title: str, single_country: bool = False) -> dict:
-    user_message = _build_part_prompt(package, part_key, report_title)
+              report_title: str, single_country: bool = False, extra_instruction: str = "") -> dict:
+    user_message = _build_part_prompt(package, part_key, report_title, extra_instruction=extra_instruction)
     result_text = call_llm(
         provider=provider,
         api_key=api_key,
@@ -585,12 +664,13 @@ def write_all_parts(packages: list, run_id: str, model: str | None,
 
         raw_result = None
         last_error: Exception | None = None
+        extra_instruction = ""
         for attempt in range(max_retries + 1):
             try:
                 raw_result = write_part(package, part_key, provider, api_key, model, report_title,
-                                        single_country=single_country)
-                break
+                                        single_country=single_country, extra_instruction=extra_instruction)
             except Exception as exc:
+                raw_result = None
                 last_error = exc
                 if attempt < max_retries:
                     delay = retry_delay * (2 ** attempt)
@@ -598,6 +678,42 @@ def write_all_parts(packages: list, run_id: str, model: str | None,
                     time.sleep(delay)
                 else:
                     log.error(f"{part_key}: {provider} call failed after {max_retries + 1} attempts: {exc}")
+                continue
+
+            # Part 10 with a genuinely empty trend table: a prompt instruction
+            # alone isn't enough (see docs/maintenance/known-issues-log.md) --
+            # verify the model actually complied, retry once with the specific
+            # violation named, and if it still doesn't comply, guarantee
+            # correctness by substituting a fixed sentence rather than
+            # shipping whatever the model wrote.
+            if part_key == "part_10" and not _part10_trend_available(package):
+                violations = _part10_narrative_violations(raw_result.get("narrative"))
+                if violations:
+                    last_error = RuntimeError(
+                        "part_10 narrative violated no-prior-wave rules: " + "; ".join(violations)
+                    )
+                    if attempt < max_retries:
+                        extra_instruction = (
+                            'CORRECTION REQUIRED: your previous "narrative" answer '
+                            + " and ".join(violations)
+                            + ". There is genuinely no prior wave to compare against for this "
+                              'dataset. Rewrite "narrative" to state that plainly, in one '
+                              "neutral sentence, using none of the phrasing named above."
+                        )
+                        log.warning(
+                            f"part_10: narrative violated no-prior-wave rules (attempt {attempt + 1}): "
+                            f"{violations}. Retrying with a corrective instruction..."
+                        )
+                        continue
+                    else:
+                        log.error(
+                            f"part_10: narrative still violated no-prior-wave rules after "
+                            f"{max_retries + 1} attempts: {violations}. Substituting the fixed "
+                            "fallback sentence rather than shipping a fabricated narrative."
+                        )
+                        raw_result["narrative"] = _PART10_NO_PRIOR_WAVE_FALLBACK
+
+            break
 
         if raw_result is None:
             failed_parts.append(part_key)

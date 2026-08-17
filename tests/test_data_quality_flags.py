@@ -12,6 +12,7 @@ from __future__ import annotations
 from data_quality_flags import (
     DATA_QUALITY_FLAGS,
     auto_derive_duration_flags,
+    derive_period_mismatch_flag,
     flagged_countries,
     get_flags,
 )
@@ -82,6 +83,69 @@ class TestGetFlags:
         # safe empty default, auto-derived flags still apply.
         flags = get_flags(None, [_finding()])
         assert len(flags) == 1
+
+
+class TestDerivePeriodMismatchFlag:
+    def test_entered_quarter_matches_start_date_no_flag(self):
+        fieldwork = {"available": True, "start_date": "2026-04-05", "end_date": "2026-04-20"}
+        assert derive_period_mismatch_flag(2026, 2, fieldwork) == []
+
+    def test_entered_quarter_matches_end_date_no_flag(self):
+        # Real fieldwork window straddling a quarter boundary is legitimate
+        # (e.g. 2026-06-26 to 2026-08-04) -- matching EITHER endpoint's
+        # quarter is enough, not just the start.
+        fieldwork = {"available": True, "start_date": "2026-06-26", "end_date": "2026-08-04"}
+        assert derive_period_mismatch_flag(2026, 2, fieldwork) == []
+        assert derive_period_mismatch_flag(2026, 3, fieldwork) == []
+
+    def test_entered_quarter_does_not_match_either_endpoint_flags(self):
+        fieldwork = {"available": True, "start_date": "2026-06-26", "end_date": "2026-08-04"}
+        flags = derive_period_mismatch_flag(2026, 4, fieldwork)
+        assert len(flags) == 1
+        assert flags[0]["id"] == "period_label_mismatch"
+        assert "2026 Q4" in flags[0]["note"]
+        assert "2026-06-26 to 2026-08-04" in flags[0]["note"]
+
+    def test_single_quarter_fieldwork_states_one_quarter_in_note(self):
+        fieldwork = {"available": True, "start_date": "2026-04-05", "end_date": "2026-04-20"}
+        flags = derive_period_mismatch_flag(2026, 1, fieldwork)
+        assert "2026 Q2" in flags[0]["note"]
+        assert "through" not in flags[0]["note"]
+
+    def test_spanning_fieldwork_states_a_range_in_note(self):
+        fieldwork = {"available": True, "start_date": "2026-06-26", "end_date": "2026-08-04"}
+        flags = derive_period_mismatch_flag(2026, 4, fieldwork)
+        assert "2026 Q2 through 2026 Q3" in flags[0]["note"]
+
+    def test_missing_fieldwork_produces_no_flag(self):
+        assert derive_period_mismatch_flag(2026, 2, None) == []
+        assert derive_period_mismatch_flag(2026, 2, {"available": False}) == []
+
+    def test_missing_entered_period_produces_no_flag(self):
+        fieldwork = {"available": True, "start_date": "2026-06-26", "end_date": "2026-08-04"}
+        assert derive_period_mismatch_flag(None, None, fieldwork) == []
+        assert derive_period_mismatch_flag(2026, None, fieldwork) == []
+
+    def test_never_carries_a_country_key(self):
+        # flagged_countries()'s exclusion mechanism is country-scoped; this
+        # flag is whole-run, not country-specific, and must stay invisible
+        # to that mechanism (see flagged_countries()'s .get("country") guard).
+        fieldwork = {"available": True, "start_date": "2026-06-26", "end_date": "2026-08-04"}
+        flags = derive_period_mismatch_flag(2026, 4, fieldwork)
+        assert "country" not in flags[0]
+        assert flagged_countries(flags) == []
+
+
+class TestGetFlagsPeriodMismatchIntegration:
+    def test_get_flags_includes_period_mismatch_when_supplied(self):
+        fieldwork = {"available": True, "start_date": "2026-06-26", "end_date": "2026-08-04"}
+        flags = get_flags("lacro", None, entered_year=2026, entered_quarter=4, fieldwork=fieldwork)
+        assert {f["id"] for f in flags} == {"period_label_mismatch"}
+
+    def test_get_flags_defaults_omit_period_mismatch(self):
+        # Existing call sites that don't pass the new kwargs must see
+        # unchanged behavior.
+        assert get_flags("lacro", None) == []
 
 
 class TestFlaggedCountries:

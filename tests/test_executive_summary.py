@@ -138,7 +138,16 @@ class TestDataAvailabilityCaveats:
 
     def test_africa_like_schema_lists_only_product_understanding(self):
         caveats = data_availability_caveats(_base_analysis())
-        assert caveats == ["Combined Product Understanding"]
+        # Carries a cross-reference note pointing at Part 1's two split
+        # metrics -- without it, the caveat box's "does not collect ... so
+        # they do not appear elsewhere in this report" sentence reads as
+        # contradicting Part 1's own product-understanding reporting a few
+        # pages away (see generation/executive_summary.py's
+        # _NOT_APPLICABLE_CANDIDATES comment).
+        assert caveats == [
+            "Combined Product Understanding (reported instead in Part 1 as two split "
+            "metrics, Coverage Understanding and Claim Process Understanding)"
+        ]
 
     def test_no_data_returns_empty_list(self):
         assert data_availability_caveats({"parts": {}}) == []

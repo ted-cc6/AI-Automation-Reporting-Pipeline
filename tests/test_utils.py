@@ -7,7 +7,7 @@ Run: pytest tests/test_utils.py -v
 """
 from __future__ import annotations
 
-from utils import format_period_label, format_p_value, format_value, get_nested
+from utils import format_period_label, format_p_value, format_value, get_nested, parse_period
 
 
 # ---------------------------------------------------------------------------
@@ -104,3 +104,19 @@ class TestFormatPeriodLabel:
 
     def test_falls_back_to_raw_run_id_when_no_pattern(self):
         assert format_period_label("weird-run-name") == "weird-run-name"
+
+
+# ---------------------------------------------------------------------------
+# parse_period (same pattern as format_period_label, int output instead of
+# a display string -- see data_quality_flags.derive_period_mismatch_flag())
+# ---------------------------------------------------------------------------
+
+class TestParsePeriod:
+    def test_extracts_year_and_quarter_as_ints(self):
+        assert parse_period("2026_Q2") == (2026, 2)
+
+    def test_extracts_from_prefixed_run_id(self):
+        assert parse_period("default_2026_Q2") == (2026, 2)
+
+    def test_falls_back_to_none_none_when_no_pattern(self):
+        assert parse_period("weird-run-name") == (None, None)

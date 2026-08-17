@@ -31,6 +31,7 @@ from analysis_engine.sections import (
     part_11, part_12,
 )
 from analysis_engine.stats import LOW_N_THRESHOLD
+from utils import parse_period
 
 PROJECT_ROOT = Path(__file__).parent
 log = logging.getLogger("run_analysis")
@@ -235,14 +236,12 @@ def main() -> int:
         except json.JSONDecodeError as exc:
             log.warning(f"Could not parse {screening_summary_path}: {exc}")
 
-    # data_quality_flags: hand-entered overrides plus whatever auto-derives
-    # from this run's own duration_outliers finding (see
-    # data_quality_flags.py's module docstring) -- read from data_notes
-    # rather than re-running find_duration_outliers() a second time here.
+    # data_quality_flags' duration-outlier input is ready now (read from
+    # data_notes rather than re-running find_duration_outliers() a second
+    # time here); the period-mismatch input (fieldwork) isn't computed until
+    # step 4's about_survey section runs, so the actual get_flags() call is
+    # below, after that loop.
     duration_outliers = (data_notes or {}).get("duration_outliers") or []
-    quality_flags = get_flags(report_scope, duration_outliers)
-    if quality_flags:
-        log.info(f"Data quality flags active: {[f['id'] for f in quality_flags]}")
 
     sections = build_sections(dataset_schema, prior_run_id=args.prior_run_id, report_scope=report_scope)
     active_keys = {key for key, _, _ in sections}
@@ -286,6 +285,20 @@ def main() -> int:
             parts[key] = None
         finally:
             section_timing[key] = round(time.perf_counter() - t0, 3)
+
+    # data_quality_flags: hand-entered overrides, whatever auto-derives from
+    # this run's own duration_outliers finding, and a period-label mismatch
+    # check against about_survey's own fieldwork dates (see
+    # data_quality_flags.py's module docstring) -- computed here, after step
+    # 4, since fieldwork isn't available until about_survey.calculate() has
+    # run.
+    entered_year, entered_quarter = parse_period(run_id)
+    fieldwork = (parts.get("about_survey") or {}).get("fieldwork")
+    quality_flags = get_flags(report_scope, duration_outliers,
+                               entered_year=entered_year, entered_quarter=entered_quarter,
+                               fieldwork=fieldwork)
+    if quality_flags:
+        log.info(f"Data quality flags active: {[f['id'] for f in quality_flags]}")
 
     # 5. Assemble result dict
     result = {

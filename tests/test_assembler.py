@@ -20,6 +20,7 @@ from generation.assembler import (
     _add_protection_signals_summary,
     _load_analysis_meta,
     assemble,
+    build_part_7,
 )
 
 
@@ -250,6 +251,56 @@ class TestMethodologyAppendix:
         out = tmp_path / "out.docx"
         assemble([{"part": "part_1", "title": "Client Understanding & Value Perception"}], {}, "p1_only_run", out)
         assert "Appendix: Methodology Notes" not in self._doc_text(out)
+
+    def test_renewal_intent_example_present_for_unscoped_report(self, tmp_path, monkeypatch):
+        monkeypatch.setattr(assembler, "ROOT", tmp_path)
+        _make_run(tmp_path, "unscoped_run", {"country": "default", "n_total": 100})
+        out = tmp_path / "out.docx"
+        assemble([{"part": "part_4", "title": "Client Voice"}], {}, "unscoped_run", out)
+        assert "Renewal Intent was asked only of Vietnam's crop-insurance clients" in self._doc_text(out)
+
+    def test_renewal_intent_example_omitted_for_report_scope_lacro(self, tmp_path, monkeypatch):
+        monkeypatch.setattr(assembler, "ROOT", tmp_path)
+        _make_run(tmp_path, "lacro_scope_run",
+                  {"country": "default", "n_total": 100, "report_scope": "lacro"})
+        out = tmp_path / "out.docx"
+        assemble([{"part": "part_4", "title": "Client Voice"}], {}, "lacro_scope_run", out)
+        assert "Vietnam" not in self._doc_text(out)
+
+    def test_renewal_intent_example_omitted_for_legacy_larco_schema_with_no_report_scope(
+        self, tmp_path, monkeypatch
+    ):
+        # The gap this fix closes: the legacy dataset_schema=="larco" upload
+        # path never offers the report_scope picker at all (see
+        # CupboardWeekApp.tsx's scopeOptionsForSchema), so a real run
+        # through it has report_scope == None. Before the fix,
+        # _spearman_methodology_note() only checked report_scope == "lacro"
+        # and would have shown this false Vietnam/Africa example text for a
+        # report with zero Vietnam or African clients in it.
+        monkeypatch.setattr(assembler, "ROOT", tmp_path)
+        _make_run(tmp_path, "legacy_larco_run",
+                  {"country": "default", "n_total": 100, "dataset_schema": "larco", "report_scope": None})
+        out = tmp_path / "out.docx"
+        assemble([{"part": "part_4", "title": "Client Voice"}], {}, "legacy_larco_run", out)
+        assert "Vietnam" not in self._doc_text(out)
+
+
+# ---------------------------------------------------------------------------
+# Part 8 (Kling Index) is deliberately dashboard-only and never gets its own
+# builder -- without an explicit note, a reader just sees the part numbering
+# jump from 7 straight to 9 (or 10) with nothing in the document explaining
+# why. build_part_7() always renders (every Cupboard Week report includes
+# Part 7), so the note lives there rather than being conditional on which
+# later parts a given run happens to include.
+# ---------------------------------------------------------------------------
+
+class TestPart8AbsenceNote:
+    def test_part7_explains_part8_is_dashboard_only(self):
+        doc = Document()
+        build_part_7(doc, {"title": "Gender Analysis", "sections": {}}, {"narrative": "x", "insight": "y"})
+        body_text = "\n".join(p.text for p in doc.paragraphs)
+        assert "Part 8 (Kling Index)" in body_text
+        assert "analytics dashboard only" in body_text
 
 
 # ---------------------------------------------------------------------------

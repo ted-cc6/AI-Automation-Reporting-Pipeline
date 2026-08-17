@@ -79,14 +79,64 @@ def auto_derive_duration_flags(duration_outlier_findings: list) -> list:
     return flags
 
 
-def get_flags(report_scope: "str | None", duration_outlier_findings: "list | None" = None) -> list:
-    """All active flags for this report_scope: hand-entered overrides plus
+def _quarter_of(date_str: str) -> "tuple[int, int]":
+    """(calendar year, calendar quarter) for a 'YYYY-MM-DD' string, as
+    written by analysis_engine/sections/about_survey.py's
+    _fieldwork_window()."""
+    year = int(date_str[:4])
+    month = int(date_str[5:7])
+    return year, (month - 1) // 3 + 1
+
+
+def derive_period_mismatch_flag(entered_year: "int | None", entered_quarter: "int | None",
+                                 fieldwork: "dict | None") -> list:
+    """Flags a run whose manually-entered year/quarter (parsed from run_id
+    by utils.parse_period()) doesn't match the calendar quarter(s) the
+    survey's OWN recorded interview dates actually fall in
+    (about_survey.py's fieldwork.start_date/end_date, computed independently
+    from the data). Nothing upstream of this ever cross-checks the two --
+    year/quarter are free-typed on the dashboard's setup form and used
+    as-is to build the run_id and title, with no validation against the
+    uploaded CSV's actual date range. This is report-only, like every other
+    flag in this module: a real survey wave can legitimately straddle a
+    quarter boundary, so a mismatch is worth a human's confirmation, not an
+    automatic correction or a blocked run."""
+    if not entered_year or not entered_quarter or not fieldwork or not fieldwork.get("available"):
+        return []
+    start_year, start_q = _quarter_of(fieldwork["start_date"])
+    end_year, end_q = _quarter_of(fieldwork["end_date"])
+    if (int(entered_year), int(entered_quarter)) in {(start_year, start_q), (end_year, end_q)}:
+        return []
+    span = (
+        f"{start_year} Q{start_q}" if (start_year, start_q) == (end_year, end_q)
+        else f"{start_year} Q{start_q} through {end_year} Q{end_q}"
+    )
+    return [{
+        "id": "period_label_mismatch",
+        "note": (
+            f"This run is labeled {entered_year} Q{entered_quarter}, but the survey data's own "
+            f"recorded fieldwork dates ({fieldwork['start_date']} to {fieldwork['end_date']}) "
+            f"fall in {span}. Confirm the entered year/quarter is the intended reporting period "
+            "before treating this report as final."
+        ),
+        "source": "auto_derived",
+    }]
+
+
+def get_flags(report_scope: "str | None", duration_outlier_findings: "list | None" = None,
+              entered_year: "int | None" = None, entered_quarter: "int | None" = None,
+              fieldwork: "dict | None" = None) -> list:
+    """All active flags for this report_scope: hand-entered overrides, plus
     whatever auto-derives from this run's own duration_outlier_findings
     (see data_loader_screening.find_duration_outliers(), threaded through
-    via screening_summary.json)."""
+    via screening_summary.json), plus a period-label mismatch flag when
+    entered_year/entered_quarter/fieldwork are supplied (both optional and
+    None by default so existing callers that don't have this data yet don't
+    need to change)."""
     flags = list(DATA_QUALITY_FLAGS.get(report_scope, []))
     if duration_outlier_findings:
         flags.extend(auto_derive_duration_flags(duration_outlier_findings))
+    flags.extend(derive_period_mismatch_flag(entered_year, entered_quarter, fieldwork))
     return flags
 
 
