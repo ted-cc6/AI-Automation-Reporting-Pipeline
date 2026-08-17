@@ -247,13 +247,19 @@ parts:
         note: >
           Some VisionFund country programmes' survey instruments gate "filed a claim" behind
           a separate "did you experience an insured event" question (rate expressed as % of
-          that event base); others (e.g. LARCO) ask about filed claims directly with no such
-          gate, in which case the rate is expressed as % of ALL surveyed clients instead --
-          the data package's "pct_filed_of_event" label always matches whichever base was
-          actually used; do not assume it is always the event base. If n_experienced_event
+          that event base); others ask about filed claims directly with no such gate (rate
+          expressed as % of ALL surveyed clients instead). Never assume which of these applies
+          from the report's country or region name -- a given region can appear in this report
+          under either behavior depending on which survey instrument produced the data, so
+          check strictly by what is actually present in THIS data package, every time:
+          if n_experienced_event / pct_experienced_event ARE present above, this programme's
+          survey DOES gate on an insured event -- describe the funnel from insured event
+          through to claim filed, and pct_filed_of_event is the filed-claim rate as a
+          percentage of that event base, not of all surveyed clients. If n_experienced_event
           / pct_experienced_event are absent from this data package, this programme's survey
           has no such gate -- write about "filed a claim" directly without mentioning an
-          insured-event step at all. If n_claim_paid / pct_claim_paid are absent, this
+          insured-event step at all, and pct_filed_of_event is then the rate against all
+          surveyed clients instead. If n_claim_paid / pct_claim_paid are absent, this
           programme's survey does not collect claim OUTCOME data (paid vs. not) at all -- do
           not say claims were "not paid" or imply a 0% payment rate; state plainly that claim
           outcomes are not tracked in this dataset.
@@ -265,6 +271,7 @@ parts:
           no_claim_reasons_base:
             path: "parts.part_2.no_claim_reasons.n_base"
             fmt: "count"
+            population: "Clients who experienced an insured event in the last 12 months but did not file a claim -- the same base as Part 6's Non-Filer group. Not the full non-claiming population; every client here was eligible to claim and chose or was unable to."
         distribution_path: "parts.part_2.no_claim_reasons.distribution"
         qualitative_keys:
           - "other_subthemes.claim_no_reason_other"

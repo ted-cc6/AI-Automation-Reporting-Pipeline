@@ -14,6 +14,7 @@ from pathlib import Path
 from analysis_engine.country_config import DEFAULT_COUNTRY
 from generation.validate_output import _COMPARATIVE_VERBS
 from llm_providers import call_llm
+from report_scopes import LACRO_SHORT_LABEL
 from utils import word_count, truncate_to_limit, format_period_label, format_p_value
 
 log = logging.getLogger(__name__)
@@ -58,7 +59,7 @@ def _lacro_scoped(meta: dict) -> bool:
     either the legacy dataset_schema=="larco" export (see _is_larco_rollup,
     a 2025-wave LARCO-instrument CSV, its own dataset_schema) or the newer
     report_scope=="lacro" region filter over the 2026+ unified schema (see
-    report_scopes.py). Both map to identical "LARCO Regional Portfolio"
+    report_scopes.py). Both map to identical "LACRO Regional Portfolio"
     title/subtitle wording -- the underlying mechanism differs (a distinct
     source CSV/schema vs a Region-column filter on the shared one), but the
     report itself should read identically either way. Without this check,
@@ -77,7 +78,16 @@ def _report_title(run_id: str, meta: "dict | None" = None) -> str:
         label = meta.get("country_label") or meta["country"].title()
         return f"VisionFund International Insurance Impact Report: {label}, {period}"
     if _lacro_scoped(meta):
-        return f"VisionFund International Insurance Impact Report: LARCO Regional Portfolio, {period}"
+        # LACRO_SHORT_LABEL (report_scopes.py) is the one place this acronym
+        # is spelled -- previously hardcoded here as "LARCO" (this
+        # codebase's internal file/variable naming convention, see
+        # report_scopes.py's module docstring), which leaked the internal
+        # spelling into every reader-facing occurrence of the region name:
+        # this title, the cover subtitle (generation/assembler.py), and
+        # from there into the writing LLM's own prose throughout the
+        # report, since _house_voice_text() opens with "You are writing
+        # the {report_title}."
+        return f"VisionFund International Insurance Impact Report: {LACRO_SHORT_LABEL} Regional Portfolio, {period}"
     report_scope = meta.get("report_scope")
     if report_scope:
         label = meta.get("report_scope_label") or report_scope
@@ -199,11 +209,19 @@ VOICE RULES:
   EXCEPTION: if a SENTIMENT SPLIT line itself says its base is "too small to state as
   percentages," follow that line's own instruction instead: state the plain counts only (e.g.
   "2 positive, 1 negative"), with no percentage at all, for that section.
-- If a quoted VERBATIM is not already in English (e.g. a Spanish response from a LARCO client),
+- If a quoted VERBATIM is not already in English (e.g. a Spanish response from a LACRO client),
   give a brief English gloss of its meaning FIRST, then the original-language text in parentheses
   immediately after, for example "the process was very slow" ("el proceso fue muy lento"), every
   time you quote it, not just the first time. Never quote non-English text without an English gloss,
   and never silently translate without showing the original.
+- Do not characterize a quoted verbatim as evidence of a specific insurance product feature (a
+  credit-life death benefit, crop insurance payout, or similar) unless that product is confirmed
+  present in this report's own product mix. A verbatim describing something that sounds like a
+  loan being cleared, a payout on a family member's death, or similar does not by itself establish
+  which product paid it; if you are not certain from the data package which product is involved,
+  describe the benefit generically (e.g. "a benefit paid on a family member's death") rather than
+  naming a specific product category, and never generalize a single respondent's account into a
+  portfolio-wide pattern (e.g. "many clients experienced X") on the strength of one quote alone.
 
 WORD LIMITS (strictly enforced):
 - If a section specifies word_limit: 90, write AT MOST 90 words. Aim for 85-90.

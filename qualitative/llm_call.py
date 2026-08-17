@@ -50,6 +50,7 @@ import time
 from pathlib import Path
 
 from llm_providers import call_llm
+from qualitative import tag_cache
 
 log = logging.getLogger(__name__)
 
@@ -96,6 +97,39 @@ crop_agricultural:   Farming recovery; crop shock; agricultural outcomes
 general_satisfaction: General positive sentiment; no specific driver
 improvement_suggestion: Concrete suggestions to improve service or product
 complaint_grievance: Specific grievance about service, product, or conduct"""
+
+# Human-readable label for every _THEME_TAXONOMY_BLOCK code above -- used by
+# qualitative/parse_results.py to relabel section_insights.*.top_drivers and
+# theme_counts keys before they're written to qualitative_results.json.
+# Needed because the synthesis prompt (see _build_synthesis_prompt()'s TASK
+# 4B below) explicitly allows the model to use a raw taxonomy code as a
+# top_drivers value ("Use a THEME TAXONOMY code if one genuinely fits"), and
+# a real generated report shipped with the raw code "claims_process" sitting
+# unlabeled in reader-facing prose as a result -- a prompt instruction alone
+# already failed once here, so this is applied deterministically in code
+# rather than left to model compliance a second time.
+THEME_CODE_LABELS = {
+    "staff_service": "staff service",
+    "claims_speed": "claim payout speed",
+    "claims_process": "the claims process",
+    "product_value": "product value for money",
+    "product_understanding": "product understanding",
+    "payout_adequacy": "payout adequacy",
+    "financial_relief": "financial relief",
+    "access_inclusion": "access and inclusion",
+    "child_family": "child and family impact",
+    "crop_agricultural": "agricultural recovery",
+    "general_satisfaction": "general satisfaction",
+    "improvement_suggestion": "improvement suggestions",
+    "complaint_grievance": "complaints and grievances",
+}
+
+
+def humanize_theme_label(value: str) -> str:
+    """Map a raw taxonomy code to its human-readable label; pass through
+    unchanged if it's already freeform text (the synthesis prompt allows
+    both -- see THEME_CODE_LABELS's comment above)."""
+    return THEME_CODE_LABELS.get(value, value)
 
 _PROTECTION_FLAG_TAXONOMY_BLOCK = """## PROTECTION FLAG TAXONOMY
 
@@ -430,9 +464,12 @@ whichever produces the best 3 for that section.
 your own direct reading of the three small groups above, and
 nps_theme_counts:
   - theme_summary: 1-2 sentences naming the dominant theme(s) for this section
-  - top_drivers: 1-2 short labels for the biggest driver(s) behind that theme.
-    Use a THEME TAXONOMY code if one genuinely fits; otherwise a short
-    freeform label (e.g. "slow payout", "lack of premium clarity")
+  - top_drivers: 1-2 short, human-readable labels for the biggest driver(s)
+    behind that theme (e.g. "product value for money", "slow payout",
+    "lack of premium clarity"). Never write a raw THEME TAXONOMY code
+    (e.g. "claims_process") as a label -- readers see this value directly,
+    describe the driver in plain words even when a taxonomy code covers
+    the same idea
   - sentiment_split: your best-judgment approximate counts of
     {{"positive": n, "negative": n, "neutral": n}} among the material you
     reviewed for this section. Low counts are fine for low-volume sections
@@ -609,6 +646,72 @@ def _dedupe_protection_flags(flags: list) -> list:
 
 
 # ---------------------------------------------------------------------------
+# Per-record classification cache (see qualitative/tag_cache.py) -- applied
+# to NPS theme tags and protection flags only, the two fields observed to
+# drift between regenerations of identical data. A cached record's decision
+# from a PRIOR run always overrides whatever this run's fresh LLM call just
+# produced for it; a record seen for the first time has its fresh decision
+# written to the cache so the NEXT run is stable too.
+# ---------------------------------------------------------------------------
+
+# Sentinel stored in the cache to mean "this record was scanned for a
+# protection flag and confirmed to have none" -- distinct from "never
+# scanned" (a plain cache miss, tag_cache.get() returns None either way a
+# key is absent OR its value is JSON null, so an explicit marker is needed
+# to make "no flag" itself a cacheable, stable fact rather than defaulting
+# to "unknown, re-decide every time").
+_NO_FLAG = {"_no_flag": True}
+
+
+def _apply_theme_tag_cache(entries: list, by_id: dict, cache: dict) -> list:
+    """entries: a batch's (or the merged) [row_id, [theme, ...]] pairs.
+    Returns the same shape with any previously-cached record's themes
+    substituted in place of this run's fresh tags, and populates the
+    cache for records seen for the first time."""
+    out = []
+    for entry in entries:
+        if not (isinstance(entry, list) and len(entry) == 2):
+            out.append(entry)
+            continue
+        row_id, themes = entry
+        text = (by_id.get(row_id) or {}).get("text", "")
+        cached = tag_cache.get(cache, "theme", row_id, text)
+        if cached is not None:
+            out.append([row_id, cached])
+        else:
+            tag_cache.put(cache, "theme", row_id, text, themes)
+            out.append([row_id, themes])
+    return out
+
+
+def _apply_protection_flag_cache(scanned_records: list, found_flags: list, cache: dict) -> list:
+    """scanned_records: every record actually scanned for a protection flag
+    this pass (regardless of outcome) -- must be the full scanned set, not
+    just the flagged ones, so "checked, no flag" is itself a stable cached
+    fact and a record can't silently gain a flag on a later run just
+    because this pass's cache lookup only ever saw the flagged subset.
+    found_flags: the flag dicts this pass's LLM call actually produced.
+    Returns the flag list to use for this run, with any previously-cached
+    record's flag decision (flagged or not) substituted for this run's
+    fresh one."""
+    found_by_id = {f["id"]: f for f in found_flags if f.get("id")}
+    out = []
+    for rec in scanned_records:
+        record_id = rec.get("id")
+        text = rec.get("text", "")
+        cached = tag_cache.get(cache, "flag", record_id, text)
+        if cached is not None:
+            if cached != _NO_FLAG:
+                out.append(cached)
+            continue
+        fresh = found_by_id.get(record_id)
+        tag_cache.put(cache, "flag", record_id, text, fresh if fresh else _NO_FLAG)
+        if fresh:
+            out.append(fresh)
+    return out
+
+
+# ---------------------------------------------------------------------------
 # Orchestration
 # ---------------------------------------------------------------------------
 
@@ -675,6 +778,9 @@ def call_gemini(
     if excluded_set:
         log.info(f"Data quality flags active -- excluding from quote selection: {sorted(excluded_set)}")
 
+    tag_cache_data = tag_cache.load()
+    cache_size_before = len(tag_cache_data)
+
     # ---- Phase 1: batch-tag the NPS responses -----------------------------
     all_nps = payload.get("nps_promoters", []) + payload.get("nps_passives", []) + payload.get("nps_detractors", [])
     by_id = {rec["id"]: rec for rec in all_nps}
@@ -694,7 +800,12 @@ def call_gemini(
             result_text = _call_with_retries(
                 provider=provider, api_key=api_key, system_prompt=batch_prompt,
                 user_content=json.dumps({"nps_responses": batch_records}, ensure_ascii=False),
-                max_output_tokens=65536, temperature=0.2, model=model,
+                # temperature=0 (was 0.2): this is a classification task, not
+                # creative writing -- lower temperature reduces first-time
+                # tagging disagreement, complementing (not replacing) the
+                # tag cache above, which is what actually guarantees
+                # stability for a record already seen once.
+                max_output_tokens=65536, temperature=0.0, model=model,
                 max_retries=max_retries, retry_delay_seconds=retry_delay_seconds,
                 call_label=f"NPS batch {i + 1}/{len(batches)}",
             )
@@ -711,8 +822,15 @@ def call_gemini(
 
         nps_tags = batch_result.get("nps_tags", {})
         for grp in ("promoters", "passives", "detractors"):
-            merged_nps_tags[grp].extend(nps_tags.get(grp, []))
+            fresh_entries = nps_tags.get(grp, [])
+            merged_nps_tags[grp].extend(_apply_theme_tag_cache(fresh_entries, by_id, tag_cache_data))
 
+        # Deliberately uncached here -- the SAME id can be re-flagged later
+        # by the synthesis call too (it's handed nps_protection_flags_found
+        # as context and can re-emit a case at a different severity; see
+        # _dedupe_protection_flags()), so caching must happen once, after
+        # both phases and after dedup reconciles same-id duplicates into
+        # one canonical decision, not per-source (see below).
         for flag in batch_result.get("protection_flags", []):
             rec = by_id.get(flag.get("id"))
             column = NPS_GROUP_TO_COLUMN.get(rec.get("nps_group")) if rec else None
@@ -774,7 +892,7 @@ def call_gemini(
     result_text = _call_with_retries(
         provider=provider, api_key=api_key, system_prompt=synthesis_prompt,
         user_content=json.dumps(synthesis_input, ensure_ascii=False),
-        max_output_tokens=65536, temperature=0.2, model=model,
+        max_output_tokens=65536, temperature=0.0, model=model,
         max_retries=max_retries, retry_delay_seconds=retry_delay_seconds,
         call_label="Qualitative synthesis",
     )
@@ -789,6 +907,28 @@ def call_gemini(
             f"Raw text saved to {synthesis_path}. Error: {exc}"
         ) from exc
 
+    # Reconcile same-id duplicates ACROSS sources first (a batch call and
+    # the synthesis call can both flag the same id, sometimes at different
+    # severities -- see _dedupe_protection_flags()), producing one
+    # canonical fresh decision per id for this run. Cache stability is then
+    # applied on top of that reconciled result, once, over the full
+    # universe of records either phase could have scanned (every NPS
+    # record, plus the three small "other" groups synthesis's Task 5
+    # scans) -- not per-source, so a record can't be double-counted under
+    # two different cache namespaces or have a cross-phase re-flag bypass
+    # caching entirely.
+    other_group_records = (
+        payload.get("claim_no_reason_other", [])
+        + payload.get("claim_challenges_other_support", [])
+        + payload.get("sparse_other", [])
+    )
+    reconciled_flags = _dedupe_protection_flags(
+        nps_protection_flags + synthesis.get("protection_flags", [])
+    )
+    stable_flags = _apply_protection_flag_cache(
+        all_nps + other_group_records, reconciled_flags, tag_cache_data
+    )
+
     final = {
         "nps_tags": merged_nps_tags,
         "claims_other_tagged": synthesis.get("claims_other_tagged", {}),
@@ -796,9 +936,7 @@ def call_gemini(
         "other_subthemes": synthesis.get("other_subthemes", {}),
         "section_verbatims": synthesis.get("section_verbatims", {}),
         "section_insights": synthesis.get("section_insights", {}),
-        "protection_flags": _dedupe_protection_flags(
-            nps_protection_flags + synthesis.get("protection_flags", [])
-        ),
+        "protection_flags": stable_flags,
         "executive_summary": synthesis.get("executive_summary", ""),
         "top_findings": synthesis.get("top_findings", []),
         "top_actions": synthesis.get("top_actions", []),
@@ -806,5 +944,11 @@ def call_gemini(
 
     raw_response_path.write_text(json.dumps(final, ensure_ascii=False, indent=2), encoding="utf-8")
     log.info(f"Final merged qualitative response saved to {raw_response_path}")
+
+    tag_cache.save(tag_cache_data)
+    log.info(
+        f"Qualitative tag cache: {cache_size_before} entries before this run, "
+        f"{len(tag_cache_data)} after ({len(tag_cache_data) - cache_size_before} new)"
+    )
 
     return final

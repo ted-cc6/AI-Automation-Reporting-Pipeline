@@ -510,3 +510,58 @@ class TestBuildTrendDataDefinitionMismatch:
         rows = _build_trend_data(analysis, [{"key": "client_satisfaction_nps", "label": "NPS", "fmt": "nps"}])
         assert "NPS-style existing note" in rows[0]["sig_test_note"]
         assert "DEFINITION MISMATCH" in rows[0]["sig_test_note"]
+
+
+# ---------------------------------------------------------------------------
+# _build_trend_data -- current-wave NOT APPLICABLE gets distinct footnote
+# wording from a real new-baseline indicator. A real generated report called
+# a wave with NO figure for product_understanding at all (2026's format has
+# no single combined question to compute it from) the "founding baseline"
+# for that indicator -- "new baseline" implies a real number exists for
+# future waves to compare against, which isn't true when the current wave
+# itself is not_applicable.
+# ---------------------------------------------------------------------------
+
+def _not_comparable_analysis(current_not_applicable: bool) -> dict:
+    return {"parts": {"part_10": {
+        "current": {"product_understanding": {
+            "value": None if current_not_applicable else 0.75,
+            "n_valid": 0 if current_not_applicable else 500,
+            "n_total": 0 if current_not_applicable else 500,
+            "suppressed": current_not_applicable,
+            "not_applicable": current_not_applicable,
+        }},
+        "prior_available": True,
+        "comparison": {"product_understanding": {
+            "comparable": False,
+            "incomparability_reason": "the 2025 instrument used one combined 6-option question; "
+                                       "2026 splits it into two separate 4-point questions",
+        }},
+    }}}
+
+
+_PU_SPEC = [{"key": "product_understanding", "label": "Product Understanding", "fmt": "pct"}]
+
+
+class TestBuildTrendDataNotApplicableCurrentWave:
+    def test_not_applicable_current_wave_does_not_say_new_baseline(self):
+        rows = _build_trend_data(_not_comparable_analysis(True), _PU_SPEC)
+        assert "new baseline" not in rows[0]["sig_test_note"]
+        assert "not computable from this wave's data" in rows[0]["sig_test_note"]
+
+    def test_not_applicable_current_wave_still_names_the_reason(self):
+        rows = _build_trend_data(_not_comparable_analysis(True), _PU_SPEC)
+        assert "one combined 6-option question" in rows[0]["sig_test_note"]
+
+    def test_real_new_baseline_still_says_new_baseline(self):
+        # A genuinely comparable-format indicator whose current wave DOES
+        # have a real figure must keep the original "new baseline" wording
+        # -- this branch must not regress the case it already handled
+        # correctly.
+        rows = _build_trend_data(_not_comparable_analysis(False), _PU_SPEC)
+        assert "new baseline" in rows[0]["sig_test_note"]
+        assert "not computable from this wave's data" not in rows[0]["sig_test_note"]
+
+    def test_current_wave_table_cell_reads_not_applicable(self):
+        rows = _build_trend_data(_not_comparable_analysis(True), _PU_SPEC)
+        assert rows[0]["group_a_value"] == "NOT APPLICABLE"

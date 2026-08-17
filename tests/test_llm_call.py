@@ -22,6 +22,7 @@ import json
 import pytest
 
 import qualitative.llm_call as llm_call
+import qualitative.tag_cache as tag_cache
 from qualitative.llm_call import (
     _NPS_BATCH_SIZE,
     _build_batch_prompt,
@@ -32,6 +33,17 @@ from qualitative.llm_call import (
     call_gemini,
 )
 from qualitative.parse_results import REQUIRED_TOP_KEYS
+
+
+@pytest.fixture(autouse=True)
+def _isolated_tag_cache(tmp_path, monkeypatch):
+    """Every test in this file gets its own empty, throwaway tag cache file
+    instead of touching the real qualitative/cache/tag_cache.json -- without
+    this, every call_gemini() test would read/write a real file in the repo
+    (see qualitative/tag_cache.py's load()/save(), which resolve
+    DEFAULT_CACHE_PATH fresh from the module namespace on each call
+    specifically so this monkeypatch works)."""
+    monkeypatch.setattr(tag_cache, "DEFAULT_CACHE_PATH", tmp_path / "tag_cache.json")
 
 
 def _nps_record(idx: int, group: str, country: str = "Kenya", not_worth_it: bool = False) -> dict:
@@ -491,6 +503,141 @@ class TestCallGeminiOrchestration:
 
         # Only the 2nd batch's records made it into the merged tags.
         assert len(result["nps_tags"]["promoters"]) == 10
+
+
+# ---------------------------------------------------------------------------
+# Per-record classification stability across regenerations (qualitative/
+# tag_cache.py). Three consecutive runs on identical data were observed to
+# disagree on theme rankings and protection-flag counts/severities with no
+# data change -- these tests simulate two consecutive call_gemini() runs
+# against the SAME cache (the autouse _isolated_tag_cache fixture points
+# DEFAULT_CACHE_PATH at one shared tmp_path file for the whole test, so two
+# calls within one test share a cache exactly like two regenerations in the
+# same container session would) and confirm the second run's result matches
+# the first run's cached decision, not whatever the second run's own fresh
+# (deliberately different) mock LLM output says.
+# ---------------------------------------------------------------------------
+
+class TestQualitativeTagCacheStability:
+    def _payload(self, records: list) -> dict:
+        return {
+            "nps_promoters": [], "nps_passives": [], "nps_detractors": records,
+            "claim_no_reason_other": [], "claim_challenges_other_support": [], "sparse_other": [],
+        }
+
+    def test_theme_tags_stable_across_two_runs_with_different_fresh_output(self, tmp_path, monkeypatch):
+        calls = {"n": 0}
+
+        def fake_call_llm(**kwargs):
+            body = json.loads(kwargs["user_content"])
+            if "nps_responses" not in body:
+                return _fake_synthesis_response()
+            calls["n"] += 1
+            # Deliberately different theme each call, to prove the SECOND
+            # run's result is the cache's value, not this fresh one.
+            theme = "product_value" if calls["n"] == 1 else "staff_service"
+            return json.dumps({
+                "nps_tags": {"promoters": [], "passives": [], "detractors": [["row_0001", [theme]]]},
+                "protection_flags": [], "verbatim_candidates": {f"part{i}": [] for i in range(1, 8)},
+                "not_worth_it_candidates": [],
+            })
+
+        monkeypatch.setattr(llm_call, "call_llm", fake_call_llm)
+        payload = self._payload([_nps_record(1, "detractor")])
+
+        first = call_gemini(payload, tmp_path / "raw1.json", provider="gemini", api_key="fake-key")
+        second = call_gemini(payload, tmp_path / "raw2.json", provider="gemini", api_key="fake-key")
+
+        assert first["nps_tags"]["detractors"] == [["row_0001", ["product_value"]]]
+        # Same result on rerun -- NOT ["staff_service"], which is what this
+        # run's own fresh mock call actually returned.
+        assert second["nps_tags"]["detractors"] == [["row_0001", ["product_value"]]]
+
+    def test_protection_flag_severity_stable_across_two_runs(self, tmp_path, monkeypatch):
+        calls = {"n": 0}
+
+        def fake_call_llm(**kwargs):
+            body = json.loads(kwargs["user_content"])
+            if "nps_responses" not in body:
+                return _fake_synthesis_response()
+            calls["n"] += 1
+            severity = "low" if calls["n"] == 1 else "high"
+            return json.dumps({
+                "nps_tags": {"promoters": [], "passives": [], "detractors": [["row_0001", ["staff_service"]]]},
+                "protection_flags": [
+                    {"id": "row_0001", "flag_type": "staff_misconduct", "severity": severity, "reason": "r"}
+                ],
+                "verbatim_candidates": {f"part{i}": [] for i in range(1, 8)},
+                "not_worth_it_candidates": [],
+            })
+
+        monkeypatch.setattr(llm_call, "call_llm", fake_call_llm)
+        payload = self._payload([_nps_record(1, "detractor")])
+
+        first = call_gemini(payload, tmp_path / "raw1.json", provider="gemini", api_key="fake-key")
+        second = call_gemini(payload, tmp_path / "raw2.json", provider="gemini", api_key="fake-key")
+
+        assert first["protection_flags"][0]["severity"] == "low"
+        # Cached decision from the first run wins, not this run's "high".
+        assert second["protection_flags"][0]["severity"] == "low"
+
+    def test_unflagged_record_stays_unflagged_even_if_a_later_run_would_flag_it(self, tmp_path, monkeypatch):
+        calls = {"n": 0}
+
+        def fake_call_llm(**kwargs):
+            body = json.loads(kwargs["user_content"])
+            if "nps_responses" not in body:
+                return _fake_synthesis_response()
+            calls["n"] += 1
+            flags = [] if calls["n"] == 1 else [
+                {"id": "row_0001", "flag_type": "staff_misconduct", "severity": "medium", "reason": "r"}
+            ]
+            return json.dumps({
+                "nps_tags": {"promoters": [], "passives": [], "detractors": [["row_0001", ["staff_service"]]]},
+                "protection_flags": flags,
+                "verbatim_candidates": {f"part{i}": [] for i in range(1, 8)},
+                "not_worth_it_candidates": [],
+            })
+
+        monkeypatch.setattr(llm_call, "call_llm", fake_call_llm)
+        payload = self._payload([_nps_record(1, "detractor")])
+
+        first = call_gemini(payload, tmp_path / "raw1.json", provider="gemini", api_key="fake-key")
+        second = call_gemini(payload, tmp_path / "raw2.json", provider="gemini", api_key="fake-key")
+
+        assert first["protection_flags"] == []
+        # The first run's "checked, not flagged" decision is itself cached
+        # and stable -- a record cannot gain a flag on a later run just
+        # because that run's fresh LLM call happened to produce one.
+        assert second["protection_flags"] == []
+
+    def test_a_genuinely_new_record_is_still_tagged_fresh(self, tmp_path, monkeypatch):
+        # Confirms the cache doesn't just freeze the FIRST run's entire
+        # output wholesale -- a record with no prior cache entry (here,
+        # different text under the same id, so a different content hash)
+        # still gets tagged normally.
+        def fake_call_llm(**kwargs):
+            body = json.loads(kwargs["user_content"])
+            if "nps_responses" not in body:
+                return _fake_synthesis_response()
+            records = body["nps_responses"]
+            tags = [[r["id"], ["product_value"]] for r in records]
+            return json.dumps({
+                "nps_tags": {"promoters": [], "passives": [], "detractors": tags},
+                "protection_flags": [], "verbatim_candidates": {f"part{i}": [] for i in range(1, 8)},
+                "not_worth_it_candidates": [],
+            })
+
+        monkeypatch.setattr(llm_call, "call_llm", fake_call_llm)
+        first_payload = self._payload([_nps_record(1, "detractor")])
+        call_gemini(first_payload, tmp_path / "raw1.json", provider="gemini", api_key="fake-key")
+
+        rec2 = _nps_record(1, "detractor")
+        rec2["text"] = "a completely different response, never seen before"
+        second_payload = self._payload([rec2])
+        second = call_gemini(second_payload, tmp_path / "raw2.json", provider="gemini", api_key="fake-key")
+
+        assert second["nps_tags"]["detractors"] == [["row_0001", ["product_value"]]]
 
 
 # ---------------------------------------------------------------------------

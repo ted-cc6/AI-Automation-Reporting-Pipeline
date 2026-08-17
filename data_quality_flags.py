@@ -90,34 +90,55 @@ def _quarter_of(date_str: str) -> "tuple[int, int]":
 
 def derive_period_mismatch_flag(entered_year: "int | None", entered_quarter: "int | None",
                                  fieldwork: "dict | None") -> list:
-    """Flags a run whose manually-entered year/quarter (parsed from run_id
-    by utils.parse_period()) doesn't match the calendar quarter(s) the
-    survey's OWN recorded interview dates actually fall in
-    (about_survey.py's fieldwork.start_date/end_date, computed independently
-    from the data). Nothing upstream of this ever cross-checks the two --
-    year/quarter are free-typed on the dashboard's setup form and used
-    as-is to build the run_id and title, with no validation against the
-    uploaded CSV's actual date range. This is report-only, like every other
-    flag in this module: a real survey wave can legitimately straddle a
-    quarter boundary, so a mismatch is worth a human's confirmation, not an
-    automatic correction or a blocked run."""
+    """Flags a run whose period label doesn't fairly represent the survey's
+    OWN recorded fieldwork dates (about_survey.py's fieldwork.start_date/
+    end_date, computed independently from the data). Nothing upstream of
+    this ever cross-checks the two -- year/quarter are free-typed on the
+    dashboard's setup form and used as-is to build the run_id and title,
+    with no validation against the uploaded CSV's actual date range.
+
+    Two distinct cases, deliberately not treated the same way:
+      1. Fieldwork spans more than one calendar quarter (e.g. 2026-06-26 to
+         2026-08-04, crossing the Q2/Q3 boundary). Flagged UNCONDITIONALLY,
+         regardless of which single quarter was entered -- a single-quarter
+         label cannot fairly represent a multi-quarter window no matter
+         which quarter it names, so matching the entered label against just
+         one endpoint (the original, too-lenient version of this check)
+         missed exactly this case: entering the START quarter passed
+         silently even when fieldwork ran a full extra month into the next
+         quarter.
+      2. Fieldwork sits inside a single calendar quarter. Flagged only if
+         the entered year/quarter doesn't match that one quarter -- a real
+         survey wave's fieldwork can still legitimately start a few days
+         before or after a quarter boundary in the loose, colloquial sense
+         "the Q2 wave," so this narrower case is left as an entered-vs-
+         actual check rather than an unconditional flag.
+
+    This is report-only, like every other flag in this module: a mismatch
+    is worth a human's confirmation, not an automatic correction or a
+    blocked run."""
     if not entered_year or not entered_quarter or not fieldwork or not fieldwork.get("available"):
         return []
     start_year, start_q = _quarter_of(fieldwork["start_date"])
     end_year, end_q = _quarter_of(fieldwork["end_date"])
-    if (int(entered_year), int(entered_quarter)) in {(start_year, start_q), (end_year, end_q)}:
+    spans_multiple_quarters = (start_year, start_q) != (end_year, end_q)
+    if not spans_multiple_quarters and (int(entered_year), int(entered_quarter)) == (start_year, start_q):
         return []
     span = (
-        f"{start_year} Q{start_q}" if (start_year, start_q) == (end_year, end_q)
+        f"{start_year} Q{start_q}" if not spans_multiple_quarters
         else f"{start_year} Q{start_q} through {end_year} Q{end_q}"
+    )
+    detail = (
+        "spans more than one calendar quarter; no single quarter label can fully represent it"
+        if spans_multiple_quarters else "does not match the entered period"
     )
     return [{
         "id": "period_label_mismatch",
         "note": (
             f"This run is labeled {entered_year} Q{entered_quarter}, but the survey data's own "
             f"recorded fieldwork dates ({fieldwork['start_date']} to {fieldwork['end_date']}) "
-            f"fall in {span}. Confirm the entered year/quarter is the intended reporting period "
-            "before treating this report as final."
+            f"{detail} -- fieldwork falls in {span}. Confirm the entered year/quarter is the "
+            "intended reporting period before treating this report as final."
         ),
         "source": "auto_derived",
     }]

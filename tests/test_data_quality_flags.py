@@ -86,31 +86,49 @@ class TestGetFlags:
 
 
 class TestDerivePeriodMismatchFlag:
-    def test_entered_quarter_matches_start_date_no_flag(self):
+    # --- Single-quarter fieldwork: entered-vs-actual check only ---
+
+    def test_single_quarter_fieldwork_matching_entered_quarter_no_flag(self):
         fieldwork = {"available": True, "start_date": "2026-04-05", "end_date": "2026-04-20"}
         assert derive_period_mismatch_flag(2026, 2, fieldwork) == []
 
-    def test_entered_quarter_matches_end_date_no_flag(self):
-        # Real fieldwork window straddling a quarter boundary is legitimate
-        # (e.g. 2026-06-26 to 2026-08-04) -- matching EITHER endpoint's
-        # quarter is enough, not just the start.
-        fieldwork = {"available": True, "start_date": "2026-06-26", "end_date": "2026-08-04"}
-        assert derive_period_mismatch_flag(2026, 2, fieldwork) == []
-        assert derive_period_mismatch_flag(2026, 3, fieldwork) == []
+    def test_single_quarter_fieldwork_not_matching_entered_quarter_flags(self):
+        fieldwork = {"available": True, "start_date": "2026-04-05", "end_date": "2026-04-20"}
+        flags = derive_period_mismatch_flag(2026, 1, fieldwork)
+        assert len(flags) == 1
+        assert flags[0]["id"] == "period_label_mismatch"
+        assert "2026 Q1" in flags[0]["note"]
 
-    def test_entered_quarter_does_not_match_either_endpoint_flags(self):
+    def test_single_quarter_fieldwork_states_one_quarter_in_note(self):
+        fieldwork = {"available": True, "start_date": "2026-04-05", "end_date": "2026-04-20"}
+        flags = derive_period_mismatch_flag(2026, 1, fieldwork)
+        assert "fieldwork falls in 2026 Q2" in flags[0]["note"]
+        assert "through" not in flags[0]["note"]
+
+    # --- Multi-quarter fieldwork: flagged unconditionally, regardless of
+    # which single quarter was entered (the gap in the original, too-
+    # lenient version of this rule: entering the START quarter used to
+    # pass silently even when fieldwork ran a full extra month into the
+    # next quarter) ---
+
+    def test_multi_quarter_fieldwork_flags_even_when_entered_matches_start(self):
+        fieldwork = {"available": True, "start_date": "2026-06-26", "end_date": "2026-08-04"}
+        flags = derive_period_mismatch_flag(2026, 2, fieldwork)
+        assert len(flags) == 1
+        assert "spans more than one calendar quarter" in flags[0]["note"]
+
+    def test_multi_quarter_fieldwork_flags_even_when_entered_matches_end(self):
+        fieldwork = {"available": True, "start_date": "2026-06-26", "end_date": "2026-08-04"}
+        flags = derive_period_mismatch_flag(2026, 3, fieldwork)
+        assert len(flags) == 1
+
+    def test_multi_quarter_fieldwork_flags_when_entered_matches_neither(self):
         fieldwork = {"available": True, "start_date": "2026-06-26", "end_date": "2026-08-04"}
         flags = derive_period_mismatch_flag(2026, 4, fieldwork)
         assert len(flags) == 1
         assert flags[0]["id"] == "period_label_mismatch"
         assert "2026 Q4" in flags[0]["note"]
         assert "2026-06-26 to 2026-08-04" in flags[0]["note"]
-
-    def test_single_quarter_fieldwork_states_one_quarter_in_note(self):
-        fieldwork = {"available": True, "start_date": "2026-04-05", "end_date": "2026-04-20"}
-        flags = derive_period_mismatch_flag(2026, 1, fieldwork)
-        assert "2026 Q2" in flags[0]["note"]
-        assert "through" not in flags[0]["note"]
 
     def test_spanning_fieldwork_states_a_range_in_note(self):
         fieldwork = {"available": True, "start_date": "2026-06-26", "end_date": "2026-08-04"}

@@ -102,32 +102,48 @@ class TestAssembleCoverPage:
         paras = self._cover_paragraphs(out)
         assert "Kenya" in paras[1]
 
-    def test_larco_rollup_uses_larco_regional_title_not_global(self, tmp_path, monkeypatch):
+    def test_larco_rollup_uses_lacro_regional_title_not_global(self, tmp_path, monkeypatch):
         monkeypatch.setattr(assembler, "ROOT", tmp_path)
         _make_run(tmp_path, "larco_run", {"country": "default", "dataset_schema": "larco", "n_total": 1355})
         out = tmp_path / "out.docx"
         assemble([], {}, "larco_run", out)
         paras = self._cover_paragraphs(out)
-        assert "LARCO Regional Portfolio" in paras[1]
+        assert "LACRO Regional Portfolio" in paras[1]
         assert "Global Portfolio" not in paras[1]
-        assert paras[2] == "Covering 1,355 client responses across VisionFund's LARCO (Latin America and Caribbean) insurance portfolio."
+        assert paras[2] == (
+            "Covering 1,355 client responses across VisionFund's LACRO "
+            "(Latin America and Caribbean Regional Office) insurance portfolio."
+        )
+        # The internal dataset_schema value is spelled "larco"; nothing
+        # reader-facing may say "LARCO" -- see report_scopes.py.
+        assert "LARCO" not in paras[1]
+        assert "LARCO" not in paras[2]
 
-    def test_report_scope_lacro_uses_larco_regional_title_not_global(self, tmp_path, monkeypatch):
+    def test_report_scope_lacro_uses_lacro_regional_title_not_global(self, tmp_path, monkeypatch):
         # The real bug this guards against: a report_scope=="lacro" run on
         # the unified schema (country="default") previously fell through to
         # "Global Portfolio" since only dataset_schema=="larco" was checked.
         monkeypatch.setattr(assembler, "ROOT", tmp_path)
         _make_run(tmp_path, "lacro_scope_run", {
             "country": "default", "dataset_schema": "africa_vietnam",
-            "report_scope": "lacro", "report_scope_label": "LACRO (Latin America and Caribbean)",
+            "report_scope": "lacro",
+            "report_scope_label": "LACRO (Latin America and Caribbean Regional Office)",
             "n_total": 1721,
         })
         out = tmp_path / "out.docx"
         assemble([], {}, "lacro_scope_run", out)
         paras = self._cover_paragraphs(out)
-        assert "LARCO Regional Portfolio" in paras[1]
+        assert "LACRO Regional Portfolio" in paras[1]
         assert "Global Portfolio" not in paras[1]
-        assert paras[2] == "Covering 1,721 client responses across VisionFund's LARCO (Latin America and Caribbean) insurance portfolio."
+        assert paras[2] == (
+            "Covering 1,721 client responses across VisionFund's LACRO "
+            "(Latin America and Caribbean Regional Office) insurance portfolio."
+        )
+        # A separate, later bug (round 3): this branch hardcoded "LARCO"
+        # directly into the title/subtitle instead of pulling the correct
+        # reader-facing spelling from report_scopes.py.
+        assert "LARCO" not in paras[1]
+        assert "LARCO" not in paras[2]
 
     def test_report_scope_africa_uses_its_own_label_in_title_and_subtitle(self, tmp_path, monkeypatch):
         monkeypatch.setattr(assembler, "ROOT", tmp_path)
@@ -257,7 +273,13 @@ class TestMethodologyAppendix:
         _make_run(tmp_path, "unscoped_run", {"country": "default", "n_total": 100})
         out = tmp_path / "out.docx"
         assemble([{"part": "part_4", "title": "Client Voice"}], {}, "unscoped_run", out)
-        assert "Renewal Intent was asked only of Vietnam's crop-insurance clients" in self._doc_text(out)
+        text = self._doc_text(out)
+        assert "Renewal Intent was asked only of Vietnam's crop-insurance clients" in text
+        # The scoring-direction example (a separate constant from the
+        # N-variability example above) also names Renewal Intent for an
+        # unscoped report, where it's a real reported driver.
+        assert 'Renewal Intent' in text
+        assert '"Definitely would renew"' in text
 
     def test_renewal_intent_example_omitted_for_report_scope_lacro(self, tmp_path, monkeypatch):
         monkeypatch.setattr(assembler, "ROOT", tmp_path)
@@ -265,7 +287,13 @@ class TestMethodologyAppendix:
                   {"country": "default", "n_total": 100, "report_scope": "lacro"})
         out = tmp_path / "out.docx"
         assemble([{"part": "part_4", "title": "Client Voice"}], {}, "lacro_scope_run", out)
-        assert "Vietnam" not in self._doc_text(out)
+        text = self._doc_text(out)
+        assert "Vietnam" not in text
+        # The scoring-direction example must also drop Renewal Intent for a
+        # LACRO report -- it never appears in a LACRO drivers table, so
+        # naming it here would be exactly as false as the Vietnam example.
+        assert "Renewal Intent" not in text
+        assert '"Definitely would renew"' not in text
 
     def test_renewal_intent_example_omitted_for_legacy_larco_schema_with_no_report_scope(
         self, tmp_path, monkeypatch
@@ -282,7 +310,9 @@ class TestMethodologyAppendix:
                   {"country": "default", "n_total": 100, "dataset_schema": "larco", "report_scope": None})
         out = tmp_path / "out.docx"
         assemble([{"part": "part_4", "title": "Client Voice"}], {}, "legacy_larco_run", out)
-        assert "Vietnam" not in self._doc_text(out)
+        text = self._doc_text(out)
+        assert "Vietnam" not in text
+        assert "Renewal Intent" not in text
 
 
 # ---------------------------------------------------------------------------

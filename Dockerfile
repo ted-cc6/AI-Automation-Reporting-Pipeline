@@ -49,8 +49,13 @@ RUN pip install --no-cache-dir ".[dashboard,core_credit]" openpyxl  # openpyxl: 
 # Bring in the built frontend from stage 1
 COPY --from=frontend-build /frontend/dist ./dashboard/web/dist
 
-# Runtime-writable dirs (uploads/runs/GEDSI's LLM cache) -- created empty, never baked with data
-RUN mkdir -p /app/runs /app/dashboard/api/uploads /app/GENDSI/cache
+# Runtime-writable dirs (uploads/runs/GEDSI's LLM cache/qualitative tag
+# cache) -- created empty, never baked with data. The qualitative tag
+# cache (qualitative/tag_cache.py) gives regeneration-to-regeneration
+# stability for per-record classifications WITHIN a container's lifetime,
+# but -- like the other dirs here -- does not survive a redeploy/restart,
+# since HF Spaces' container filesystem is ephemeral.
+RUN mkdir -p /app/runs /app/dashboard/api/uploads /app/GENDSI/cache /app/qualitative/cache
 
 # Hugging Face Spaces (Docker SDK) proxies to the port declared as app_port
 # in the Space README (7860 by convention); PORT is read at runtime so

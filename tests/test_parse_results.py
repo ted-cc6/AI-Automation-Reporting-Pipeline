@@ -11,7 +11,13 @@ from __future__ import annotations
 import pandas as pd
 import pytest
 
-from qualitative.parse_results import REQUIRED_TOP_KEYS, _lookup_profile, _validate
+from qualitative.parse_results import (
+    REQUIRED_TOP_KEYS,
+    _count_themes,
+    _humanize_top_drivers,
+    _lookup_profile,
+    _validate,
+)
 
 
 def _base_raw(**overrides) -> dict:
@@ -86,3 +92,70 @@ class TestLookupProfile:
     def test_unresolvable_row_id_returns_empty_profile(self):
         profile = _lookup_profile("row_9999", self._df())
         assert profile == {}
+
+
+# ---------------------------------------------------------------------------
+# Theme code humanization -- a real generated report shipped with the raw
+# taxonomy code "claims_process" sitting unlabeled in reader-facing prose
+# (the synthesis prompt allows it as a top_drivers value). Both theme_counts
+# and top_drivers must never expose a raw snake_case code to a reader.
+# ---------------------------------------------------------------------------
+
+class TestCountThemes:
+    def test_theme_counts_keys_are_human_readable_not_raw_codes(self):
+        nps_tags = {
+            "promoters": [["row_0001", ["product_value"]], ["row_0002", ["product_value"]]],
+            "passives": [["row_0003", ["claims_process"]]],
+            "detractors": [],
+        }
+        counts = _count_themes(nps_tags)
+        assert counts["promoters"] == {"product value for money": 2}
+        assert counts["passives"] == {"the claims process": 1}
+        assert "product_value" not in counts["promoters"]
+        assert "claims_process" not in counts["passives"]
+
+    def test_counting_happens_before_relabeling_so_synonyms_dont_fragment(self):
+        # Both entries are the same raw code; must still collapse into one
+        # counted, humanized key -- not two separate near-duplicate keys.
+        nps_tags = {
+            "promoters": [["row_0001", ["staff_service"]], ["row_0002", ["staff_service"]]],
+            "passives": [], "detractors": [],
+        }
+        counts = _count_themes(nps_tags)
+        assert counts["promoters"] == {"staff service": 2}
+
+    def test_empty_tags_produce_empty_counts(self):
+        counts = _count_themes({"promoters": [], "passives": [], "detractors": []})
+        assert counts == {"promoters": {}, "passives": {}, "detractors": {}}
+
+
+class TestHumanizeTopDrivers:
+    def test_raw_taxonomy_code_is_relabeled(self):
+        section_insights = {
+            "part2": {"theme_summary": "x", "top_drivers": ["claims_process", "documentation burden"],
+                      "sentiment_split": {"positive": 1, "negative": 1, "neutral": 0}},
+        }
+        result = _humanize_top_drivers(section_insights)
+        assert result["part2"]["top_drivers"] == ["the claims process", "documentation burden"]
+
+    def test_freeform_label_passes_through_unchanged(self):
+        section_insights = {
+            "part4": {"theme_summary": "x", "top_drivers": ["slow payout", "lack of premium clarity"],
+                      "sentiment_split": {"positive": 0, "negative": 1, "neutral": 0}},
+        }
+        result = _humanize_top_drivers(section_insights)
+        assert result["part4"]["top_drivers"] == ["slow payout", "lack of premium clarity"]
+
+    def test_missing_top_drivers_key_is_left_alone(self):
+        section_insights = {"part1": {"theme_summary": "x"}}
+        result = _humanize_top_drivers(section_insights)
+        assert result["part1"] == {"theme_summary": "x"}
+
+    def test_non_dict_entry_passes_through_unchanged(self):
+        section_insights = {"part1": None}
+        result = _humanize_top_drivers(section_insights)
+        assert result["part1"] is None
+
+    def test_empty_section_insights_returns_empty_dict(self):
+        assert _humanize_top_drivers({}) == {}
+        assert _humanize_top_drivers(None) == {}

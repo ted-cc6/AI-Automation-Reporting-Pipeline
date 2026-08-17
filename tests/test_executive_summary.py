@@ -131,7 +131,8 @@ class TestDataAvailabilityCaveats:
         caveats = data_availability_caveats(analysis)
         assert set(caveats) == {
             "Coverage Understanding", "Claim Process Understanding", "Worth Premium",
-            "Renewal Intent", "Confidence in Payout", "Negative Coping",
+            "Renewal Intent (not collected by the LACRO survey instrument)",
+            "Confidence in Payout", "Negative Coping",
             "Experienced Insured Event (claims funnel step)", "Claim Paid Outcome",
             "Payout Adequacy",
         }

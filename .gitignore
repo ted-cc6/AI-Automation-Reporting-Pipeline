@@ -6,6 +6,10 @@ __pycache__/
 .mypy_cache/
 .ruff_cache/
 
+# --- Qualitative tag cache (runtime-generated, contains paraphrased survey
+# response text -- see qualitative/tag_cache.py's module docstring) ---
+qualitative/cache/
+
 # --- Packaging / build artifacts ---
 *.egg-info/
 build/

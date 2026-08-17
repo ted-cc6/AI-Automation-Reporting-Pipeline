@@ -14,6 +14,7 @@ from generation.validate_output import (
     ALL_KNOWN_COUNTRIES,
     _INTERNAL_KEYS,
     load_in_scope_countries,
+    load_product_mix,
     validate_report,
 )
 
@@ -98,6 +99,73 @@ class TestOutOfScopeCountry:
         # production data (see the module's ALL_KNOWN_COUNTRIES docstring).
         for country in ("Bolivia", "Dominican Republic", "Kenya", "Vietnam"):
             assert country in ALL_KNOWN_COUNTRIES
+
+
+# ---------------------------------------------------------------------------
+# Product claims -- a real generated report characterized a verbatim as
+# describing a Credit Life death benefit in a report whose product-mix table
+# showed zero Credit Life respondents (see qualitative/prepare_payload.py's
+# record schema, which carries no product-type field at all -- nothing
+# grounds this claim in the data, so the LLM inferred it purely from a
+# quote's content).
+# ---------------------------------------------------------------------------
+
+class TestProductClaims:
+    def test_product_named_with_zero_respondents_is_flagged(self):
+        texts = {"part_7": {"insight": "This describes a Credit Life benefit paid on death."}}
+        findings = validate_report(texts, [_package()], set(), product_mix={"Credit Life": 0, "Health": 1721})
+        matches = [f for f in findings if f["category"] == "product_claim_on_zero_mix"]
+        assert len(matches) == 1
+        assert matches[0]["severity"] == "warn"
+        assert "Credit Life" in matches[0]["detail"]
+
+    def test_product_named_with_real_respondents_is_not_flagged(self):
+        texts = {"part_11": {"s11_1": "Credit Life clients reported their loan balance was cleared."}}
+        findings = validate_report(texts, [_package()], set(), product_mix={"Credit Life": 14, "Health": 1721})
+        assert not any(f["category"] == "product_claim_on_zero_mix" for f in findings)
+
+    def test_no_product_mix_supplied_skips_the_check(self):
+        texts = {"part_7": {"insight": "This describes a Credit Life benefit paid on death."}}
+        findings = validate_report(texts, [_package()], set())
+        assert not any(f["category"] == "product_claim_on_zero_mix" for f in findings)
+
+    def test_empty_product_mix_dict_skips_the_check(self):
+        texts = {"part_7": {"insight": "This describes a Credit Life benefit paid on death."}}
+        findings = validate_report(texts, [_package()], set(), product_mix={})
+        assert not any(f["category"] == "product_claim_on_zero_mix" for f in findings)
+
+    def test_text_not_naming_any_product_is_not_flagged(self):
+        texts = {"part_7": {"insight": "Gendered experiences varied across the portfolio."}}
+        findings = validate_report(texts, [_package()], set(), product_mix={"Credit Life": 0, "Crop": 0})
+        assert not any(f["category"] == "product_claim_on_zero_mix" for f in findings)
+
+
+class TestLoadProductMix:
+    def test_reads_distribution_from_analysis_results(self, tmp_path):
+        run_dir = tmp_path / "test_run"
+        run_dir.mkdir()
+        analysis = {"parts": {"about_survey": {"product_mix": {"distribution": [
+            {"product": "health", "n": 1721}, {"product": "credit_life", "n": 0},
+            {"product": "crop", "n": 0},
+        ]}}}}
+        (run_dir / "analysis_results.json").write_text(json.dumps(analysis), encoding="utf-8")
+        mix = load_product_mix("test_run", runs_dir=tmp_path)
+        assert mix == {"Health": 1721, "Credit Life": 0, "Crop": 0}
+
+    def test_missing_file_returns_empty_dict(self, tmp_path):
+        assert load_product_mix("nonexistent_run", runs_dir=tmp_path) == {}
+
+    def test_unavailable_product_mix_returns_empty_dict(self, tmp_path):
+        # about_survey.py's _product_mix() returns distribution: [] when
+        # coverage is too low to trust (_PRODUCT_MIX_MIN_COVERAGE) -- the
+        # check should simply have nothing to verify against, not error.
+        run_dir = tmp_path / "low_coverage_run"
+        run_dir.mkdir()
+        analysis = {"parts": {"about_survey": {"product_mix": {
+            "available": False, "distribution": [],
+        }}}}
+        (run_dir / "analysis_results.json").write_text(json.dumps(analysis), encoding="utf-8")
+        assert load_product_mix("low_coverage_run", runs_dir=tmp_path) == {}
 
 
 class TestComparativeVerbOnNonComparable:

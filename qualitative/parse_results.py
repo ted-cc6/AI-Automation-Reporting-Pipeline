@@ -11,6 +11,8 @@ from pathlib import Path
 
 import pandas as pd
 
+from qualitative.llm_call import humanize_theme_label
+
 log = logging.getLogger(__name__)
 
 
@@ -78,7 +80,13 @@ def _check_section_insights(section_insights: dict) -> None:
 
 
 def _count_themes(nps_tags: dict) -> dict:
-    """Count theme frequency per NPS group from compact tag arrays."""
+    """Count theme frequency per NPS group from compact tag arrays.
+
+    Counted, then relabeled: counting must happen on the raw taxonomy
+    codes (so two spellings of the same idea don't fragment into separate
+    counts), and only the final dict's keys are humanized -- see
+    _humanize_top_drivers()'s docstring for why raw codes can't be allowed
+    to reach a reader at all."""
     counts = {}
     for grp in NPS_GROUPS:
         counter = Counter()
@@ -87,8 +95,32 @@ def _count_themes(nps_tags: dict) -> dict:
                 themes = entry[1]
                 if isinstance(themes, list):
                     counter.update(themes)
-        counts[grp] = dict(counter.most_common())
+        counts[grp] = {humanize_theme_label(code): n for code, n in counter.most_common()}
     return counts
+
+
+def _humanize_top_drivers(section_insights: dict) -> dict:
+    """Relabel section_insights.*.top_drivers from raw taxonomy codes to
+    human-readable text, deterministically -- the synthesis prompt already
+    instructs the model not to write a raw code here (see llm_call.py's
+    _build_synthesis_prompt()), but a real generated report shipped with
+    "claims_process" sitting unlabeled in reader-facing prose despite that
+    instruction, which is exactly the class of failure a prompt-only fix
+    doesn't reliably prevent (see Part 10's no-prior-wave narrative
+    hardening for the same lesson learned earlier). Non-destructive for
+    freeform labels the model already wrote in plain words --
+    humanize_theme_label() passes anything not in THEME_CODE_LABELS
+    through unchanged."""
+    out = {}
+    for section, entry in (section_insights or {}).items():
+        if not isinstance(entry, dict):
+            out[section] = entry
+            continue
+        drivers = entry.get("top_drivers")
+        if isinstance(drivers, list):
+            entry = {**entry, "top_drivers": [humanize_theme_label(d) for d in drivers]}
+        out[section] = entry
+    return out
 
 
 def _lookup_profile(row_id: str, df: pd.DataFrame) -> dict:
@@ -203,6 +235,7 @@ def parse_and_save(
 
     section_insights = raw_gemini.get("section_insights", {})
     _check_section_insights(section_insights)
+    section_insights = _humanize_top_drivers(section_insights)
 
     # All text columns (for verbatim text lookup)
     text_cols = [

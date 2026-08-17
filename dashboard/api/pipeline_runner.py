@@ -48,7 +48,7 @@ from qualitative.prepare_payload import build_payload, load_config as load_qual_
 from generation.assembler import assemble
 from generation.orchestrator import orchestrate, preflight_check
 from generation.writer import write_all_parts
-from generation.validate_output import load_in_scope_countries, validate_report
+from generation.validate_output import load_in_scope_countries, load_product_mix, validate_report
 
 from dashboard.api.config import PROJECT_ROOT, RUNS_DIR, UPLOADS_DIR
 from dashboard.api.jobs import RUNS
@@ -414,7 +414,8 @@ def _run_stage4(state, run_dir: Path, llm: LlmConfig, dry_run: bool) -> None:
     # run log and saved to disk for review, same as the CLI path in
     # generation/run_generation.py.
     in_scope_countries = load_in_scope_countries(state.run_id, runs_dir=RUNS_DIR)
-    validation_findings = validate_report(written_texts, packages, in_scope_countries)
+    product_mix = load_product_mix(state.run_id, runs_dir=RUNS_DIR)
+    validation_findings = validate_report(written_texts, packages, in_scope_countries, product_mix)
     (run_dir / "validation_report.json").write_text(
         json.dumps(validation_findings, indent=2), encoding="utf-8"
     )

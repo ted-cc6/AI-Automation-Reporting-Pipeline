@@ -14,6 +14,7 @@ from docx.shared import Inches, Pt, RGBColor
 from analysis_engine.country_config import DEFAULT_COUNTRY
 from generation.executive_summary import data_availability_caveats, headline_numbers
 from generation.writer import _lacro_scoped
+from report_scopes import LACRO_SHORT_LABEL, REPORT_SCOPES
 from utils import format_period_label, format_p_value
 
 log = logging.getLogger(__name__)
@@ -325,13 +326,32 @@ _SPEARMAN_N_EXAMPLE_DEFAULT = (
     "Vietnam's crop-insurance clients)"
 )
 
-_SPEARMAN_METHODOLOGY_SCORING_NOTE = (
+_SPEARMAN_METHODOLOGY_SCORING_NOTE_DEFAULT = (
     "Financial Stress, Coverage Understanding, Claim Process Understanding, Worth Premium, "
     "Renewal Intent, and Confidence in Payout are all scored so that a LOWER number is the "
     "more positive response (e.g. 1 = \"Definitely would renew\"). A negative correlation "
     "with the outcome variable (client satisfaction, NPS, in Part 4; child wellbeing in "
     "Part 5) for any of these drivers therefore reflects a POSITIVE real-world "
     "relationship (e.g. stronger renewal intent aligning with a better outcome), not a "
+    "negative one. NPS itself runs the opposite way (0=worst, 10=best): when NPS appears as "
+    "the outcome (Part 4), a negative correlation with it is what reflects the positive "
+    "relationship described above; when NPS appears as a DRIVER of child wellbeing (Part 5 "
+    "only), a positive correlation there likewise reflects a positive relationship."
+)
+
+# LACRO never asks Renewal Intent (see _SPEARMAN_N_EXAMPLE_DEFAULT's comment
+# above) -- its drivers table has no such row, so naming it as a scoring
+# example would be exactly as false here as the sibling N-variability
+# example this file already guards against for the same reason. Uses a
+# scope-neutral phrasing for the scoring-direction example instead of
+# naming a specific driver that does not exist in a LACRO report's data.
+_SPEARMAN_METHODOLOGY_SCORING_NOTE_LACRO = (
+    "Financial Stress, Coverage Understanding, Claim Process Understanding, Worth Premium, "
+    "and Confidence in Payout are all scored so that a LOWER number is the more positive "
+    "response (e.g. 1 = the most positive answer option for that question). A negative "
+    "correlation with the outcome variable (client satisfaction, NPS, in Part 4; child "
+    "wellbeing in Part 5) for any of these drivers therefore reflects a POSITIVE real-world "
+    "relationship (e.g. a more positive response aligning with a better outcome), not a "
     "negative one. NPS itself runs the opposite way (0=worst, 10=best): when NPS appears as "
     "the outcome (Part 4), a negative correlation with it is what reflects the positive "
     "relationship described above; when NPS appears as a DRIVER of child wellbeing (Part 5 "
@@ -347,9 +367,14 @@ def _spearman_methodology_note(meta: dict) -> str:
     # report check every other LACRO-conditional branch in this codebase uses
     # (_lacro_scoped(), writer.py; is_lacro_report, run_analysis.py) so this
     # is the one place that can't drift back out of sync with the others.
-    n_example = "" if _lacro_scoped(meta) else _SPEARMAN_N_EXAMPLE_DEFAULT
+    lacro = _lacro_scoped(meta)
+    n_example = "" if lacro else _SPEARMAN_N_EXAMPLE_DEFAULT
     intro = _SPEARMAN_METHODOLOGY_INTRO.format(n_example=n_example)
-    return f"{intro}\n\n{_SPEARMAN_METHODOLOGY_SCORING_NOTE}"
+    scoring_note = (
+        _SPEARMAN_METHODOLOGY_SCORING_NOTE_LACRO if lacro
+        else _SPEARMAN_METHODOLOGY_SCORING_NOTE_DEFAULT
+    )
+    return f"{intro}\n\n{scoring_note}"
 
 
 def _add_methodology_appendix(doc, meta: "dict | None" = None):
@@ -1020,9 +1045,19 @@ def assemble(packages: list, written_texts: dict, run_id: str, output_path: Path
         if n_total:
             doc.add_paragraph(f"Covering {n_total:,} client responses from {country_label}.")
     elif _lacro_scoped(meta):
-        doc.add_heading(f"Insurance Impact Report: LARCO Regional Portfolio, {period_label}", level=1)
+        # LACRO_SHORT_LABEL/REPORT_SCOPES (report_scopes.py) are the single
+        # source of truth for this region's name -- previously hardcoded
+        # here as "LARCO" (the codebase's internal naming convention, not
+        # the correct reader-facing spelling), which is exactly how it
+        # leaked into the writing LLM's own prose throughout the report
+        # (the writer's prompt opens with "You are writing the
+        # {report_title}," so a wrong title propagates everywhere).
+        doc.add_heading(f"Insurance Impact Report: {LACRO_SHORT_LABEL} Regional Portfolio, {period_label}", level=1)
         if n_total:
-            doc.add_paragraph(f"Covering {n_total:,} client responses across VisionFund's LARCO (Latin America and Caribbean) insurance portfolio.")
+            doc.add_paragraph(
+                f"Covering {n_total:,} client responses across VisionFund's "
+                f"{REPORT_SCOPES['lacro']['label']} insurance portfolio."
+            )
     elif report_scope:
         scope_label = meta.get("report_scope_label") or report_scope
         doc.add_heading(f"Insurance Impact Report: {scope_label} Portfolio, {period_label}", level=1)

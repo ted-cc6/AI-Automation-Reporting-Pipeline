@@ -42,22 +42,30 @@ _HEADLINE_METRICS = [
 # mentions across the report. Curated, not a generic tree-walk, so every
 # entry gets a precise human label rather than a guessed one.
 #
-# cross_reference_note is None for most rows (the metric genuinely has no
-# reported counterpart anywhere in the document). Combined Product
-# Understanding is the one exception: it's LARCO's own single combined
-# question (see analysis_engine/sections/part_1.py), genuinely not collected
-# by the 2026 unified schema this caveat box would be listing it for -- but
-# the underlying CONCEPT is reported at length there, via two separate split
-# questions. Without the note, the plain caveat sentence ("does not collect
-# the following, so they do not appear elsewhere in this report") reads as
-# contradicting Part 1's own product-understanding reporting a few pages
-# away; the note disambiguates "this specific single-question metric" from
-# "the topic in general."
+# cross_reference_note is None only when there is nothing further worth
+# telling the reader. Renewal Intent and Combined Product Understanding
+# both get one:
+#   - Renewal Intent's not_applicable flag fires exclusively because the
+#     LACRO/legacy-LARCO survey instrument never maps this column at all
+#     (confirmed against both schemas' column mappings) -- there is no
+#     other circumstance that sets it, so a plain "not collected by this
+#     survey instrument" note is accurate every time this fires.
+#   - Combined Product Understanding is LARCO's own single combined
+#     question (see analysis_engine/sections/part_1.py), genuinely not
+#     collected by the 2026 unified schema this caveat box would be
+#     listing it for -- but the underlying CONCEPT is reported at length
+#     there, via two separate split questions. Without the note, the plain
+#     caveat sentence ("does not collect the following, so they do not
+#     appear elsewhere in this report") reads as contradicting Part 1's own
+#     product-understanding reporting a few pages away; the note
+#     disambiguates "this specific single-question metric" from "the topic
+#     in general."
 _NOT_APPLICABLE_CANDIDATES = [
     ("Coverage Understanding", "parts.part_1.metrics.coverage_understanding.headline.suppressed", None),
     ("Claim Process Understanding", "parts.part_1.metrics.claim_process_understanding.headline.suppressed", None),
     ("Worth Premium", "parts.part_1.metrics.worth_premium.headline.suppressed", None),
-    ("Renewal Intent", "parts.part_1.metrics.renewal_intent.headline.suppressed", None),
+    ("Renewal Intent", "parts.part_1.metrics.renewal_intent.headline.suppressed",
+     "not collected by the LACRO survey instrument"),
     ("Combined Product Understanding", "parts.part_1.metrics.product_understanding.headline.suppressed",
      "reported instead in Part 1 as two split metrics, Coverage Understanding and "
      "Claim Process Understanding"),

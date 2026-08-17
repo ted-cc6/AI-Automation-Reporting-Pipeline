@@ -5,6 +5,7 @@
 # Sensitive / large runtime data -- never bake into an image
 dashboard/api/uploads/
 runs/
+qualitative/cache/
 
 # core_credit -- local dev artifacts, never baked into the image (BYOK key comes from the
 # dashboard's own upload/run flow, not a committed .env; per-run outputs/checkpoints are

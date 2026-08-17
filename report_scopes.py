@@ -25,7 +25,7 @@ all read from this module).
 
 REPORT_SCOPES = {
     "lacro": {
-        "label": "LACRO (Latin America and Caribbean)",
+        "label": "LACRO (Latin America and Caribbean Regional Office)",
         "regions": ["LACRO"],
     },
     "africa": {
@@ -43,6 +43,18 @@ REPORT_SCOPES = {
 
 # Scopes generated when no --report-scope is given at the CLI/API level.
 DEFAULT_REPORT_SCOPES = ["lacro", "africa"]
+
+# Compact acronym form for report titles ("LACRO Regional Portfolio" reads
+# better than repeating the full parenthetical expansion in a title). The
+# single source of truth for the region's user-facing name is this file --
+# REPORT_SCOPES["lacro"]["label"] for the full form, this constant for the
+# short form. Every place that renders "LACRO" in a title/subtitle/prose
+# must derive from one of these two, not a separately hardcoded string --
+# see generation/writer.py's _report_title() and generation/assembler.py's
+# assemble(), both previously hardcoded "LARCO" (the codebase's internal
+# naming convention, see the module docstring above) directly into
+# user-facing text, bypassing this file entirely.
+LACRO_SHORT_LABEL = "LACRO"
 
 
 def get_scope(name: str) -> dict:

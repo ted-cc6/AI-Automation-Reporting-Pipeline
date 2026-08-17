@@ -45,6 +45,33 @@ def load_in_scope_countries(run_id: str, runs_dir: "Path | None" = None) -> set:
     by_country = ((analysis.get("parts") or {}).get("about_survey") or {}).get("by_country", [])
     return {row["country"] for row in by_country if row.get("country")}
 
+
+# Matches analysis_engine/sections/about_survey.py's _PRODUCT_FLAGS labels.
+_PRODUCT_LABELS = {"health": "Health", "crop": "Crop", "credit_life": "Credit Life"}
+
+
+def load_product_mix(run_id: str, runs_dir: "Path | None" = None) -> dict:
+    """{human label: n} for this run's actual product mix, read from
+    analysis_results.json's parts.about_survey.product_mix.distribution --
+    the authority the product-claim check tests report prose against, same
+    pattern as load_in_scope_countries() above. Empty dict (not an error)
+    if the product mix is unavailable for this schema (see about_survey.py's
+    _PRODUCT_MIX_MIN_COVERAGE guard) -- the check simply has nothing to
+    verify against in that case, not a reason to fail."""
+    path = (runs_dir or RUNS_DIR) / run_id / "analysis_results.json"
+    if not path.exists():
+        return {}
+    try:
+        analysis = json.loads(path.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError):
+        return {}
+    product_mix = ((analysis.get("parts") or {}).get("about_survey") or {}).get("product_mix") or {}
+    distribution = product_mix.get("distribution") or []
+    return {
+        _PRODUCT_LABELS.get(row.get("product"), row.get("product")): row.get("n", 0)
+        for row in distribution if row.get("product")
+    }
+
 _ROW_ID_PATTERN = re.compile(r"\brow_\d+\b", re.IGNORECASE)
 
 _TAXONOMY_CODE_PATTERN = re.compile(r"^\s{0,4}([a-z][a-z_]*[a-z]):", re.MULTILINE)
@@ -189,6 +216,36 @@ def _check_out_of_scope_countries(text: str, part_key: str, text_key: str, in_sc
     return findings
 
 
+def _check_product_claims(text: str, part_key: str, text_key: str, product_mix: dict) -> list[dict]:
+    """Flags prose naming a product category (e.g. "Credit Life") that has
+    zero respondents in this run's own product-mix table -- a real
+    generated report characterized a verbatim as describing a credit-life
+    death benefit ("widows having outstanding loan balances cleared") in a
+    report whose product-mix table showed zero Credit Life respondents.
+    No data field anywhere attaches product-type metadata to an individual
+    verbatim (see qualitative/prepare_payload.py's record schema), so this
+    is a genuinely interpretive judgment the model can get wrong -- "warn"
+    tier, like the other heuristic checks in this module, for a human to
+    confirm rather than a hard "reject": prose can legitimately discuss
+    what a product generally offers without asserting this run's
+    respondents hold it, which this check cannot distinguish from an
+    actual overclaim."""
+    if not product_mix:
+        return []
+    findings = []
+    for label, n in product_mix.items():
+        if n != 0:
+            continue
+        if re.search(rf"\b{re.escape(label)}\b", text, re.IGNORECASE):
+            findings.append(_make_finding(
+                "warn", part_key, text_key, "product_claim_on_zero_mix",
+                f'"{label}" is named here, but this run\'s product-mix table shows 0 '
+                f"{label} respondents -- confirm this isn't overclaiming a product feature "
+                "no respondent in this run actually holds before treating it as a false positive",
+            ))
+    return findings
+
+
 def _check_comparative_verbs(text: str, part_key: str, text_key: str,
                               non_comparable_labels: list) -> list[dict]:
     if not non_comparable_labels:
@@ -304,7 +361,8 @@ def _non_comparable_labels(package: dict) -> list:
     ]
 
 
-def validate_report(all_texts: dict, packages: list, in_scope_countries: set) -> list[dict]:
+def validate_report(all_texts: dict, packages: list, in_scope_countries: set,
+                    product_mix: "dict | None" = None) -> list[dict]:
     """Run every check against every generated text block.
 
     all_texts:          writer.write_all_parts()'s output, {part_key: {text_key: str}}
@@ -314,6 +372,11 @@ def validate_report(all_texts: dict, packages: list, in_scope_countries: set) ->
                           indicator labels)
     in_scope_countries:  the country set actually present in this run, e.g. from
                           analysis_results.json's parts.about_survey.by_country
+    product_mix:         {label: n} for this run's actual product mix, e.g. from
+                          load_product_mix() -- optional (defaults to None, which
+                          simply skips the product-claim check) since not every
+                          schema has a reliable product mix (see about_survey.py's
+                          _PRODUCT_MIX_MIN_COVERAGE guard)
     """
     findings: list[dict] = []
     packages_by_part = {p["part"]: p for p in packages}
@@ -342,6 +405,7 @@ def validate_report(all_texts: dict, packages: list, in_scope_countries: set) ->
             findings += _check_comparative_verbs(text, part_key, text_key, non_comparable_labels)
             findings += _check_unverified_numerals(text, part_key, text_key, numeric_candidates)
             findings += _check_unstated_bases(text, part_key, text_key)
+            findings += _check_product_claims(text, part_key, text_key, product_mix or {})
             if text_key == "insight":
                 findings += _check_unverified_quotes(text, part_key, text_key, insight_verbatims)
                 findings += _check_tiny_sentiment_base_percentages(text, part_key, text_key, sentiment_total)

@@ -94,16 +94,22 @@ class TestReportTitle:
         title = _report_title("2026_Q2", {"country": "kenya"})
         assert "Kenya" in title
 
-    def test_larco_rollup_uses_larco_regional_title_not_global(self):
+    def test_larco_rollup_uses_lacro_regional_title_not_global(self):
         title = _report_title("2026_Q2", {"country": "default", "dataset_schema": "larco"})
-        assert "LARCO Regional Portfolio" in title
+        assert "LACRO Regional Portfolio" in title
         assert "Global Portfolio" not in title
+        # The internal dataset_schema value is spelled "larco" (this
+        # codebase's file/variable naming convention), but nothing
+        # reader-facing may say "LARCO" -- see report_scopes.py's
+        # LACRO_SHORT_LABEL docstring for why this distinction matters.
+        assert "LARCO" not in title
 
     def test_larco_single_country_still_uses_country_label(self):
         title = _report_title(
             "2026_Q2", {"country": "ecuador", "country_label": "Ecuador", "dataset_schema": "larco"}
         )
         assert title == f"VisionFund International Insurance Impact Report: Ecuador, {writer.format_period_label('2026_Q2')}"
+        assert "LACRO" not in title
         assert "LARCO" not in title
 
     def test_missing_dataset_schema_key_defaults_to_global(self):
@@ -112,17 +118,23 @@ class TestReportTitle:
         title = _report_title("2026_Q2", {"country": "default"})
         assert "Global Portfolio" in title
 
-    def test_report_scope_lacro_uses_larco_regional_title_not_global(self):
+    def test_report_scope_lacro_uses_lacro_regional_title_not_global(self):
         # The real bug this guards against: a report_scope=="lacro" run on
         # the unified schema (country="default", dataset_schema=
         # "africa_vietnam") previously fell through to "Global Portfolio"
         # since only the legacy dataset_schema=="larco" path was checked.
         title = _report_title("2026_Q2", {
             "country": "default", "dataset_schema": "africa_vietnam",
-            "report_scope": "lacro", "report_scope_label": "LACRO (Latin America and Caribbean)",
+            "report_scope": "lacro",
+            "report_scope_label": "LACRO (Latin America and Caribbean Regional Office)",
         })
-        assert "LARCO Regional Portfolio" in title
+        assert "LACRO Regional Portfolio" in title
         assert "Global Portfolio" not in title
+        # A separate, later bug (round 3): this branch hardcoded "LARCO"
+        # (the internal naming convention) directly into the title instead
+        # of the correct reader-facing "LACRO" spelling, even after the
+        # scope-vs-global bug above was fixed.
+        assert "LARCO" not in title
 
     def test_report_scope_africa_uses_its_own_label(self):
         title = _report_title("2026_Q2", {

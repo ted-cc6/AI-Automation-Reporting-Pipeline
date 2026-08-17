@@ -62,6 +62,11 @@ class TestComparableIndicators:
         assert row["delta_unit"] == "NPS points"
         assert row["significance"]["test"] is not None
         assert row["significance"]["p_value"] is None
+        # Reader-facing text must describe the real reason without leaking
+        # an implementation detail ("stored JSON") the reader has no need
+        # to know about.
+        assert "JSON" not in row["significance"]["test"]
+        assert "never retained" in row["significance"]["test"]
 
 
 class TestNonComparableIndicators:

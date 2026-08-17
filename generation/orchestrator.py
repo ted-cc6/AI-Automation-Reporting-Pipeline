@@ -430,13 +430,36 @@ def _build_trend_data(analysis: dict, trend_spec: list) -> list:
             if not comp.get("comparable", True):
                 val_b = "NOT COMPARABLE"
                 reason = comp.get("incomparability_reason")
-                sig_note = (
-                    f"Not comparable to the prior wave: {reason}. This wave's figure is a "
-                    "new baseline, not a change from 2025 -- do not use comparative language "
-                    "(rose, fell, improved, declined, increased, decreased, up, down, since "
-                    "last year) for this indicator." if reason else
-                    "Not comparable to the prior wave (instrument changed) -- new baseline only."
-                )
+                # "New baseline" is only true when the CURRENT wave actually
+                # has a figure to serve as one -- val_a's own not_applicable
+                # flag (computed a few lines above) says otherwise for an
+                # indicator like product_understanding on the 2026 unified
+                # schema (no single combined question exists this wave at
+                # all). A real generated report called such a wave "the
+                # founding baseline" for an indicator it had NO figure for
+                # in either wave -- distinct wording avoids repeating that.
+                current_not_applicable = bool(cur.get("not_applicable", False))
+                if current_not_applicable:
+                    # Deliberately avoids the phrase "new baseline" even in
+                    # negated form ("not a new baseline") -- a model can
+                    # still latch onto the phrase mid-sentence, which is
+                    # exactly the failure this branch exists to prevent.
+                    sig_note = (
+                        f"Not comparable to the prior wave: {reason}. This wave's format has "
+                        "no figure for this indicator either, in the combined-question form it "
+                        "is defined from -- simply not computable from this wave's data in that "
+                        "form." if reason else
+                        "This wave's format has no figure for this indicator at all -- simply "
+                        "not computable from this wave's data."
+                    )
+                else:
+                    sig_note = (
+                        f"Not comparable to the prior wave: {reason}. This wave's figure is a "
+                        "new baseline, not a change from 2025 -- do not use comparative language "
+                        "(rose, fell, improved, declined, increased, decreased, up, down, since "
+                        "last year) for this indicator." if reason else
+                        "Not comparable to the prior wave (instrument changed) -- new baseline only."
+                    )
             else:
                 prior = comp.get("prior") or {}
                 val_b = format_value(

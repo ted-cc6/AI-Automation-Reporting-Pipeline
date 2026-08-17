@@ -283,8 +283,9 @@ def _compare_indicator(key: str, label: str, current_full: dict, current_common:
         row["delta_unit"] = "NPS points"
         row["significance"] = {
             "p_value": None, "significant": False,
-            "test": "not computed -- NPS is not a proportion and the prior wave's "
-                    "respondent-level scores aren't available from its stored JSON.",
+            "test": "not computed -- NPS is not a proportion, and the prior wave's "
+                    "individual respondent-level scores were never retained, only its "
+                    "aggregate value.",
         }
         return row
 
