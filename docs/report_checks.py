@@ -79,6 +79,15 @@ def _norm(text: str) -> str:
     return re.sub(r"\s+", " ", text)
 
 
+def _norm_keep_lines(text: str) -> str:
+    """Like _norm(), but preserves line breaks -- collapses runs of spaces
+    and tabs only. A newline is a far more robust, source-format-
+    independent row-boundary signal than any label or heading text this
+    file could otherwise guess at; see _summary_table_row_spans(), the one
+    place that needs this instead of _norm()."""
+    return re.sub(r"[ \t]+", " ", text.replace("\r\n", "\n").replace("\r", "\n"))
+
+
 def _lower(text: str) -> str:
     return _norm(text).lower()
 
@@ -157,17 +166,48 @@ def _summary_metric_labels() -> list:
     return [m["label"] for m in _load_summary_metrics()]
 
 
-def _summary_table_row_spans(text: str) -> list:
-    """[(label, row_start, cell_start, cell_end), ...] for every configured
-    executive_summary metric found in text's Executive Summary table.
-    row_start is the label's own match position; cell_start is right after
-    it, where the Value/N/Base cell content begins; cell_end bounds that
-    cell at the next known label, a known section heading, or a genuine
-    sentence-ending period (not the decimal point inside this row's own
-    Value cell, e.g. "36.1%"), whichever comes first. [] if no "Executive
-    Summary" heading or no configured labels are found. Matching is
-    case-insensitive so this works against both original-case text (C-002,
-    C-009) and already-lowercased text (C-019).
+def _summary_table_row_spans(text: str) -> "tuple[str, list]":
+    """(normalized_text, spans) -- normalized_text is text run through
+    _norm_keep_lines(), NOT this file's usual _norm() (which also
+    collapses newlines); spans are offsets into normalized_text
+    specifically. Callers that need this table's structure should adopt
+    normalized_text as their own working text rather than maintaining a
+    second, independently-_norm()-ed copy with different offsets (a
+    newline and a run of spaces are both one whitespace run to _norm(),
+    but not necessarily the same length after collapsing, so offsets from
+    one do not reliably index into the other).
+
+    spans: [(label, row_start, cell_start, cell_end), ...] for every
+    configured executive_summary metric found in the Executive Summary
+    table. row_start is the label's own match position; cell_start is
+    right after it, where the Value/N/Base cell content begins; cell_end
+    bounds that cell at its own line break, or -- if tighter -- the next
+    known label, a known section heading, or a genuine sentence-ending
+    period (not the decimal point inside this row's own Value cell, e.g.
+    "36.1%"). [] if no "Executive Summary" heading or no configured labels
+    are found. Matching is case-insensitive.
+
+    The line-break bound is the important one, caught running this check
+    against the real Test9.docx: its original table's 4th row is "Filed a
+    Claim", a metric this session's agreed set no longer tracks, so none
+    of the known-label/heading/period boundaries below could recognize it
+    at all -- "First-Time Access to Insurance"'s cell bled straight
+    through "Filed a Claim | 44.4% | 124" into the narrative paragraph
+    that followed, a false FAIL with a garbled detail message rather than
+    the honest "this table predates the new metric set" a stale report
+    like Test9 should actually produce. A table row is reliably one line
+    in any reasonable rendering of a Word table -- python-docx's own
+    iter_inner_content() extraction, a "Save As Plain Text" export, a PDF
+    copy-paste -- even when a row's own columns collapse onto that one
+    line, so a newline is a far more robust row-boundary signal than
+    knowing every label this session's config happens to track.
+
+    Bounded to the Executive Summary section itself -- "About This
+    Survey" always immediately follows it (see tests/test_assembler.py's
+    test_executive_summary_precedes_about_this_survey). Without this, a
+    label like "Claim Process Understanding" could match wherever it next
+    appears anywhere in a full multi-part report (its own Part 1
+    subsection, pages later), not the summary table row.
 
     Shared by three checks with three different needs against the same
     table: C-002 reads inside each row's cell to check its base label;
@@ -175,19 +215,26 @@ def _summary_table_row_spans(text: str) -> list:
     (a table row is not a sentence); C-019 excludes the whole table from
     what counts as "the narrative."
     """
-    heading = re.search(r"Executive Summary", text, re.I)
+    nt = _norm_keep_lines(text)
+    heading = re.search(r"Executive Summary", nt, re.I)
     labels = _summary_metric_labels()
     if not heading or not labels:
-        return []
+        return nt, []
     block_start = heading.end()
+    block_end_match = re.search(r"About This Survey", nt[block_start:], re.I)
+    block_end = block_start + block_end_match.start() if block_end_match else min(len(nt), block_start + 3000)
+    region = nt[block_start:block_end]
     spans = []
     for label in labels:
-        m = re.search(re.escape(label), text[block_start:], re.I)
+        m = re.search(re.escape(label), region, re.I)
         if not m:
             continue  # row omitted entirely (e.g. not_applicable) -- nothing to span
         row_start = block_start + m.start()
         cell_start = block_start + m.end()
-        row_text = text[cell_start: cell_start + 200]
+        line_end = nt.find("\n", cell_start)
+        if line_end == -1 or line_end > block_end:
+            line_end = block_end
+        row_text = nt[cell_start:line_end]
         end = len(row_text)
         for boundary in [l for l in labels if l != label] + [
             "Data Availability", "Top Findings", "Recommended Actions",
@@ -199,7 +246,7 @@ def _summary_table_row_spans(text: str) -> list:
         if sentence_end:
             end = min(end, sentence_end.start())
         spans.append((label, row_start, cell_start, cell_start + end))
-    return spans
+    return nt, spans
 
 
 @reg.add("C-002", "R-002", BLOCKING)
@@ -230,19 +277,25 @@ def summary_base_label_matches_config(text: str):
     declaration side-steps that entirely: whether a row is expected to
     carry base text is a config fact, not something inferred from
     arithmetic on the rendered numbers.
+
+    Correctly (and expectedly) FAILS against Test9: Test9 predates R-002
+    entirely -- its table has no Base column at all -- so every row this
+    check finds correctly reads as base-label-absent, disagreeing with
+    config for the two rows (Worth the Premium and Children's Wellbeing)
+    that should carry one. That is the right answer for a report that has
+    not been regenerated since the metric-set change, not a check defect.
     """
-    t = _norm(text)
-    report_scope = "lacro" if "LACRO Regional Portfolio" in t else None
+    nt, spans = _summary_table_row_spans(text)
+    report_scope = "lacro" if "LACRO Regional Portfolio" in nt else None
     specs = dict(_summary_metric_specs(report_scope))
     if not specs:
         return True, "no executive_summary.metrics in report_spec.yaml, nothing to compare"
-    spans = _summary_table_row_spans(t)
     if not spans:
         return True, "no executive summary found"
     bad = []
     for label, row_start, cell_start, cell_end in spans:
         expects_label = specs.get(label, False)
-        cell = t[cell_start:cell_end]
+        cell = nt[cell_start:cell_end]
         # \d+ (not \d{1,3}) -- N renders unformatted (e.g. "1721", not
         # "1,721"; see generation/assembler.py's _add_table(), str(int)
         # with no thousands separator), and a capped \d{1,3} with a
@@ -379,16 +432,20 @@ def no_metric_reported_with_two_values(text: str):
     that) fixes this without widening the label list or loosening the
     window, per instruction.
     """
-    t = _norm(text)
-    excluded = [(row_start, cell_end) for _, row_start, _, cell_end in _summary_table_row_spans(t)]
+    # nt (not _norm(text)): _summary_table_row_spans() needs newlines
+    # preserved to bound table rows (see its own docstring), and its
+    # returned spans are offsets into nt specifically -- a separately
+    # _norm()-ed copy can differ in length, making those offsets invalid.
+    nt, spans = _summary_table_row_spans(text)
+    excluded = [(row_start, cell_end) for _, row_start, _, cell_end in spans]
     findings = {}
     for label in ["healthcare access improved", "high financial stress",
                   "coverage understanding", "claim process understanding"]:
         vals = set()
-        for m in re.finditer(re.escape(label), t, re.I):
+        for m in re.finditer(re.escape(label), nt, re.I):
             if any(s <= m.start() < e for s, e in excluded):
                 continue  # this occurrence is inside the Executive Summary table, not prose
-            window = t[max(0, m.start() - 90): m.end() + 90]
+            window = nt[max(0, m.start() - 90): m.end() + 90]
             vals.update(re.findall(r"(\d{1,3}\.\d)%", window))
         if len(vals) > 2:
             findings[label] = sorted(vals)
@@ -544,12 +601,18 @@ def summary_spans_multiple_modules(text: str):
     has no qualitative_results.json), this now correctly FAILS -- an
     honest advisory gap instead of a coincidental pass.
     """
-    t = _lower(text)
+    # nt.lower() (not _lower(text)): _summary_table_row_spans() needs
+    # newlines preserved to bound table rows (see its own docstring), and
+    # its returned spans are offsets into nt specifically -- a separately
+    # _norm()-ed copy can differ in length, making those offsets invalid.
+    nt, spans = _summary_table_row_spans(text)
+    t = nt.lower()
     block = t.split("about this survey")[0]
     block = block.split("data availability")[0]
-    spans = _summary_table_row_spans(block)
     if spans:
-        block = block[max(cell_end for _, _, _, cell_end in spans):]
+        table_end = max(cell_end for _, _, _, cell_end in spans)
+        if table_end < len(block):
+            block = block[table_end:]
     modules = {
         "claims": ["claim process", "claims funnel", "filed a claim"],
         "access": ["first-time access", "first time access", "no prior insurance"],
