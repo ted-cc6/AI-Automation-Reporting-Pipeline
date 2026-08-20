@@ -52,6 +52,7 @@ This file is the single source of truth for the next pipeline iteration. Every r
 | R-016 | HO2R1 | prompt | NPS framed as one module among several | 4 |
 | R-017 | self | code | Severity counts computed once from a canonical list | 3 |
 | R-018 | self | code | Protection flag dedup must not collapse across source columns | 3 |
+| R-019 | self | code | Check suite gaps: C-013 window, C-009 detail specificity | 3 |
 
 ---
 
@@ -708,6 +709,57 @@ of R-003's client-level dedup pass, in `llm_call.py` rather than
 `parse_results.py`: R-003 dedups what survives `_dedupe_protection_flags`,
 so it neither masks nor fixes a concern this bug already dropped before
 R-003's pass ever sees it. Not fixed in this session.
+
+---
+
+## R-019 Check suite gaps: C-013 window, C-009 detail specificity
+
+**Source:** self identified
+**Layer:** `code`
+**Priority:** low
+**Status:** Not started -- logged only, no fix yet
+
+**Current behaviour**
+Two limitations in `docs/report_checks.py`, found while establishing its
+baseline state against Test9:
+
+- **C-013** (`no_p_values_in_trend_section`, R-009) only searches a fixed
+  2,600-character window immediately following the "Trend Comparison"
+  heading (`re.search(r"Trend Comparison(.{0,2600})", ...)`). A p-value
+  stated further into Part 10 -- e.g. in Findings prose that follows the
+  table, comparability notes, and any methodology text -- falls outside
+  that window and is never checked, so C-013 can pass even when a p-value
+  is genuinely present in Part 10.
+- **C-009** (`no_metric_reported_with_two_values`, R-007) correctly
+  detects when a tracked metric label is followed by more than two
+  distinct percentage values within +/-90 characters, but its detail
+  line reports every percentage found in that window, not only the ones
+  actually tied to the matched label -- an unrelated percentage from a
+  neighbouring sentence can be pulled into the reported detail alongside
+  the genuine conflicting values, making the failure message
+  misleading about which numbers actually conflict.
+
+**Intended behaviour**
+- C-013's search window is bounded by the next section heading (or Part
+  boundary) rather than a fixed character count, so it reaches any
+  p-value genuinely inside Part 10, regardless of how much text precedes
+  it.
+- C-009's detail line is narrowed to name only the percentage(s) that can
+  actually be attributed to the matched metric label (e.g. scoped to the
+  same sentence, or tied to the label via closer proximity/explicit
+  attribution), not every percentage incidentally inside the window.
+
+**Verification**
+- C-013 catches a p-value placed anywhere in Part 10.
+- C-009's detail line names only the conflicting values for the metric it
+  matched.
+
+**Note**
+Not a defect in this session's R-003/R-017 work -- found while recording
+the check suite's baseline run against Test9 (3 pass, 17 blocking
+failures, 4 advisory failures) for `docs/report_checks.py`'s own commit.
+Logged so these two gaps aren't mistaken for "check passed, therefore
+correct" in a future session. Not fixed in this session.
 
 ---
 
