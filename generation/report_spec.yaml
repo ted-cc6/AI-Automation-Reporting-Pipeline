@@ -11,6 +11,58 @@ run_id_default: "2026_Q2"
 output_filename: "VFI_Insurance_Impact_Report_2026_Q2.docx"
 model: "Claude Opus 4.8"
 
+# R-002 -- the Executive Summary headline-numbers table's metric list, moved
+# out of generation/executive_summary.py's old hardcoded _HEADLINE_METRICS
+# into config. Same shape precedent as part_10.trend_indicators below: an
+# ordered list of dicts, read fresh by generation/executive_summary.py's
+# headline_numbers() rather than passed in from a shared parsed object (same
+# reload-per-call pattern orchestrator.py already uses for this same file).
+#
+# base_label is null for a metric whose n_path is the full sample, or a short
+# phrase for one whose n_path is a restricted population -- rendered as a
+# 4th "Base" column so a reader can tell which rows describe the whole
+# portfolio without cross-referencing each part's own population notes.
+# Like a report_spec.yaml `population:` entry (see part_1.worth_premium
+# below), base_label may instead be a dict keyed by report_scope (plus an
+# optional "default"), resolved by the same generation/orchestrator.py
+# _resolve_population() every population: note already uses -- worth_premium
+# is 100% Health for a LACRO-scoped report (no exclusion to state) but
+# restricted to Health & credit-life clients for an Africa/Vietnam-scoped
+# one, so its base_label must resolve per-scope exactly like its population
+# note does.
+executive_summary:
+  metrics:
+    - key: first_time_access
+      label: "First-Time Access to Insurance"
+      value_path: "parts.part_3.metrics.no_prior_access.headline.value"
+      n_path: "parts.part_3.metrics.no_prior_access.headline.n_valid"
+      suppressed_path: "parts.part_3.metrics.no_prior_access.headline.suppressed"
+      fmt: "pct"
+      base_label: null
+    - key: worth_premium
+      label: "Worth the Premium"
+      value_path: "parts.part_1.metrics.worth_premium.headline.value"
+      n_path: "parts.part_1.metrics.worth_premium.headline.n_valid"
+      suppressed_path: "parts.part_1.metrics.worth_premium.headline.suppressed"
+      fmt: "pct"
+      base_label:
+        default: "Health & credit-life clients only"
+        lacro: null
+    - key: claim_process_understanding
+      label: "Claim Process Understanding"
+      value_path: "parts.part_1.metrics.claim_process_understanding.headline.value"
+      n_path: "parts.part_1.metrics.claim_process_understanding.headline.n_valid"
+      suppressed_path: "parts.part_1.metrics.claim_process_understanding.headline.suppressed"
+      fmt: "pct"
+      base_label: null
+    - key: child_wellbeing_improved
+      label: "Children's Wellbeing Improved"
+      value_path: "parts.part_4.child_wellbeing.headline.value"
+      n_path: "parts.part_4.child_wellbeing.headline.n_valid"
+      suppressed_path: "parts.part_4.child_wellbeing.headline.suppressed"
+      fmt: "pct"
+      base_label: "clients with children in household"
+
 parts:
   # ───────────────────────────────────────────────────────────────────
   # PART 1 — Product Understanding & Awareness

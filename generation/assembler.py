@@ -414,8 +414,8 @@ def _add_executive_summary(doc, analysis: dict, qual: dict):
     rows = headline_numbers(analysis)
     if rows:
         _add_table(
-            doc, ["Metric", "Value", "N"],
-            [[r["label"], r["value"], r["n"] if r["n"] is not None else ""] for r in rows],
+            doc, ["Metric", "Value", "N", "Base"],
+            [[r["label"], r["value"], r["n"] if r["n"] is not None else "", r["base_label"]] for r in rows],
         )
 
     exec_prose = (qual or {}).get("executive_summary", "")

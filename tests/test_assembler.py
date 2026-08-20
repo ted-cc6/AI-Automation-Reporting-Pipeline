@@ -528,7 +528,11 @@ _EXEC_SUMMARY_PARTS = {
         "metrics": {
             "coverage_understanding": {"headline": {"value": 0.5, "n_valid": 500, "suppressed": False, "not_applicable": False}},
             "claim_process_understanding": {"headline": {"value": 0.5, "n_valid": 500, "suppressed": False, "not_applicable": False}},
-            "worth_premium": {"headline": {"value": 0.5, "n_valid": 500, "suppressed": False, "not_applicable": False}},
+            # Deliberately not 0.5 like the metric above -- a tie here would
+            # trip generation/executive_summary.py's
+            # _disambiguate_tied_percentages() and this fixture's exec-summary
+            # table test expects plain 1-decimal formatting.
+            "worth_premium": {"headline": {"value": 0.62, "n_valid": 500, "suppressed": False, "not_applicable": False}},
             "renewal_intent": {"headline": {"value": 0.5, "n_valid": 500, "suppressed": False, "not_applicable": False}},
             "product_understanding": {"headline": {"value": None, "n_valid": 0, "suppressed": True, "not_applicable": True}},
         }
@@ -546,11 +550,17 @@ class TestAddExecutiveSummary:
     def test_headline_numbers_table_rendered(self):
         from docx import Document
         doc = Document()
-        _add_executive_summary(doc, {"parts": _EXEC_SUMMARY_PARTS}, {})
+        # report_scope="lacro" -- worth_premium's base_label is null for LACRO
+        # (100% Health, no restriction), non-null for every other scope; see
+        # generation/report_spec.yaml's executive_summary.metrics and R-002.
+        _add_executive_summary(doc, {"parts": _EXEC_SUMMARY_PARTS, "meta": {"report_scope": "lacro"}}, {})
         table = doc.tables[0]
         rows = [[c.text for c in row.cells] for row in table.rows]
-        assert rows[0] == ["Metric", "Value", "N"]
-        assert ["Net Promoter Score", "20.0", "500"] in rows
+        assert rows[0] == ["Metric", "Value", "N", "Base"]
+        assert ["First-Time Access to Insurance", "80.0%", "500", ""] in rows
+        assert ["Worth the Premium", "62.0%", "500", ""] in rows
+        assert ["Claim Process Understanding", "50.0%", "500", ""] in rows
+        assert ["Children's Wellbeing Improved", "35.0%", "400", "clients with children in household"] in rows
 
     def test_caveat_box_lists_not_applicable_metric(self):
         body = self._doc_text({"parts": _EXEC_SUMMARY_PARTS}, {})

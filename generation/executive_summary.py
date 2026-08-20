@@ -9,31 +9,17 @@ module. The "top findings"/"top actions" that also belong in this section
 come from the qualitative pipeline's Task 7 instead (qualitative_results.json,
 see qualitative/llm_call.py) -- generation/assembler.py's
 _add_executive_summary() merges both into one section.
-"""
-from utils import get_nested, format_value
-from generation.orchestrator import _not_applicable_path
 
-# (label, value_path, n_path, suppressed_path, fmt) -- a curated set of
-# headline metrics broadly meaningful across both dataset schemas (Africa/
-# Vietnam and LARCO). filed_claim is never not_applicable by design (see
-# analysis_engine/stats.py's claims_funnel() -- it's always computed against
-# either the insured-event base or the full population, whichever this
-# schema has); the other four use their own not_applicable flag to degrade
-# gracefully per schema/population without needing a schema check here.
-_HEADLINE_METRICS = [
-    ("Net Promoter Score",
-     "parts.part_4.nps.result.value", "parts.part_4.nps.result.n_valid",
-     "parts.part_4.nps.result.suppressed", "nps"),
-    ("Children's Wellbeing Improved",
-     "parts.part_4.child_wellbeing.headline.value", "parts.part_4.child_wellbeing.headline.n_valid",
-     "parts.part_4.child_wellbeing.headline.suppressed", "pct"),
-    ("First-Time Access to Insurance",
-     "parts.part_3.metrics.no_prior_access.headline.value", "parts.part_3.metrics.no_prior_access.headline.n_valid",
-     "parts.part_3.metrics.no_prior_access.headline.suppressed", "pct"),
-    ("Filed a Claim",
-     "parts.part_2.claims_funnel.filed_claim.pct_of_event_base", "parts.part_2.claims_funnel.filed_claim.n_total",
-     "parts.part_2.claims_funnel.filed_claim.suppressed", "pct"),
-]
+R-002: the headline-numbers metric list itself lives in report_spec.yaml's
+executive_summary.metrics, not in this module -- see headline_numbers()
+below, which is the one exception to this file's "no report_spec.yaml
+entry" claim above (true only of the caveat box and the section wiring,
+not of the metric list since R-002).
+"""
+import yaml
+
+from utils import get_nested, format_value
+from generation.orchestrator import SPEC_PATH, _not_applicable_path, _resolve_population
 
 # (label, suppressed_path, cross_reference_note) -- known schema/population-
 # variant metrics whose not_applicable flag (derived from suppressed_path,
@@ -80,21 +66,68 @@ _NOT_APPLICABLE_CANDIDATES = [
 def headline_numbers(analysis: dict) -> list:
     """Curated headline metrics for the executive summary's top-of-report
     numbers table -- each entry omitted entirely (not shown as N/A) when
-    not_applicable to this run's schema/population."""
+    not_applicable to this run's schema/population.
+
+    Metric list comes from report_spec.yaml's executive_summary.metrics
+    (R-002) -- read fresh here rather than passed in, matching
+    orchestrator.py's own reload-per-call pattern for the same file. Each
+    entry's base_label is resolved against this run's report_scope with
+    the same _resolve_population() every population: note in
+    report_spec.yaml already uses, so a metric like worth_premium (100%
+    Health, no restriction for a LACRO-scoped report; Health & credit-life
+    only for an Africa/Vietnam-scoped one) gets the correct label either
+    way rather than a single hardcoded phrase."""
+    spec = yaml.safe_load(SPEC_PATH.read_text(encoding="utf-8"))
+    metrics = spec.get("executive_summary", {}).get("metrics", [])
+    report_scope = (analysis.get("meta") or {}).get("report_scope")
+
     rows = []
-    for label, val_path, n_path, sup_path, fmt in _HEADLINE_METRICS:
+    for m in metrics:
+        sup_path = m["suppressed_path"]
         not_app = bool(get_nested(analysis, _not_applicable_path(sup_path), default=False))
         if not_app:
             continue
-        v = get_nested(analysis, val_path)
-        n = get_nested(analysis, n_path)
+        v = get_nested(analysis, m["value_path"])
+        n = get_nested(analysis, m["n_path"])
         sup = bool(get_nested(analysis, sup_path, default=False))
+        base_label = _resolve_population(m.get("base_label"), report_scope)
         rows.append({
-            "label": label,
-            "value": format_value(v, fmt, suppressed=sup, not_applicable=False),
+            "label": m["label"],
+            "value": format_value(v, m["fmt"], suppressed=sup, not_applicable=False),
             "n": n if n is not None else None,
+            "base_label": base_label or "",
+            "_fmt": m["fmt"],
+            "_raw_value": v,
+            "_suppressed": sup,
         })
+    _disambiguate_tied_percentages(rows)
+    for r in rows:
+        del r["_fmt"], r["_raw_value"], r["_suppressed"]
     return rows
+
+
+def _disambiguate_tied_percentages(rows: list) -> None:
+    """Bump colliding "pct" rows from 1 decimal to 2, in place, so two
+    genuinely different values that both round to the same 1-decimal
+    percentage (e.g. worth_premium=80.07% and claim_process_understanding=
+    80.13%, both "80.1%" at 1 decimal) don't sit next to each other in a
+    four-row table reading like a copy-paste error. Only escalates the
+    rows that actually tie -- every other row keeps the same 1-decimal
+    precision as the rest of the report -- and only ever escalates once
+    (1 decimal -> 2), which is enough to separate any pair this table's
+    metrics can plausibly produce; a genuine tie at 2 decimals (not seen
+    in production data) is left as-is rather than escalating further.
+    SUPPRESSED/NOT APPLICABLE rows are excluded -- those strings
+    "colliding" is not a rounding artifact and adding decimals to them
+    would be meaningless."""
+    groups: dict = {}
+    for r in rows:
+        if r["_fmt"] == "pct" and not r["_suppressed"] and r["_raw_value"] is not None:
+            groups.setdefault(r["value"], []).append(r)
+    for tied in groups.values():
+        if len(tied) > 1:
+            for r in tied:
+                r["value"] = f"{r['_raw_value'] * 100:.2f}%"
 
 
 def data_availability_caveats(analysis: dict) -> list:

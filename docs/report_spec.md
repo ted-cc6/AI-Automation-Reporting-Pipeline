@@ -3,7 +3,7 @@
 **Baseline artifact:** `LAC_Insurance_Impact_Report_default_2026_Q2_Test9.pdf` (generated 17 August 2026)
 **Reviewers:** Lorenz M (LM1 to LM11), second reviewer HO (HO2R1)
 **Spec owner:** Binjie Wang
-**Status:** draft, pending reviewer confirmation on R-002, R-006, R-008, R-014
+**Status:** draft, pending reviewer confirmation on R-006, R-008, R-014
 
 ---
 
@@ -53,6 +53,8 @@ This file is the single source of truth for the next pipeline iteration. Every r
 | R-017 | self | code | Severity counts computed once from a canonical list | 3 |
 | R-018 | self | code | Protection flag dedup must not collapse across source columns | 3 |
 | R-019 | self | code | Check suite gaps: C-013 window, C-009 detail specificity | 3 |
+| R-020 | self | code | CLI output filename diverges from dashboard path | 3 |
+| R-021 | self | code | Period label formatting duplicated across title and heading | 3 |
 
 ---
 
@@ -65,28 +67,26 @@ Changes here alter figures downstream, so they land first.
 **Source:** self identified (report already emits `period_label_mismatch` flag)
 **Layer:** `data_config`
 **Priority:** high
+**Status:** Closed (2026-08-20) -- already satisfied by existing behaviour, confirmed with Lorenz
 
 **Current behaviour**
-The run is labelled 2026 Q2 while recorded fieldwork spans 26 June 2026 to 4 August 2026, crossing from Q2 into Q3. The pipeline detects this and emits a warning, but still renders the mismatched label in the title, the running header and the output filename.
+The run is labelled 2026 Q2 while recorded fieldwork spans 26 June 2026 to 4 August 2026, crossing from Q2 into Q3. `data_quality_flags.derive_period_mismatch_flag()` already detects this and emits a `period_label_mismatch` flag.
+
+**Investigation finding (session-2 orientation, 2026-08-20)**
+Lorenz confirmed the period label is operator-entered on the dashboard at run setup (baked into `run_id`, e.g. `"2026_Q2"`) and that a mismatch should stay a warning, never a blocking failure. Tracing every render site named in the original "Current behaviour" above:
+- There is no Word running header/footer anywhere in `generation/assembler.py` (no `python-docx` `section.header` usage) -- the only render site is one `doc.add_heading(..., level=1)` title block (`assembler.py:1054-1080`), built from `format_period_label(run_id)`. `writer.py:74-79`'s `_report_title()` calls the same function independently for the narrative prompt's own title (see R-021 -- this is duplication, not a second bug).
+- `derive_period_mismatch_flag()` (`data_quality_flags.py:91-144`) is advisory-only by construction and by its own docstring ("worth a human's confirmation ... not ... a blocked run"). No code path reachable from it raises or exits. `generation/validate_output.py`'s separate post-generation gate is unrelated (no period-label logic in that module at all) and is itself documented as advisory, never blocking assembly.
+- The flag surfaces two ways today: transiently via the dashboard's live log stream (`pipeline_runner.py:211-212`), and durably inside `analysis_results.json`'s `data_quality_flags` list (stage 2 output) -- not in `run_metadata.yaml`.
+- `docs/report_checks.py`'s C-001 already implements this exact rule at ADVISORY severity, and already passes against Test9.
 
 **Intended behaviour**
-The reporting period label is derived from the fieldwork date range rather than entered by hand. Where the range crosses a quarter boundary, the label expresses the range rather than a single quarter.
-
-**Rule**
-```
-period_label = derive_from(min(fieldwork_date), max(fieldwork_date))
-  single quarter  -> "2026 Q3"
-  spanning        -> "2026 Q2 to Q3"
-An operator supplied label that conflicts with the derived label
-is a hard failure, not a warning.
-```
+Unchanged from current: a mismatch is logged for the operator's confirmation, never blocks rendering. No code change required.
 
 **Verification**
-- `assert derived_period_label in report.title`
-- `assert not warnings.contains("period_label_mismatch")`
+- C-001 (ADVISORY) -- already implemented, already passing.
 
-**Open question for reviewer**
-Confirm whether the intended reporting period is Q3 (most fieldwork falls there) or a spanning label. Ask Lorenz on the next call.
+**Resolution**
+Closed without a code change. The "hard failure" rule and its two `assert`-based verification lines (removed above) encoded an incorrect diagnosis made before this was confirmed with Lorenz; the "running header" they referenced does not exist as a separate render site from the title.
 
 ---
 
@@ -95,35 +95,74 @@ Confirm whether the intended reporting period is Q3 (most fieldwork falls there)
 **Source:** LM1a, "why the focus on only these 4 metrics in the table?"
 **Layer:** `data_config`
 **Priority:** medium
+**Status:** Implemented (2026-08-20)
 
-**Current behaviour**
-Four metrics are hardcoded: Net Promoter Score, Children's Wellbeing Improved, First Time Access to Insurance, Filed a Claim. The selection is not documented and cannot be changed without a code edit.
+**Current behaviour (corrected, session-2 orientation, 2026-08-20)**
+The four metrics are hardcoded in `_HEADLINE_METRICS` (`generation/executive_summary.py`). Each metric's `n_path` already resolves to the correct denominator of its own percentage; the N column is arithmetically correct. Two of the four rows use a restricted base (Filed a Claim on `n_event`=124, Children's Wellbeing on `child_wellbeing_base`), and the table has no way to distinguish a restricted base from a full-sample one, so a reader cannot tell which rows describe the whole portfolio.
 
-Two secondary defects in the same table:
-- The N column mixes bases. Three rows show the full sample (1,721) while Filed a Claim shows 124, which is the count of clients who experienced an insured event, not the denominator used for the 44.4 percent figure.
-- Filed a Claim as a headline metric is ambiguous without its funnel context, since 44.4 percent is the conversion from event to claim, not the share of the portfolio that claimed (which is 3.2 percent).
+Separately, Filed a Claim at 44.4 percent is the event-to-claim conversion rate, not the share of the portfolio that claimed (55/1,721 = 3.2 percent). Correct arithmetic, but easily misread as a portfolio rate. This is a metric-selection concern, not a defect, and is resolved by the agreed metric set below.
+
+The original "Current behaviour" text in this section (superseded by the paragraph above) claimed Filed a Claim's N=124 was "not the denominator used for the 44.4 percent figure" -- that was wrong. Session-2 orientation traced `n_path` into `analysis_engine/stats.py`'s `claims_funnel()` and confirmed 124 IS `filed_claim_base_n`, the actual denominator of 44.4 percent (55/124). The real defect was always presentation (no restricted-base marker), never arithmetic.
 
 **Intended behaviour**
-The summary metric list moves to config as an ordered list of metric IDs. The N column always shows the denominator of the stated percentage. Any metric whose denominator differs from the full sample carries a short base label in the table.
+The summary metric list moves to config as an ordered list of metric entries. The N column continues to show the denominator of the stated percentage (already correct, no change needed there). Any metric whose denominator differs from the full sample carries a short base label in the table.
 
 **Rule**
 ```yaml
 executive_summary:
   metrics:
-    - net_promoter_score
-    - child_wellbeing_improved
-    - first_time_access
-    - worth_premium          # candidate replacement, pending review
-  show_base_label_when_restricted: true
+    - key: first_time_access
+      label: "First-Time Access to Insurance"
+      value_path: "parts.part_3.metrics.no_prior_access.headline.value"
+      n_path: "parts.part_3.metrics.no_prior_access.headline.n_valid"
+      suppressed_path: "parts.part_3.metrics.no_prior_access.headline.suppressed"
+      fmt: "pct"
+      base_label: null
+    - key: worth_premium
+      label: "Worth the Premium"
+      value_path: "parts.part_1.metrics.worth_premium.headline.value"
+      n_path: "parts.part_1.metrics.worth_premium.headline.n_valid"
+      suppressed_path: "parts.part_1.metrics.worth_premium.headline.suppressed"
+      fmt: "pct"
+      base_label:
+        default: "Health & credit-life clients only"
+        lacro: null
+    - key: claim_process_understanding
+      label: "Claim Process Understanding"
+      value_path: "parts.part_1.metrics.claim_process_understanding.headline.value"
+      n_path: "parts.part_1.metrics.claim_process_understanding.headline.n_valid"
+      suppressed_path: "parts.part_1.metrics.claim_process_understanding.headline.suppressed"
+      fmt: "pct"
+      base_label: null
+    - key: child_wellbeing_improved
+      label: "Children's Wellbeing Improved"
+      value_path: "parts.part_4.child_wellbeing.headline.value"
+      n_path: "parts.part_4.child_wellbeing.headline.n_valid"
+      suppressed_path: "parts.part_4.child_wellbeing.headline.suppressed"
+      fmt: "pct"
+      base_label: "clients with children in household"
 ```
+`base_label` is `null` for a full-sample metric, a short phrase for a statically-restricted one, or a dict keyed by `report_scope` (plus an optional `default`) for a metric whose restriction is scope-conditional -- resolved by `generation/orchestrator.py`'s `_resolve_population()`, the same function every `population:` note elsewhere in this file already uses (no second config pattern).
 
 **Verification**
 - `assert len(summary.metrics) == len(config.executive_summary.metrics)`
-- For each row: `assert row.n == metric.denominator`
-- `assert all(row.base_label for row in summary.metrics if row.n != total_n)`
+- For each row: `assert row.base_label (resolved against report_scope) is non-empty iff config's base_label resolves non-null`
 
-**Open question for reviewer**
-Which metrics does Lorenz want in the table? Propose a set covering understanding, value, claims and wellbeing rather than four measures that lean on satisfaction.
+**Resolved**
+Metric set confirmed with Lorenz, 2026-08-20: First-Time Access to Insurance, Worth the Premium, Claim Process Understanding, Children's Wellbeing Improved. NPS is reported in Part 4, not the summary table.
+
+**Implementation note**
+`generation/report_spec.yaml` gained a top-level `executive_summary.metrics` key (same list-of-dicts shape as `part_10.trend_indicators`). `generation/executive_summary.py`'s `_HEADLINE_METRICS` was removed outright, not kept as a fallback (R-017's lesson: a fallback defeats the requirement) -- `headline_numbers()` now loads the spec fresh each call, matching `orchestrator.py`'s own reload-per-call pattern for the same file. `generation/assembler.py`'s summary table gained a 4th "Base" column (empty for full-sample rows). Verified against `runs/lacro_final_check/`'s real `analysis_results.json` (report_scope="lacro", n_total=1,721): First-Time Access 77.2% (N=1,721, no base label), Worth the Premium 80.07% (N=1,721, no base label -- LACRO is 100% Health, `base_label.lacro: null` applies), Claim Process Understanding 80.13% (N=1,721, no base label), Children's Wellbeing Improved 36.1% (N=1,313, base label "clients with children in household").
+
+**Rendering rule: tied percentages gain a second decimal.** Worth the Premium (0.8006972690296339) and Claim Process Understanding (0.8012783265543288) both round to "80.1%" at the report's standard 1 decimal, and sitting adjacent in a four-row table reads like a copy-paste error, not two distinct measures. `executive_summary.py`'s `_disambiguate_tied_percentages()` detects any group of `pct`-formatted rows whose 1-decimal rendering collides and re-renders only that group at 2 decimals (80.07% / 80.13%) -- every other row keeps the report's standard 1 decimal. Generic (grouped by rendered-value collision, not by metric name), a single escalation step (1 -> 2 decimals, not recursive), and excludes SUPPRESSED/NOT APPLICABLE rows (those "colliding" as identical strings is not a rounding artifact). Implemented in `executive_summary.py` only, per instruction, not as a hardcoded exception for these two specific metrics.
+
+`docs/report_checks.py`'s C-002 was rewritten to a structural check (reads `report_spec.yaml`'s `executive_summary.metrics` directly, resolves each `base_label` against report_scope, and asserts the rendered row's base-label presence matches) rather than the superseded "N values vary widely" heuristic -- see C-002's own docstring for why an N-vs-full-sample-total comparison was considered and rejected (cannot distinguish a restricted population from ordinary item non-response).
+
+Regenerating from `runs/lacro_final_check/` surfaced two side effects, neither a code defect, both caused entirely by the new metric labels colliding with two *other*, previously-unrelated checks -- confirmed both ways: the untouched, pre-session C-009/C-019 produced the identical flip against the new table text, and re-running the fixes below against the *old* table text reproduces the old pass/fail state exactly, isolating the cause to the new labels, not to anything in the C-002 rewrite. Both were fixed this session (authorised as an exception to "only C-002 was in scope"):
+- **C-009** (R-007, "no metric reported with two values") failed: its hardcoded label list already included `"claim process understanding"` (added for an unrelated Part 5 defect), and the new table's four rows sit close enough together in flattened text that C-009's ±90-character proximity window picked up the other three rows' percentages as if they conflicted with Claim Process Understanding's own value. Fixed by excluding the Executive Summary table's own rows from the scan, via a new shared helper, `_summary_table_row_spans()` -- not by requiring a verb nearby (the other option considered), because the check's actual founding defect (Part 5's caregiver *table* vs. its own prose, 33.9% vs. 8.9%) is itself table-vs-prose, and a blanket verb requirement would have suppressed detection of a real future recurrence of that same defect, not just this session's false positive. Label list and window both left unchanged, per instruction. This is a different fix from the C-009 gap R-019 already logs (detail-line specificity) -- see R-019's session-2 addendum.
+- **C-019** (R-013, ADVISORY, "summary spans multiple modules") passed where it should not have: "Worth the Premium" and "Claim Process Understanding" happen to match two of its five hardcoded module-keyword lists ("worth the premium" under `value`, "claim process" under `claims`), so a report with no narrative at all (no `qualitative_results.json`, this run's actual state) could still pass on table row labels alone. Fixed by excluding the table's own rows (via the same shared helper) and stopping the scanned block before "Data Availability" (a template caveat box, not narrative -- its cross-reference sentence also happens to repeat "Claim Process Understanding" verbatim, so the table exclusion alone wasn't sufficient). Against this run, C-019 now correctly FAILS ADVISORY ("0 non-NPS module(s): none") -- an honest gap instead of a coincidental pass.
+
+**Final check-state comparison** (baseline: pre-session `report_checks.py` against the pre-session four-metric table, both from `git show HEAD:...`, vs. final: this session's `report_checks.py` against the regenerated table, both run against the same real `runs/lacro_final_check/` cover/about-survey text): every check's pass/fail state is identical between baseline and final **except C-002** (BLOCKING FAIL -> pass, the intended fix). C-009 is pass -> pass (unchanged, the false positive introduced mid-session by the new labels and fixed within the same session never reached a committed state). C-019 is ADVISORY FAIL -> ADVISORY FAIL (unchanged state; the reason changed from a coincidental 2-of-5-module table-label match to a correct 0-of-5, since this run has no narrative at all).
 
 ---
 
@@ -761,6 +800,92 @@ failures, 4 advisory failures) for `docs/report_checks.py`'s own commit.
 Logged so these two gaps aren't mistaken for "check passed, therefore
 correct" in a future session. Not fixed in this session.
 
+**Session-2 addendum (2026-08-20)**
+R-002's implementation hit a concrete instance of the C-009 gap logged
+above, but not the same one: regenerating the executive summary from
+`runs/lacro_final_check/` with the new metric set, C-009 failed against
+"Claim Process Understanding" because its own proximity window (+/-90
+characters) picked up the summary table's three *other* rows' percentages,
+not a genuine conflict. Confirmed against the untouched, pre-session-2
+C-009 before fixing, so this was a real false positive, not an artifact
+of anything else changed this session.
+
+Fixed as part of R-002 (see its Implementation note for the full
+before/after check-state comparison): C-009 now excludes the Executive
+Summary table's own rows from its scan via a shared row-span helper,
+`_summary_table_row_spans()`. This is a *different* fix from the one this
+requirement originally logged -- the gap above is about C-009's *detail
+line* naming irrelevant percentages once it has already correctly fired;
+today's fix stops it from firing at all on a table it was never meant to
+scan. **The original C-009 detail-line gap, and C-013's window gap, are
+both still open** -- neither was touched this session. R-019 stays
+logged, not closed.
+
+---
+
+## R-020 CLI output filename diverges from dashboard path
+
+**Source:** self identified
+**Layer:** `code`
+**Priority:** low
+**Status:** Not started -- logged only, no fix yet
+
+**Current behaviour**
+`generation/run_generation.py:131-132` (the CLI entry point) builds the
+output filename from `report_spec.yaml`'s static `output_filename` string
+(`"VFI_Insurance_Impact_Report_2026_Q2.docx"`, not templated by `run_id`
+at all -- a leftover from a specific quarter). `dashboard/api/
+pipeline_runner.py:432-435` (the dashboard entry point) instead builds
+`f"VFI_Insurance_Impact_Report_{state.run_id}.docx"` explicitly, with a
+comment noting the spec's filename is stale and successive runs would
+otherwise collide. The two entry points disagree, and the CLI path is the
+stale one.
+
+**Intended behaviour**
+One filename-construction rule, used by both entry points, templated by
+`run_id` (or by the derived period label, once R-021 gives both entry
+points a single place to get it from) rather than a static string.
+
+**Verification**
+- `assert run_generation.py's output filename == pipeline_runner.py's output filename for the same run_id`
+
+**Note**
+Found during session-2 orientation (2026-08-20) while tracing every
+render/consumption site of the period label for R-001. Not fixed this
+session.
+
+---
+
+## R-021 Period label formatting duplicated across title and heading
+
+**Source:** self identified
+**Layer:** `code`
+**Priority:** low
+**Status:** Not started -- logged only, no fix yet
+
+**Current behaviour**
+`format_period_label(run_id)` is called independently in two places:
+`generation/writer.py:74-79`'s `_report_title()` (the narrative prompt's
+own title) and `generation/assembler.py:1046-1080` (the rendered docx's
+cover-page heading). Same class of duplication R-017 already fixed for
+severity counts -- two call sites computing the same derived value from
+the same input, with no shared state between them, so they can drift if
+either call site changes without the other being updated.
+
+**Intended behaviour**
+Derive the period label once per run and thread it through, rather than
+recomputing it at each render site. Given `format_period_label()` is pure
+and both call sites pass the same `run_id`, this is lower-risk than
+R-017's case (identical input still guarantees identical output today),
+but the duplication itself is the same shape of latent defect.
+
+**Verification**
+- `assert writer.py's title period label == assembler.py's heading period label` (already true today; this requirement is about removing the duplication, not fixing an observed disagreement)
+
+**Note**
+Found during session-2 orientation (2026-08-20), same pass as R-020. Not
+fixed this session.
+
 ---
 
 # Phase 4: Prompt
@@ -813,7 +938,7 @@ To be completed after regeneration and sent to Lorenz alongside the new draft.
 
 | Comment | Requirement | Status | Note |
 |---|---|---|---|
-| LM1 (metrics) | R-002 | | |
+| LM1 (metrics) | R-002 | Implemented | Metric list moved to `report_spec.yaml`; four hardcoded metrics replaced with the agreed set (First-Time Access, Worth the Premium, Claim Process Understanding, Children's Wellbeing Improved), each carrying a base label where its base is restricted. |
 | LM1 (NPS focus) | R-013 | | |
 | HO2R1 | R-016 | | |
 | LM3 (labels) | R-012 | | |

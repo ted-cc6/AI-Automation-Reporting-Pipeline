@@ -15,8 +15,9 @@ def _metric(value, n_valid, suppressed=False, not_applicable=False):
     return {"value": value, "n_valid": n_valid, "suppressed": suppressed, "not_applicable": not_applicable}
 
 
-def _base_analysis(**overrides) -> dict:
+def _base_analysis(report_scope=None, **overrides) -> dict:
     analysis = {
+        "meta": {"report_scope": report_scope},
         "parts": {
             "part_4": {
                 "nps": {"result": _metric(20.0, 500)},
@@ -44,7 +45,11 @@ def _base_analysis(**overrides) -> dict:
                 "metrics": {
                     "coverage_understanding": {"headline": _metric(0.5, 500)},
                     "claim_process_understanding": {"headline": _metric(0.5, 500)},
-                    "worth_premium": {"headline": _metric(0.5, 500)},
+                    # Deliberately not 0.5 like the metric above -- a tie here
+                    # would trip _disambiguate_tied_percentages() and this
+                    # fixture is meant for plain 1-decimal formatting tests.
+                    # See TestDisambiguateTiedPercentages below for the tie case.
+                    "worth_premium": {"headline": _metric(0.62, 500)},
                     "renewal_intent": {"headline": _metric(0.5, 500)},
                     "product_understanding": {"headline": _metric(None, 0, suppressed=True, not_applicable=True)},
                 }
@@ -60,33 +65,59 @@ class TestHeadlineNumbers:
         rows = headline_numbers(_base_analysis())
         labels = [r["label"] for r in rows]
         assert labels == [
-            "Net Promoter Score",
-            "Children's Wellbeing Improved",
             "First-Time Access to Insurance",
-            "Filed a Claim",
+            "Worth the Premium",
+            "Claim Process Understanding",
+            "Children's Wellbeing Improved",
         ]
 
     def test_values_formatted_correctly(self):
         rows = {r["label"]: r for r in headline_numbers(_base_analysis())}
-        assert rows["Net Promoter Score"]["value"] == "20.0"
+        assert rows["First-Time Access to Insurance"]["value"] == "80.0%"
+        assert rows["Worth the Premium"]["value"] == "62.0%"
+        assert rows["Claim Process Understanding"]["value"] == "50.0%"
         assert rows["Children's Wellbeing Improved"]["value"] == "35.0%"
-        assert rows["Filed a Claim"]["value"] == "20.0%"
-        # "n" is the row's stated BASE (n_total = 500, the insured-event
-        # population this 20% is computed against), not the numerator (100
-        # clients who filed) -- a real generated report once showed "Filed a
-        # Claim | 44.4% | 55" where 55 was the numerator and the true base
-        # was 124, misleading a reader into thinking N=55 respondents were
-        # asked this question.
-        assert rows["Filed a Claim"]["n"] == 500
+        # "n" is each row's own stated base (n_valid), already the correct
+        # denominator of its own percentage in every case -- R-002's session-2
+        # correction found this was already true; the real gap was that a
+        # restricted-base row (Children's Wellbeing, on child_wellbeing_base)
+        # was rendered identically to a full-sample row, with no way for a
+        # reader to tell them apart. See base_label below and R-002 in
+        # docs/report_spec.md.
+        assert rows["First-Time Access to Insurance"]["n"] == 500
+        assert rows["Children's Wellbeing Improved"]["n"] == 400
+
+    def test_base_label_null_for_full_sample_metric(self):
+        rows = {r["label"]: r for r in headline_numbers(_base_analysis())}
+        assert rows["First-Time Access to Insurance"]["base_label"] == ""
+        assert rows["Claim Process Understanding"]["base_label"] == ""
+
+    def test_base_label_static_phrase_for_restricted_metric(self):
+        rows = {r["label"]: r for r in headline_numbers(_base_analysis())}
+        assert rows["Children's Wellbeing Improved"]["base_label"] == "clients with children in household"
+
+    def test_base_label_worth_premium_resolves_by_report_scope(self):
+        # worth_premium's base_label is a {default, lacro} dict in
+        # report_spec.yaml, resolved the same way every population: note
+        # already is (generation/orchestrator.py's _resolve_population()) --
+        # a LACRO-scoped report is 100% Health, so no restriction applies.
+        lacro_rows = {r["label"]: r for r in headline_numbers(_base_analysis(report_scope="lacro"))}
+        assert lacro_rows["Worth the Premium"]["base_label"] == ""
+
+        default_rows = {r["label"]: r for r in headline_numbers(_base_analysis(report_scope="africa"))}
+        assert default_rows["Worth the Premium"]["base_label"] == "Health & credit-life clients only"
+
+        unset_rows = {r["label"]: r for r in headline_numbers(_base_analysis())}
+        assert unset_rows["Worth the Premium"]["base_label"] == "Health & credit-life clients only"
 
     def test_not_applicable_metric_omitted_not_shown_as_na(self):
         analysis = _base_analysis()
-        analysis["parts"]["part_4"]["nps"]["result"] = _metric(
+        analysis["parts"]["part_1"]["metrics"]["claim_process_understanding"] = {"headline": _metric(
             None, 0, suppressed=True, not_applicable=True
-        )
+        )}
         rows = headline_numbers(analysis)
         labels = [r["label"] for r in rows]
-        assert "Net Promoter Score" not in labels
+        assert "Claim Process Understanding" not in labels
         assert len(rows) == 3
 
     def test_missing_data_entirely_shows_suppressed_not_silently_empty(self):
@@ -98,6 +129,63 @@ class TestHeadlineNumbers:
         rows = headline_numbers({"parts": {}})
         assert len(rows) == 4
         assert all(r["value"] == "SUPPRESSED" for r in rows)
+
+
+class TestDisambiguateTiedPercentages:
+    def test_rows_tied_at_one_decimal_get_a_second_decimal(self):
+        # Real production values from runs/lacro_final_check/: worth_premium
+        # =0.8006972690296339 and claim_process_understanding=
+        # 0.8012783265543288 both round to "80.1%" at 1 decimal, reading like
+        # a copy-paste error in a 4-row table. Only these two rows should
+        # gain a second decimal; the other two, untied, stay at 1 decimal.
+        analysis = _base_analysis()
+        analysis["parts"]["part_1"]["metrics"]["worth_premium"] = {
+            "headline": _metric(0.8006972690296339, 1721)
+        }
+        analysis["parts"]["part_1"]["metrics"]["claim_process_understanding"] = {
+            "headline": _metric(0.8012783265543288, 1721)
+        }
+        rows = {r["label"]: r for r in headline_numbers(analysis)}
+        assert rows["Worth the Premium"]["value"] == "80.07%"
+        assert rows["Claim Process Understanding"]["value"] == "80.13%"
+        assert rows["First-Time Access to Insurance"]["value"] == "80.0%"
+        assert rows["Children's Wellbeing Improved"]["value"] == "35.0%"
+
+    def test_untied_rows_stay_at_one_decimal(self):
+        # Default fixture: no two rows tie at 1 decimal (worth_premium=62.0%
+        # is distinct from claim_process_understanding=50.0%) -- nothing
+        # should be bumped to 2 decimals.
+        rows = {r["label"]: r for r in headline_numbers(_base_analysis())}
+        assert rows["Worth the Premium"]["value"] == "62.0%"
+        assert rows["Claim Process Understanding"]["value"] == "50.0%"
+        assert rows["First-Time Access to Insurance"]["value"] == "80.0%"
+        assert rows["Children's Wellbeing Improved"]["value"] == "35.0%"
+
+    def test_suppressed_rows_do_not_trigger_disambiguation(self):
+        # Two rows both rendering "SUPPRESSED" is not a rounding collision --
+        # bumping decimal places on a non-numeric string would be meaningless.
+        analysis = _base_analysis()
+        analysis["parts"]["part_1"]["metrics"]["worth_premium"] = {
+            "headline": _metric(None, 0, suppressed=True)
+        }
+        analysis["parts"]["part_3"]["metrics"]["no_prior_access"] = {
+            "headline": _metric(None, 0, suppressed=True)
+        }
+        rows = {r["label"]: r for r in headline_numbers(analysis)}
+        assert rows["Worth the Premium"]["value"] == "SUPPRESSED"
+        assert rows["First-Time Access to Insurance"]["value"] == "SUPPRESSED"
+
+    def test_three_way_tie_bumps_all_three(self):
+        # All three round to "50.0%" at 1 decimal (second decimal digit < 5
+        # in each), but differ from the third decimal onward.
+        analysis = _base_analysis()
+        analysis["parts"]["part_1"]["metrics"]["worth_premium"] = {"headline": _metric(0.50001, 500)}
+        analysis["parts"]["part_1"]["metrics"]["claim_process_understanding"] = {"headline": _metric(0.50023, 500)}
+        analysis["parts"]["part_3"]["metrics"]["no_prior_access"] = {"headline": _metric(0.50044, 500)}
+        rows = {r["label"]: r for r in headline_numbers(analysis)}
+        assert rows["Worth the Premium"]["value"] == "50.00%"
+        assert rows["Claim Process Understanding"]["value"] == "50.02%"
+        assert rows["First-Time Access to Insurance"]["value"] == "50.04%"
 
 
 class TestDataAvailabilityCaveats:

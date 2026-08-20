@@ -10,6 +10,12 @@ Two kinds of check:
          Stubbed here with the assertion written out, to be wired in
          once the models exist.
 
+One exception to the TEXT/OBJECT split: C-002 (R-002) also reads
+generation/report_spec.yaml directly, not just rendered text. That
+requirement is about a config-driven metric list matching what actually
+renders, so the check needs the config to know what "matching" means --
+see C-002's own docstring.
+
 Usage:
     python report_checks.py test9.txt
     python report_checks.py new_run.txt --compare test9.txt
@@ -24,7 +30,10 @@ from __future__ import annotations
 import re
 import sys
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Callable
+
+import yaml
 
 BLOCKING = "BLOCKING"
 ADVISORY = "ADVISORY"
@@ -102,26 +111,160 @@ def period_label_matches_fieldwork(text: str):
     return True, ""
 
 
-@reg.add("C-002", "R-002", BLOCKING)
-def summary_n_column_is_a_denominator(text: str):
-    """Executive summary N values are denominators, not numerators.
+_SPEC_PATH = Path(__file__).resolve().parent.parent / "generation" / "report_spec.yaml"
 
-    Test9 shows Filed a Claim with N=124, which is the count who
-    experienced an insured event, while the 44.4% is 55/124. Other rows
-    use the full sample. Mixing the two makes the table unreadable.
+
+def _resolve_base_label(base_label, report_scope: "str | None"):
+    """Same resolution rule as generation/orchestrator.py's
+    _resolve_population() -- a plain value (including None) is used as-is;
+    a dict is looked up by this run's report_scope, falling back to
+    "default". Duplicated here rather than imported so this file keeps no
+    runtime dependency on the generation/ package -- see C-002's docstring
+    for why this check reads report_spec.yaml at all despite that."""
+    if not isinstance(base_label, dict):
+        return base_label
+    if report_scope in base_label:
+        return base_label[report_scope]
+    return base_label.get("default")
+
+
+def _load_summary_metrics() -> list:
+    """Raw executive_summary.metrics entries from report_spec.yaml, in
+    order. [] if the file or key is missing."""
+    if not _SPEC_PATH.exists():
+        return []
+    spec = yaml.safe_load(_SPEC_PATH.read_text(encoding="utf-8")) or {}
+    return spec.get("executive_summary", {}).get("metrics", [])
+
+
+def _summary_metric_specs(report_scope: "str | None") -> list:
+    """[(label, expects_base_label), ...] for every configured
+    executive_summary metric, in report_spec.yaml order, resolved against
+    report_scope exactly as generation/executive_summary.py's
+    headline_numbers() resolves it at render time."""
+    return [
+        (m["label"], bool(_resolve_base_label(m.get("base_label"), report_scope)))
+        for m in _load_summary_metrics()
+    ]
+
+
+def _summary_metric_labels() -> list:
+    """Just the label strings from report_spec.yaml's executive_summary.
+    metrics -- report_scope-independent (the label itself never varies by
+    scope, only base_label does). Used by C-009/C-019 to keep the summary
+    table's own row labels out of checks whose job is narrative prose, not
+    the deterministic table."""
+    return [m["label"] for m in _load_summary_metrics()]
+
+
+def _summary_table_row_spans(text: str) -> list:
+    """[(label, row_start, cell_start, cell_end), ...] for every configured
+    executive_summary metric found in text's Executive Summary table.
+    row_start is the label's own match position; cell_start is right after
+    it, where the Value/N/Base cell content begins; cell_end bounds that
+    cell at the next known label, a known section heading, or a genuine
+    sentence-ending period (not the decimal point inside this row's own
+    Value cell, e.g. "36.1%"), whichever comes first. [] if no "Executive
+    Summary" heading or no configured labels are found. Matching is
+    case-insensitive so this works against both original-case text (C-002,
+    C-009) and already-lowercased text (C-019).
+
+    Shared by three checks with three different needs against the same
+    table: C-002 reads inside each row's cell to check its base label;
+    C-009 excludes anything inside a row from its narrative-conflict scan
+    (a table row is not a sentence); C-019 excludes the whole table from
+    what counts as "the narrative."
+    """
+    heading = re.search(r"Executive Summary", text, re.I)
+    labels = _summary_metric_labels()
+    if not heading or not labels:
+        return []
+    block_start = heading.end()
+    spans = []
+    for label in labels:
+        m = re.search(re.escape(label), text[block_start:], re.I)
+        if not m:
+            continue  # row omitted entirely (e.g. not_applicable) -- nothing to span
+        row_start = block_start + m.start()
+        cell_start = block_start + m.end()
+        row_text = text[cell_start: cell_start + 200]
+        end = len(row_text)
+        for boundary in [l for l in labels if l != label] + [
+            "Data Availability", "Top Findings", "Recommended Actions",
+        ]:
+            idx = row_text.lower().find(boundary.lower())
+            if idx != -1:
+                end = min(end, idx)
+        sentence_end = re.search(r"(?<!\d)\.(?!\d)", row_text)
+        if sentence_end:
+            end = min(end, sentence_end.start())
+        spans.append((label, row_start, cell_start, cell_start + end))
+    return spans
+
+
+@reg.add("C-002", "R-002", BLOCKING)
+def summary_base_label_matches_config(text: str):
+    """Every Executive Summary row's base-label presence matches
+    report_spec.yaml's executive_summary.metrics config for this report's
+    scope -- reads generation/report_spec.yaml directly, the one departure
+    from this file's text-only pattern (see module docstring).
+
+    Superseded heuristic (session 1, before this check existed in this
+    form): flagged wide variance in the table's N column as a proxy for "N
+    might be a numerator, not a denominator." That premise was wrong --
+    session-2 orientation traced every row's n_path into
+    analysis_engine/stats.py and found each one was already its own
+    percentage's correct denominator (Filed a Claim's N=124 IS
+    filed_claim_base_n, the denominator of 44.4% = 55/124). The actual
+    defect was that a restricted-base row (e.g. Children's Wellbeing, on
+    child_wellbeing_base) rendered identically to a full-sample row, with
+    nothing telling a reader the two apart.
+
+    A tempting middle ground -- compare each row's N against a "full
+    sample" figure pulled from elsewhere in the text -- was considered and
+    rejected: ordinary item non-response shrinks even a genuine full-sample
+    row's N below the report's total respondent count, so N-vs-N comparison
+    cannot tell "this row is restricted" apart from "a few people skipped
+    this question," and would flag real full-sample rows as false
+    positives. Checking against report_spec.yaml's own base_label
+    declaration side-steps that entirely: whether a row is expected to
+    carry base text is a config fact, not something inferred from
+    arithmetic on the rendered numbers.
     """
     t = _norm(text)
-    block = re.search(r"Executive Summary(.{0,600})", t)
-    if not block:
+    report_scope = "lacro" if "LACRO Regional Portfolio" in t else None
+    specs = dict(_summary_metric_specs(report_scope))
+    if not specs:
+        return True, "no executive_summary.metrics in report_spec.yaml, nothing to compare"
+    spans = _summary_table_row_spans(t)
+    if not spans:
         return True, "no executive summary found"
-    ns = [int(x.replace(",", "")) for x in re.findall(r"\b(\d{3,4})\b", block.group(1))]
-    if not ns:
-        return True, "no N values parsed"
-    if len(set(ns)) > 1 and min(ns) < max(ns) / 4:
-        return False, (
-            f"summary N values vary widely ({sorted(set(ns))}); confirm each "
-            f"is the denominator of its own percentage"
-        )
+    bad = []
+    for label, row_start, cell_start, cell_end in spans:
+        expects_label = specs.get(label, False)
+        cell = t[cell_start:cell_end]
+        # \d+ (not \d{1,3}) -- N renders unformatted (e.g. "1721", not
+        # "1,721"; see generation/assembler.py's _add_table(), str(int)
+        # with no thousands separator), and a capped \d{1,3} with a
+        # trailing \b cannot match a 4+-digit run at all: \b blocks
+        # starting mid-run, so a real N like "1313" produced no match,
+        # `base_text` silently fell back to "", and every row with a
+        # 4-digit N (including genuinely restricted ones) read as
+        # label-absent regardless of what actually followed it -- caught
+        # by a false FAIL against real lacro_final_check output where
+        # Children's Wellbeing Improved's genuine base label was invisible
+        # to this regex.
+        n_match = re.search(r"\b\d+(?:,\d{3})*\b(?!\.\d|%)", cell)
+        base_text = cell[n_match.end():].strip(" |\t") if n_match else ""
+        has_label = bool(base_text)
+        if has_label != expects_label:
+            bad.append(
+                f"{label}: base label {'present' if has_label else 'absent'} "
+                f"({base_text!r}), report_spec.yaml expects "
+                f"{'present' if expects_label else 'absent'} for report_scope={report_scope!r}"
+            )
+    if bad:
+        return False, "; ".join(bad)
     return True, ""
 
 
@@ -220,13 +363,31 @@ def no_metric_reported_with_two_values(text: str):
     Test9 reports healthcare access improved at 33.9% in Part 5 prose and
     8.9% in the Part 5 caregiver table, because the table pairs a
     restricted numerator with an unrestricted denominator.
+
+    Excludes the Executive Summary table specifically (session-2,
+    2026-08-20) -- this check's job is catching a genuine narrative/table
+    disagreement like the Part 5 defect above, not scanning the Executive
+    Summary table itself. R-002's new table uses "Claim Process
+    Understanding" as a row label -- already on this check's own hardcoded
+    list, from the unrelated Part 5 defect -- and its three OTHER rows sit
+    close enough together in flattened text to land inside that label's
+    +/-90-character window, reading as conflicting values for a metric
+    that only actually appears once. Excluding just the Executive Summary
+    table's own rows (not tables in general -- Part 5's caregiver table,
+    the real second half of the original defect, must stay in scope, so a
+    blanket "no tables" or "requires a verb nearby" rule would have broken
+    that) fixes this without widening the label list or loosening the
+    window, per instruction.
     """
     t = _norm(text)
+    excluded = [(row_start, cell_end) for _, row_start, _, cell_end in _summary_table_row_spans(t)]
     findings = {}
     for label in ["healthcare access improved", "high financial stress",
                   "coverage understanding", "claim process understanding"]:
         vals = set()
         for m in re.finditer(re.escape(label), t, re.I):
+            if any(s <= m.start() < e for s, e in excluded):
+                continue  # this occurrence is inside the Executive Summary table, not prose
             window = t[max(0, m.start() - 90): m.end() + 90]
             vals.update(re.findall(r"(\d{1,3}\.\d)%", window))
         if len(vals) > 2:
@@ -362,9 +523,33 @@ def summary_actions_restart_numbering(text: str):
 
 @reg.add("C-019", "R-013", ADVISORY)
 def summary_spans_multiple_modules(text: str):
-    """The executive summary draws on more than the NPS module."""
+    """The executive summary draws on more than the NPS module.
+
+    Restricted to the narrative prose block (session-2, 2026-08-20):
+    previously scanned everything before "about this survey", which
+    includes the deterministic Executive Summary table. R-002's new table
+    uses "Worth the Premium" and "Claim Process Understanding" as row
+    labels, both of which happen to match this check's own module-keyword
+    phrases ("worth the premium" under value, "claim process" under
+    claims) -- so a report with NO narrative at all (no
+    qualitative_results.json) could pass on table row labels alone, which
+    defeats the point of an advisory check meant to flag exactly that gap.
+    Now excludes the table's own rows and stops before "Data Availability"
+    (a template caveat box, not narrative -- and its cross-reference
+    sentence happens to repeat "Claim Process Understanding" verbatim, so
+    stopping before it matters even after the table itself is excluded),
+    leaving only the genuine narrative zone: the exec_prose paragraph, Top
+    Findings, Recommended Actions, whichever are present. Against a report
+    with none of those (this session's own lacro_final_check regeneration
+    has no qualitative_results.json), this now correctly FAILS -- an
+    honest advisory gap instead of a coincidental pass.
+    """
     t = _lower(text)
     block = t.split("about this survey")[0]
+    block = block.split("data availability")[0]
+    spans = _summary_table_row_spans(block)
+    if spans:
+        block = block[max(cell_end for _, _, _, cell_end in spans):]
     modules = {
         "claims": ["claim process", "claims funnel", "filed a claim"],
         "access": ["first-time access", "first time access", "no prior insurance"],
