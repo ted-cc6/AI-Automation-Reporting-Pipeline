@@ -357,7 +357,7 @@ class TestProtectionSignalsSummary:
     def _paragraphs(self, protection_flags: list) -> list:
         from docx import Document
         doc = Document()
-        _add_protection_signals_summary(doc, protection_flags)
+        _add_protection_signals_summary(doc, protection_flags, assembler._compute_severity_counts(protection_flags))
         return [p.text for p in doc.paragraphs]
 
     def test_no_flags_renders_nothing(self):
@@ -383,7 +383,7 @@ class TestProtectionSignalsAnnex:
     def _paragraphs(self, protection_flags: list) -> list:
         from docx import Document
         doc = Document()
-        _add_protection_signals_annex(doc, protection_flags)
+        _add_protection_signals_annex(doc, protection_flags, assembler._compute_severity_counts(protection_flags))
         return [p.text for p in doc.paragraphs]
 
     def test_no_flags_renders_nothing(self):
@@ -410,6 +410,64 @@ class TestProtectionSignalsAnnex:
         paras = self._paragraphs(_FLAGS)
         headings = [p for p in paras if p.endswith("severity")]
         assert headings == ["High severity", "Medium severity", "Low severity"]
+
+    def test_same_client_multiple_concerns_is_annotated(self):
+        # R-003: a client with two genuinely distinct kept concerns (after
+        # qualitative/parse_results.py's client-level dedup) must read as
+        # explained, not as an unexplained repeat of the same client ref.
+        flags = [
+            {"id": "row_0011", "flag_type": "unfair_claim_denial", "severity": "high",
+             "reason": "Claim denied without explanation.",
+             "profile": {"client_id": "CI-00011", "branch": "Branch A"},
+             "same_client_multiple_concerns": True},
+            {"id": "row_0055", "flag_type": "staff_misconduct", "severity": "medium",
+             "reason": "Separate complaint about a different visit.",
+             "profile": {"client_id": "CI-00011", "branch": "Branch A"},
+             "same_client_multiple_concerns": True},
+        ]
+        body = "\n".join(self._paragraphs(flags))
+        assert "Claim denied without explanation. (CI-00011, Branch A; same client, multiple concerns)" in body
+        assert "Separate complaint about a different visit. (CI-00011, Branch A; same client, multiple concerns)" in body
+
+    def test_single_concern_client_is_not_annotated(self):
+        body = "\n".join(self._paragraphs(_FLAGS))
+        assert "same client, multiple concerns" not in body
+
+
+class TestSeverityCountsSharedBetweenSummaryAndAnnex:
+    """R-017's actual acceptance criterion: the severity counts rendered in
+    the Part 2 in-body summary must equal those rendered in the appendix."""
+
+    def test_summary_and_annex_counts_agree(self):
+        from docx import Document
+
+        severity_counts = assembler._compute_severity_counts(_FLAGS)
+
+        summary_doc = Document()
+        _add_protection_signals_summary(summary_doc, _FLAGS, severity_counts)
+        summary_paras = [p.text for p in summary_doc.paragraphs]
+
+        annex_doc = Document()
+        _add_protection_signals_annex(annex_doc, _FLAGS, severity_counts)
+        annex_paras = [p.text for p in annex_doc.paragraphs]
+
+        # Count annex bullets under each "<Severity> severity" heading.
+        annex_counts: dict[str, int] = {}
+        current = None
+        for p in annex_paras:
+            if p.endswith(" severity"):
+                current = p.split()[0].lower()
+                annex_counts[current] = 0
+            elif current and p.strip():
+                annex_counts[current] += 1
+
+        for sev, count in severity_counts.items():
+            assert f"{count} {sev}" in "\n".join(summary_paras), (
+                f"summary doesn't state {count} {sev}"
+            )
+        assert annex_counts == severity_counts, (
+            f"appendix bullet counts {annex_counts} disagree with severity_counts {severity_counts}"
+        )
 
 
 class TestAssembleProtectionSignalsRouting:

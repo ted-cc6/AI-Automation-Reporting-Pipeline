@@ -5,13 +5,14 @@ with profile from parquet, write qualitative_results.json.
 """
 import json
 import logging
+import re
 from collections import Counter
 from datetime import datetime, timezone
 from pathlib import Path
 
 import pandas as pd
 
-from qualitative.llm_call import humanize_theme_label
+from qualitative.llm_call import _SEVERITY_RANK, humanize_theme_label
 
 log = logging.getLogger(__name__)
 
@@ -202,6 +203,79 @@ def _enrich_protection_flags(flags: list, df: pd.DataFrame) -> list:
     return enriched
 
 
+def _normalise_reason(reason: "str | None") -> str:
+    """Collapse whitespace and lowercase only -- no fuzzy or similarity
+    matching, so this only ever collapses genuinely identical reason text."""
+    return re.sub(r"\s+", " ", (reason or "").strip()).lower()
+
+
+def _dedupe_protection_flags_by_client(flags: list) -> "tuple[list, int]":
+    """Second dedup pass, run after _enrich_protection_flags attaches
+    client_id.
+
+    llm_call._dedupe_protection_flags already collapses flags sharing the
+    same (row id, flag_type) -- but it runs before client_id exists, and
+    its key is the survey row, not the client. A row id is 1:1 with a
+    single dataframe row, so two DIFFERENT rows for the same client (a
+    genuinely re-surveyed client, or an unresolved upstream duplicate --
+    see data_loader_screening.py's client_id_reuse_warnings /
+    uuid_duplicate_pairs) never collide on that key and both survive as
+    separate entries even when they restate the identical concern. This
+    pass catches that case at the client level instead.
+
+    Key: (client_id, flag_type, normalised reason). A client raising two
+    genuinely distinct concerns -- different flag_type, or the same
+    flag_type worded differently -- is NOT collapsed: both entries are
+    kept, and every surviving entry for a client left with more than one
+    concern is marked same_client_multiple_concerns so the report can say
+    so explicitly instead of rendering an unexplained repeat. On a
+    collision, the higher-severity copy is kept (ties keep whichever was
+    seen first), matching llm_call._dedupe_protection_flags's behaviour.
+
+    Flags with no resolvable client_id (profile lookup failed) are passed
+    through unchanged -- there is no client key to dedup on, and
+    collapsing them onto a shared empty key would wrongly merge unrelated
+    flags from different, merely-unidentified respondents.
+
+    Returns (deduped_flags, n_unresolved): n_unresolved is how many input
+    flags had no client_id and so skipped this pass untouched, made
+    visible to the caller rather than silently absorbed -- if enrichment
+    fails at scale, this dedup silently becomes a no-op, and that has to
+    be visible, not inferred.
+    """
+    best: dict[tuple, dict] = {}
+    order: list[tuple] = []
+    unresolved: list[dict] = []
+    for flag in flags:
+        client_id = (flag.get("profile") or {}).get("client_id")
+        if not client_id:
+            unresolved.append(flag)
+            continue
+        key = (client_id, flag.get("flag_type"), _normalise_reason(flag.get("reason")))
+        existing = best.get(key)
+        if existing is None:
+            best[key] = flag
+            order.append(key)
+            continue
+        existing_rank = _SEVERITY_RANK.get((existing.get("severity") or "").lower(), 0)
+        new_rank = _SEVERITY_RANK.get((flag.get("severity") or "").lower(), 0)
+        if new_rank > existing_rank:
+            best[key] = flag
+    deduped = [best[key] for key in order]
+
+    client_counts: dict[str, int] = {}
+    for flag in deduped:
+        cid = flag["profile"]["client_id"]
+        client_counts[cid] = client_counts.get(cid, 0) + 1
+    for flag in deduped:
+        cid = flag["profile"]["client_id"]
+        flag["same_client_multiple_concerns"] = client_counts[cid] > 1
+    for flag in unresolved:
+        flag["same_client_multiple_concerns"] = False
+
+    return deduped + unresolved, len(unresolved)
+
+
 def parse_and_save(
     raw_gemini: dict,
     df: pd.DataFrame,
@@ -258,6 +332,12 @@ def parse_and_save(
     enriched_flags = _enrich_protection_flags(
         raw_gemini.get("protection_flags", []), df
     )
+    enriched_flags, n_unresolved_client = _dedupe_protection_flags_by_client(enriched_flags)
+    if n_unresolved_client:
+        log.warning(
+            f"{n_unresolved_client} protection flag(s) had no resolvable client_id "
+            "and passed through client-level dedup (R-003) unchanged"
+        )
 
     result = {
         "meta": {

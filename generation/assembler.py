@@ -243,7 +243,20 @@ def _protection_flag_ref(flag: dict) -> str:
     return flag.get("id", "") or "unknown"
 
 
-def _add_protection_signals_summary(doc, protection_flags: list) -> None:
+def _compute_severity_counts(protection_flags: list) -> dict:
+    """Single source of truth for severity tallies (R-017). Both the
+    in-body summary and the appendix call this on the same canonical
+    protection_flags list rather than each maintaining its own counting
+    loop -- identical input to a pure function guarantees identical
+    output, so the two renderings can't drift apart."""
+    by_severity: dict[str, int] = {}
+    for flag in protection_flags:
+        sev = (flag.get("severity") or "unspecified").lower()
+        by_severity[sev] = by_severity.get(sev, 0) + 1
+    return by_severity
+
+
+def _add_protection_signals_summary(doc, protection_flags: list, severity_counts: dict) -> None:
     """Short in-body summary (counts by severity) inline in Part 2 -- the
     full itemized list with per-case reason text and client references for
     follow-up moves to "Appendix: Client Protection Signals" instead (see
@@ -253,13 +266,9 @@ def _add_protection_signals_summary(doc, protection_flags: list) -> None:
         return
     _add_heading(doc, "Client Protection Signals", level=4)
 
-    by_severity: dict[str, int] = {}
-    for flag in protection_flags:
-        sev = (flag.get("severity") or "unspecified").lower()
-        by_severity[sev] = by_severity.get(sev, 0) + 1
-    ordered_keys = [s for s in _SEVERITY_ORDER if s in by_severity]
-    ordered_keys += [s for s in by_severity if s not in _SEVERITY_ORDER]
-    counts_text = ", ".join(f"{by_severity[s]} {s}" for s in ordered_keys)
+    ordered_keys = [s for s in _SEVERITY_ORDER if s in severity_counts]
+    ordered_keys += [s for s in severity_counts if s not in _SEVERITY_ORDER]
+    counts_text = ", ".join(f"{severity_counts[s]} {s}" for s in ordered_keys)
 
     n_total = len(protection_flags)
     _add_paragraph(
@@ -271,7 +280,7 @@ def _add_protection_signals_summary(doc, protection_flags: list) -> None:
     )
 
 
-def _add_protection_signals_annex(doc, protection_flags: list) -> None:
+def _add_protection_signals_annex(doc, protection_flags: list, severity_counts: dict) -> None:
     """Full itemized client-protection flag list (reason text + client
     reference per case), grouped by severity -- rendered once as a document
     appendix instead of inline in Part 2 (see _add_protection_signals_summary()
@@ -289,17 +298,18 @@ def _add_protection_signals_annex(doc, protection_flags: list) -> None:
     for flag in protection_flags:
         sev = (flag.get("severity") or "unspecified").lower()
         by_severity.setdefault(sev, []).append(flag)
-    ordered_keys = [s for s in _SEVERITY_ORDER if s in by_severity]
-    ordered_keys += [s for s in by_severity if s not in _SEVERITY_ORDER]
+    ordered_keys = [s for s in _SEVERITY_ORDER if s in severity_counts]
+    ordered_keys += [s for s in severity_counts if s not in _SEVERITY_ORDER]
 
     for sev in ordered_keys:
         _add_bold_paragraph(doc, f"{sev.capitalize()} severity")
-        for flag in by_severity[sev]:
+        for flag in by_severity.get(sev, []):
             flag_type = flag.get("flag_type", "")
             label = _PROTECTION_FLAG_LABELS.get(flag_type, flag_type.replace("_", " ").capitalize())
             reason = (flag.get("reason") or "").strip()
             ref = _protection_flag_ref(flag)
-            _add_paragraph(doc, f"{label}: {reason} ({ref})", style="List Bullet")
+            note = "; same client, multiple concerns" if flag.get("same_client_multiple_concerns") else ""
+            _add_paragraph(doc, f"{label}: {reason} ({ref}{note})", style="List Bullet")
 
 
 _SPEARMAN_METHODOLOGY_INTRO = (
@@ -669,7 +679,7 @@ def build_part_2(doc, package: dict, texts: dict):
         _add_image_or_placeholder(doc, visuals[2])
 
     prot_flags = s2_3.get("qualitative", {}).get("protection_flags", [])
-    _add_protection_signals_summary(doc, prot_flags)
+    _add_protection_signals_summary(doc, prot_flags, _compute_severity_counts(prot_flags))
 
     # 2.4 — Payout outcomes
     s2_4 = sections.get("s2_4", {})
@@ -1128,7 +1138,7 @@ def assemble(packages: list, written_texts: dict, run_id: str, output_path: Path
             part_2_package.get("sections", {}).get("s2_3", {})
             .get("qualitative", {}).get("protection_flags", [])
         )
-        _add_protection_signals_annex(doc, prot_flags)
+        _add_protection_signals_annex(doc, prot_flags, _compute_severity_counts(prot_flags))
 
     included_parts = {package["part"] for package in packages}
     if "part_4" in included_parts or "part_5" in included_parts:

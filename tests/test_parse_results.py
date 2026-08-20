@@ -14,8 +14,10 @@ import pytest
 from qualitative.parse_results import (
     REQUIRED_TOP_KEYS,
     _count_themes,
+    _dedupe_protection_flags_by_client,
     _humanize_top_drivers,
     _lookup_profile,
+    _normalise_reason,
     _validate,
 )
 
@@ -127,6 +129,98 @@ class TestCountThemes:
     def test_empty_tags_produce_empty_counts(self):
         counts = _count_themes({"promoters": [], "passives": [], "detractors": []})
         assert counts == {"promoters": {}, "passives": {}, "detractors": {}}
+
+
+def _flag(client_id, flag_type, severity, reason, id_="row_0001", branch="Branch A"):
+    return {
+        "id": id_, "flag_type": flag_type, "severity": severity, "reason": reason,
+        "profile": {"client_id": client_id, "branch": branch},
+    }
+
+
+class TestNormaliseReason:
+    def test_collapses_whitespace_and_lowercases(self):
+        assert _normalise_reason("  Claim   was\ndenied.  ") == "claim was denied."
+
+    def test_none_becomes_empty_string(self):
+        assert _normalise_reason(None) == ""
+
+
+class TestDedupeProtectionFlagsByClient:
+    # R-003: llm_call._dedupe_protection_flags already collapsed same-row
+    # (id, flag_type) duplicates before client_id existed. This pass runs
+    # after client_id is attached and catches the same CLIENT flagged from
+    # two different rows restating the identical concern.
+
+    def test_identical_key_collapses_to_one_entry(self):
+        flags = [
+            _flag("CI-587099342", "unfair_claim_denial", "high",
+                  "Client says claim was denied without explanation.", id_="row_0011"),
+            _flag("CI-587099342", "unfair_claim_denial", "high",
+                  "Client says claim was denied without explanation.", id_="row_0087"),
+        ]
+        deduped, n_unresolved = _dedupe_protection_flags_by_client(flags)
+        assert len(deduped) == 1
+        assert n_unresolved == 0
+
+    def test_reason_normalisation_still_collapses_whitespace_and_case_variants(self):
+        flags = [
+            _flag("CI-1", "staff_misconduct", "medium", "Unresponsive branch staff.", id_="row_0001"),
+            _flag("CI-1", "staff_misconduct", "medium", "  unresponsive   branch staff.  ", id_="row_0002"),
+        ]
+        deduped, _ = _dedupe_protection_flags_by_client(flags)
+        assert len(deduped) == 1
+
+    def test_collision_keeps_higher_severity_copy(self):
+        flags = [
+            _flag("CI-1", "coercion", "low", "Same concern restated.", id_="row_0001"),
+            _flag("CI-1", "coercion", "high", "Same concern restated.", id_="row_0002"),
+        ]
+        deduped, _ = _dedupe_protection_flags_by_client(flags)
+        assert len(deduped) == 1
+        assert deduped[0]["severity"] == "high"
+
+    def test_same_client_different_flag_type_both_kept_and_annotated(self):
+        flags = [
+            _flag("CI-1", "unfair_claim_denial", "high", "Claim denied without reason.", id_="row_0001"),
+            _flag("CI-1", "staff_misconduct", "medium", "Separate complaint about staff.", id_="row_0002"),
+        ]
+        deduped, _ = _dedupe_protection_flags_by_client(flags)
+        assert len(deduped) == 2
+        assert all(f["same_client_multiple_concerns"] for f in deduped)
+
+    def test_same_client_same_flag_type_different_reason_both_kept(self):
+        flags = [
+            _flag("CI-1", "staff_misconduct", "medium", "Unresponsive at the branch.", id_="row_0001"),
+            _flag("CI-1", "staff_misconduct", "medium", "Rude to my daughter at pickup.", id_="row_0002"),
+        ]
+        deduped, _ = _dedupe_protection_flags_by_client(flags)
+        assert len(deduped) == 2
+        assert {f["reason"] for f in deduped} == {
+            "Unresponsive at the branch.", "Rude to my daughter at pickup.",
+        }
+
+    def test_single_concern_client_is_not_annotated(self):
+        flags = [_flag("CI-1", "coercion", "high", "One concern.", id_="row_0001")]
+        deduped, _ = _dedupe_protection_flags_by_client(flags)
+        assert deduped[0]["same_client_multiple_concerns"] is False
+
+    def test_no_client_id_passes_through_unresolved_and_is_counted(self):
+        flags = [
+            _flag(None, "coercion", "high", "Unresolved case.", id_="row_9999"),
+            _flag("CI-1", "coercion", "high", "Resolved case.", id_="row_0001"),
+        ]
+        deduped, n_unresolved = _dedupe_protection_flags_by_client(flags)
+        assert n_unresolved == 1
+        assert len(deduped) == 2
+
+    def test_different_clients_never_collapsed_even_with_identical_reason(self):
+        flags = [
+            _flag("CI-1", "coercion", "high", "Same wording, different client.", id_="row_0001"),
+            _flag("CI-2", "coercion", "high", "Same wording, different client.", id_="row_0002"),
+        ]
+        deduped, _ = _dedupe_protection_flags_by_client(flags)
+        assert len(deduped) == 2
 
 
 class TestHumanizeTopDrivers:
