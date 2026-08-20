@@ -5,7 +5,8 @@ Every check maps to a requirement ID in docs/report_spec.md.
 
 Two kinds of check:
   TEXT   runs against the rendered report text. Portable, works on the
-         existing Test9 PDF, no pipeline integration needed.
+         committed Test9 baseline (fixtures/test9.txt), no pipeline
+         integration needed.
   OBJECT runs against the assembled report object before rendering.
          Stubbed here with the assertion written out, to be wired in
          once the models exist.
@@ -16,13 +17,56 @@ requirement is about a config-driven metric list matching what actually
 renders, so the check needs the config to know what "matching" means --
 see C-002's own docstring.
 
+fixtures/test9.txt is the frozen baseline text -- committed, not
+extracted ad hoc, so the blocking-failure count it produces (the
+project's progress metric) is stable across sessions. It was extracted
+from the real Test9.docx (not the PDF Lorenz reviewed) via python-docx's
+iter_inner_content(), which reproduces paragraph/table document order
+faithfully, PLUS an explicit reconstruction of Word's "List Number"
+auto-numbering (python-docx's own Paragraph.text never includes a list
+style's auto-generated number -- it's computed by Word's rendering
+engine from the style, not stored as literal run text -- but IS baked
+into a PDF export's text layer, which is what a reader actually sees).
+Session-3 found and reconciled a real discrepancy this way: a raw
+docx-text extraction reported 4 passed/16 blocking against Test9,
+undercounting by exactly one true defect (R-013's Recommended Actions
+continuing 4-6 instead of resetting to 1) that only becomes visible
+once list numbering is reconstructed -- 3 passed/17 blocking, matching
+a PDF-based extraction exactly. See docs/report_spec.md's R-002
+Implementation note for the full investigation.
+
 Usage:
-    python report_checks.py test9.txt
-    python report_checks.py new_run.txt --compare test9.txt
+    python report_checks.py fixtures/test9.txt
+    python report_checks.py new_run.txt --compare fixtures/test9.txt
 
 Severity:
     BLOCKING  a defect a reader would notice. Fails the build.
     ADVISORY  worth a look. Logged, does not fail the build.
+
+Result (three states, not two):
+    pass  the check found its subject matter present and correct.
+    fail  the check found its subject matter present and wrong.
+    skip  the check's subject matter is not present in this report at all
+          (e.g. no protection appendix, no trend section) -- there was
+          nothing to verify, so nothing was verified. A skip is not a
+          pass: it carries no evidence the underlying requirement holds,
+          only that this particular text had nothing to check it
+          against. A check function signals skip by returning None
+          (instead of True/False) as its first value. Every check that
+          depends on a section that may legitimately be absent from a
+          partial or in-progress report -- not universal, banned-phrase-
+          anywhere checks like C-014/C-016/C-020/C-022 -- should skip
+          rather than silently pass when that section is missing; see
+          each check's own "nothing found" branch. Session-3
+          orientation: a run against a deliberately partial regeneration
+          (Executive Summary section only) reported "23/24 passed, 0
+          blocking failures" under the old two-state model -- almost
+          entirely because checks for sections that were never
+          regenerated (the protection appendix, trend section, and so
+          on) had nothing to check and silently counted as passes. A
+          clean two-state result on a partial report reads as evidence
+          of correctness it does not have; see main()'s coverage
+          warning below for the other half of this fix.
 """
 
 from __future__ import annotations
@@ -38,13 +82,17 @@ import yaml
 BLOCKING = "BLOCKING"
 ADVISORY = "ADVISORY"
 
+PASS = "pass"
+SKIP = "skip"
+FAIL = "fail"
+
 
 @dataclass
 class CheckResult:
     check_id: str
     requirement: str
     severity: str
-    passed: bool
+    status: str  # PASS | SKIP | FAIL
     detail: str = ""
 
 
@@ -65,7 +113,8 @@ class Registry:
                 ok, detail = fn(text)
             except Exception as exc:  # a check that errors is a failed check
                 ok, detail = False, f"check raised: {exc}"
-            results.append(CheckResult(check_id, requirement, severity, ok, detail))
+            status = SKIP if ok is None else (PASS if ok else FAIL)
+            results.append(CheckResult(check_id, requirement, severity, status, detail))
         return results
 
 
@@ -110,7 +159,7 @@ def period_label_matches_fieldwork(text: str):
     label = re.search(r"20\d\d\s*Q\d", t)
     dates = re.findall(r"(20\d\d)-(\d\d)-\d\d", t)
     if not label or not dates:
-        return True, "no label or no dates found, nothing to compare"
+        return None, "no label or no dates found, nothing to compare"
     quarters = {(y, (int(m) - 1) // 3 + 1) for y, m in dates}
     if len(quarters) > 1:
         return False, (
@@ -289,9 +338,9 @@ def summary_base_label_matches_config(text: str):
     report_scope = "lacro" if "LACRO Regional Portfolio" in nt else None
     specs = dict(_summary_metric_specs(report_scope))
     if not specs:
-        return True, "no executive_summary.metrics in report_spec.yaml, nothing to compare"
+        return None, "no executive_summary.metrics in report_spec.yaml, nothing to compare"
     if not spans:
-        return True, "no executive summary found"
+        return None, "no executive summary found"
     bad = []
     for label, row_start, cell_start, cell_end in spans:
         expects_label = specs.get(label, False)
@@ -326,6 +375,8 @@ def protection_appendix_has_no_duplicates(text: str):
     """No client reference appears twice with the same description."""
     t = _norm(text)
     entries = re.findall(r"\(([\d\-]{4,20}),\s*([^)]{2,40})\)", t)
+    if not entries:
+        return None, "no protection appendix entries found"
     seen, dupes = set(), []
     for ref, loc in entries:
         key = (ref.strip(), loc.strip().lower())
@@ -344,7 +395,7 @@ def protection_stated_total_matches_entries(text: str):
     t = _norm(text)
     stated = re.search(r"(\d+)\s+client[- ]reported protection concerns", t)
     if not stated:
-        return True, "no stated total found"
+        return None, "no stated total found"
     listed = len(re.findall(r"\(([\d\-]{4,20}),\s*[^)]{2,40}\)", t))
     if int(stated.group(1)) != listed:
         return False, f"states {stated.group(1)} concerns, lists {listed} entries"
@@ -356,7 +407,7 @@ def trend_table_declares_comparability(text: str):
     """Every trend indicator carries a comparability declaration."""
     t = _lower(text)
     if "trend comparison" not in t:
-        return True, "no trend section"
+        return None, "no trend section"
     header = re.search(r"indicator\s+20\d\d\s+20\d\d\s+comparability", t)
     if not header:
         return False, "trend table has no Comparability column header"
@@ -369,6 +420,8 @@ def trend_table_declares_comparability(text: str):
 def sentiment_uses_counts_not_percentages(text: str):
     """Sentiment splits are integer counts, never percentages."""
     hits = _find_all(text, r"sentiment split[^.]{0,160}")
+    if not hits:
+        return None, "no sentiment splits found"
     bad = [h for h in hits if "%" in h]
     if bad:
         return False, f"{len(bad)} sentiment split(s) expressed as percentages: {bad[0][:110]}"
@@ -384,7 +437,7 @@ def sentiment_states_its_base(text: str):
     """
     hits = _find_all(text, r"sentiment split[^.]{0,200}")
     if not hits:
-        return True, "no sentiment splits found"
+        return None, "no sentiment splits found"
     missing = [h for h in hits if not re.search(r"\b(of|from|across)\b.{0,60}\bresponses?\b", h, re.I)]
     if missing:
         return False, f"{len(missing)} of {len(hits)} splits do not state a base"
@@ -403,6 +456,8 @@ def sentiment_base_is_not_implausibly_small(text: str, floor: int = 25):
         nums = [int(n) for n in re.findall(r"\b(\d{1,4})\b", h)]
         if nums:
             counts.append(sum(n for n in nums if n < 500))
+    if not counts:
+        return None, "no sentiment splits found"
     tiny = [c for c in counts if c < floor]
     if tiny:
         return False, f"{len(tiny)} of {len(counts)} sentiment bases below {floor}: {sorted(tiny)}"
@@ -439,12 +494,14 @@ def no_metric_reported_with_two_values(text: str):
     nt, spans = _summary_table_row_spans(text)
     excluded = [(row_start, cell_end) for _, row_start, _, cell_end in spans]
     findings = {}
+    any_found = False
     for label in ["healthcare access improved", "high financial stress",
                   "coverage understanding", "claim process understanding"]:
         vals = set()
         for m in re.finditer(re.escape(label), nt, re.I):
             if any(s <= m.start() < e for s, e in excluded):
                 continue  # this occurrence is inside the Executive Summary table, not prose
+            any_found = True
             window = nt[max(0, m.start() - 90): m.end() + 90]
             vals.update(re.findall(r"(\d{1,3}\.\d)%", window))
         if len(vals) > 2:
@@ -452,6 +509,8 @@ def no_metric_reported_with_two_values(text: str):
     if findings:
         first = next(iter(findings.items()))
         return False, f"{len(findings)} metric(s) with conflicting values, e.g. {first[0]}: {first[1]}"
+    if not any_found:
+        return None, "none of the tracked metric labels found outside the summary table"
     return True, ""
 
 
@@ -463,8 +522,11 @@ def cross_references_point_to_the_right_part(text: str):
     healthcare access is reported in Part 5.
     """
     t = _norm(text)
+    matches = list(re.finditer(r"Part (\d+)'s ([a-z ]{4,40}?) metric", t, re.I))
+    if not matches:
+        return None, "no cross-part metric references found"
     bad = []
-    for m in re.finditer(r"Part (\d+)'s ([a-z ]{4,40}?) metric", t, re.I):
+    for m in matches:
         part, metric = m.group(1), m.group(2).strip().lower()
         section = re.search(rf"Part {part}:(.{{0,4000}}?)(?=Part \d+:|$)", t, re.I | re.S)
         if section and metric.split()[0] not in section.group(1).lower():
@@ -479,7 +541,7 @@ def coping_behaviour_is_named(text: str):
     """Negative coping is not reported as a bare rate."""
     t = _norm(text)
     if "coping" not in t.lower():
-        return True, "coping not reported"
+        return None, "coping not reported"
     named = re.search(
         r"(sold|borrow|savings|reduc\w+ food|took .{0,20}children out|"
         r"closed .{0,20}business|withdrew|pawn)", t, re.I)
@@ -494,7 +556,7 @@ def trend_table_has_no_significance_column(text: str):
     t = _norm(text)
     section = re.search(r"Trend Comparison(.{0,2600})", t, re.S)
     if not section:
-        return True, "no trend section"
+        return None, "no trend section"
     body = section.group(1)
     if re.search(r"\bSig\.", body) or "z-test" in body.lower():
         return False, "trend table still carries a significance column or z-test footnote"
@@ -506,7 +568,7 @@ def no_p_values_in_trend_section(text: str):
     """No p value appears in the trend section."""
     section = re.search(r"Trend Comparison(.{0,2600})", _norm(text), re.S)
     if not section:
-        return True, "no trend section"
+        return None, "no trend section"
     hits = re.findall(r"p\s*=\s*0?\.\d+", section.group(1), re.I)
     if hits:
         return False, f"p value(s) present in trend section: {hits}"
@@ -539,6 +601,8 @@ def qualitative_heading_implies_verbatims(text: str):
     """A qualitative heading is followed by at least one quoted verbatim."""
     t = _norm(text)
     parts = re.split(r"Key Qualitative Insights", t)
+    if len(parts) == 1:
+        return None, "no 'Key Qualitative Insights' headings found"
     empty = 0
     for chunk in parts[1:]:
         window = chunk[:1400]
@@ -563,6 +627,8 @@ def non_filer_is_renamed(text: str):
 def trend_columns_use_wave_years(text: str):
     """LM3: columns are labelled by year, not Current and Prior Wave."""
     t = _lower(text)
+    if "trend comparison" not in t:
+        return None, "no trend section"
     if "current wave" in t or "prior wave" in t:
         return False, "trend table still uses Current Wave / Prior Wave headers"
     return True, ""
@@ -572,6 +638,8 @@ def trend_columns_use_wave_years(text: str):
 def summary_actions_restart_numbering(text: str):
     """Recommended Actions are numbered from 1, not continuing from findings."""
     t = _norm(text)
+    if "Recommended Actions" not in t:
+        return None, "no Recommended Actions section found"
     m = re.search(r"Recommended Actions\s*(\d+)\.", t)
     if m and m.group(1) != "1":
         return False, f"Recommended Actions start at {m.group(1)}"
@@ -607,6 +675,8 @@ def summary_spans_multiple_modules(text: str):
     # _norm()-ed copy can differ in length, making those offsets invalid.
     nt, spans = _summary_table_row_spans(text)
     t = nt.lower()
+    if "executive summary" not in t:
+        return None, "no executive summary found"
     block = t.split("about this survey")[0]
     block = block.split("data availability")[0]
     if spans:
@@ -643,16 +713,20 @@ def percentages_sum_to_about_one_hundred(text: str):
     Catches the 55/40/8 = 103 defect seen in an earlier iteration.
     """
     bad = []
+    found_any = False
     for sentence in re.split(r"(?<=[.])\s", _norm(text)):
         pcts = [float(x) for x in re.findall(r"(\d{1,3}\.?\d?)%", sentence)]
         if len(pcts) < 3:
             continue
+        found_any = True
         total = sum(pcts)
         # only a complete distribution should land near 100
         if 100.5 < total < 108 or 92 < total < 99.5:
             bad.append(f"{pcts} sums to {total:.1f}")
     if bad:
         return False, "; ".join(bad[:3])
+    if not found_any:
+        return None, "no distribution-like sentences (3+ percentages) found"
     return True, ""
 
 
@@ -670,7 +744,7 @@ def suppression_threshold_is_stated(text: str):
     """If anything is suppressed, the threshold is stated once."""
     t = _lower(text)
     if "suppressed" not in t:
-        return True, "nothing suppressed"
+        return None, "nothing suppressed"
     if re.search(r"(fewer than|below|under)\s+\d+\s+(respondents|responses|clients)", t):
         return True, ""
     return False, "values suppressed but no threshold stated"
@@ -695,18 +769,39 @@ def main() -> int:
     results = reg.run(text)
 
     width = max(len(r.check_id) for r in results)
-    blocking_failures = 0
     print(f"\n{'CHECK':<{width}}  {'REQ':<7} {'SEV':<9} {'RESULT':<7} DETAIL")
     print("-" * 100)
     for r in sorted(results, key=lambda x: x.check_id):
-        status = "pass" if r.passed else "FAIL"
-        if not r.passed and r.severity == BLOCKING:
-            blocking_failures += 1
-        print(f"{r.check_id:<{width}}  {r.requirement:<7} {r.severity:<9} {status:<7} {r.detail[:120]}")
+        label = {PASS: "pass", SKIP: "SKIP", FAIL: "FAIL"}[r.status]
+        print(f"{r.check_id:<{width}}  {r.requirement:<7} {r.severity:<9} {label:<7} {r.detail[:120]}")
 
-    passed = sum(1 for r in results if r.passed)
+    passed = sum(1 for r in results if r.status == PASS)
+    skipped = sum(1 for r in results if r.status == SKIP)
+    blocking_failures = sum(1 for r in results if r.status == FAIL and r.severity == BLOCKING)
+    advisory_failures = sum(1 for r in results if r.status == FAIL and r.severity == ADVISORY)
     print("-" * 100)
-    print(f"{passed}/{len(results)} passed, {blocking_failures} blocking failure(s)\n")
+    print(
+        f"{passed} passed, {skipped} skipped, "
+        f"{advisory_failures} advisory failure(s), {blocking_failures} blocking failure(s)\n"
+    )
+
+    # Coverage assertion: a report can show zero blocking failures purely
+    # because most of what BLOCKING covers was never present to check --
+    # see the module docstring's "Result" section. If skips account for
+    # more than a third of blocking checks, that "0 blocking failures"
+    # is not evidence the report is correct, only that it's mostly
+    # untested; say so loudly rather than let a clean-looking run pass
+    # for a verified one.
+    blocking_total = sum(1 for r in results if r.severity == BLOCKING)
+    blocking_skipped = sum(1 for r in results if r.status == SKIP and r.severity == BLOCKING)
+    if blocking_total and blocking_skipped / blocking_total > 1 / 3:
+        print(
+            f"WARNING: {blocking_skipped}/{blocking_total} blocking checks "
+            f"({blocking_skipped / blocking_total:.0%}) were SKIPPED -- most of this "
+            f"report's content was not present to check. This result is NOT evidence "
+            f"the report is correct, only that it is PARTIAL.\n"
+        )
+
     return 1 if blocking_failures else 0
 
 

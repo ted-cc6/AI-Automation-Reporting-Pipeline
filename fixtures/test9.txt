@@ -1,0 +1,291 @@
+VisionFund International
+Insurance Impact Report: LACRO Regional Portfolio, 2026 Q2
+Covering 1,721 client responses across VisionFund's LACRO (Latin America and Caribbean Regional Office) insurance portfolio.
+Generated: 17 August 2026
+Executive Summary
+Metric | Value | N
+Net Promoter Score | 48.3 | 1721
+Children's Wellbeing Improved | 36.1% | 1313
+First-Time Access to Insurance | 77.2% | 1721
+Filed a Claim | 44.4% | 124
+Promoters most value the product's affordability and breadth: a low premium delivering a large, real benefit, whole-family coverage that other lenders do not offer, and a safety net that eases health emergencies. Detractors' main pain points cluster around product understanding, with many clients saying they were told they had insurance but never had the benefits or claim process explained, alongside coverage gaps on medicines and unresponsive service. The client protection picture is dominated by staff unresponsiveness and access barriers, and the remaining groups surfaced a claim reportedly rejected for a client and his daughter as well as a case where an account manager gave no follow-up on required medical studies. Looking forward, VisionFund should prioritize a structured, at-enrollment explanation of benefits and the claim process, paired with a reliable follow-up channel, to convert the large pool of confused-but-willing clients into confident users.
+Top Findings
+1. The single largest driver of dissatisfaction is a product understanding gap: clients repeatedly report being enrolled and charged without any explanation of the benefits or how to claim.
+2. Promoters consistently praise the value equation, a small premium for large, whole-family coverage that they see as a genuine safety net unlike other insurers.
+3. A recurring protection signal is unresponsive or absent staff follow-up when clients try to use the insurance, sometimes escalating to claims being told they are not valid.
+Recommended Actions
+4. Introduce a mandatory at-enrollment benefit and claims walkthrough with a take-home summary document, targeting the product understanding gap that dominates detractor and no-claim responses.
+5. Establish and staff a reliable claims follow-up channel with response-time standards, since clients report calls going unanswered and claims stalling without follow-up.
+6. Audit claim decisions for dependents and pre-existing conditions to ensure denials carry a documented valid reason, following the report of a client and his daughter being told their claim was not valid.
+Data Availability
+This report's survey instrument does not collect the following, so they do not appear elsewhere in this report: Renewal Intent (not collected by the LACRO survey instrument); Combined Product Understanding (reported instead in Part 1 as two split metrics, Coverage Understanding and Claim Process Understanding).
+About This Survey
+This report is based on 1,721 client responses collected between 2026-06-26 and 2026-08-04.
+Respondents by Country
+Country | N | %
+Ecuador | 318 | 18.5%
+Guatemala | 315 | 18.3%
+Bolivia | 278 | 16.2%
+Mexico | 272 | 15.8%
+Dominican Republic | 270 | 15.7%
+Honduras | 268 | 15.6%
+Respondents by Product
+Product | N | %
+Health | 1721 | 100.0%
+Crop | 0 | 0.0%
+Credit Life | 0 | 0.0%
+Age
+Mean age 40.4 years (range 18 to 78), based on 1,721 respondents with a recorded age.
+Respondents by Sex
+Sex | N | %
+Female | 1228 | 71.4%
+Male | 493 | 28.6%
+Data Notes
+3,823 client responses were exported; 1,721 are covered by this report.
+4 duplicate-submission row(s) removed (Two rows identical on every substantive answer column (KoBoToolbox identity/logistics columns excluded) are treated as one interview submitted twice; the earliest-submitted copy is kept, the rest dropped.)
+7 row(s) removed for declining consent.
+2,091 row(s) outside this report's scope ('lacro') removed.
+3 client ID(s) appear more than once with different answers (A client_id appearing more than once with DIFFERENT answers is not a duplicate submission (content differs) -- both rows are kept and logged as a warning for field-team reconciliation, never auto-dropped.) Both records are kept as-is pending field-team reconciliation.
+13 pair(s) of records share a device-assigned ID but are not identical (3 at high similarity, suggesting partial answer carryover between two interviews on the same device). Both records in each pair are kept as-is pending field-team reconciliation.
+Data quality flag (bolivia_duration_outlier): 213 of Bolivia's 278 interviews completed in under 5.3 minutes, against this run's own median of 13.4 minutes (76.6% of Bolivia's sample). 98.6% of those fast interviews are attributable to a single enumerator (rosa_cardenas). This is a data quality flag, not evidence the records are invalid -- Bolivia's data remains in every figure in this report; it is excluded only from headline claims and quoted verbatims pending human review.
+Data quality flag (period_label_mismatch): This run is labeled 2026 Q2, but the survey data's own recorded fieldwork dates (2026-06-26 to 2026-08-04) spans more than one calendar quarter; no single quarter label can fully represent it -- fieldwork falls in 2026 Q2 through 2026 Q3. Confirm the entered year/quarter is the intended reporting period before treating this report as final.
+Part 10: Trend Comparison
+Indicator | Current Wave | Prior Wave | Sig.*
+First-Time Access to Insurance ‡ | 77.2% | 73.6% | 
+Access to Alternatives (Difficult) ‡ | 44.5% | NOT COMPARABLE | 
+Child Wellbeing Improvement ‡ | 36.1% | NOT COMPARABLE | 
+Client Satisfaction (NPS) ‡ | 48.3 | 36.2 | 
+Product Understanding ‡ | NOT APPLICABLE | NOT COMPARABLE | 
+* p < 0.05 (two-proportion z-test)
+‡ First-Time Access to Insurance: The delta/significance test above compares the five countries surveyed in both waves only (Dominican Republic excluded -- new in 2026, no 2025 counterpart): 76.7% in this wave on those five countries, against 73.6% in 2025.
+‡ Access to Alternatives (Difficult): Not comparable to the prior wave: the 2025 instrument offered 4 forced-choice options; 2026 adds a neutral midpoint and "I don't know" (selected by 17.7% in 2026), which the 2025 wave could not select at all. This wave's figure is a new baseline, not a change from 2025 -- do not use comparative language (rose, fell, improved, declined, increased, decreased, up, down, since last year) for this indicator.
+‡ Child Wellbeing Improvement: Not comparable to the prior wave: the 2025 instrument used a 5-point scale; 2026 uses a binary yes/no question. This wave's figure is a new baseline, not a change from 2025 -- do not use comparative language (rose, fell, improved, declined, increased, decreased, up, down, since last year) for this indicator.
+‡ Client Satisfaction (NPS): not computed -- NPS is not a proportion, and the prior wave's individual respondent-level scores were never retained, only its aggregate value. The delta/significance test above compares the five countries surveyed in both waves only (Dominican Republic excluded -- new in 2026, no 2025 counterpart): 46.2 in this wave on those five countries, against 36.2 in 2025.
+‡ Product Understanding: Not comparable to the prior wave: the 2025 instrument used one combined 6-option question; 2026 splits it into two separate 4-point questions. This wave's format has no figure for this indicator either, in the combined-question form it is defined from -- simply not computable from this wave's data in that form.
+[VISUAL PENDING: part10_trend.png (Wave-over-Wave Trend)]
+Findings
+The Dominican Republic is new to this wave, contributing 270 clients (15.7% of this wave's sample) with no 2025-wave counterpart. First-Time Access to Insurance stood at 77.2% across LACRO; on the five countries surveyed in both waves it was 76.7%, against 73.6% in 2025, a difference that fell just short of the significance threshold (p=0.0553). Client satisfaction measured +48.3 NPS across LACRO; on those same five countries it was +46.2, against +36.2 in 2025, a 9.8-point gain. Access to Alternatives (Difficult) registered a new baseline of 44.
+Key Qualitative Insights
+Qualitative data for this section is not yet available, so no client verbatims or sentiment split can be reported for the trend comparison at this time. The quantitative picture rests on two genuinely comparable indicators: first-time access to insurance and client satisfaction, both higher among this wave's respondents on the five countries present in both waves. The remaining indicators reflect deliberate instrument improvements, a revised alternatives question and a binary child-wellbeing measure, and therefore serve as fresh baselines rather than year-over-year movements. As richer qualitative responses become available, they will help illustrate why access and satisfaction moved as they did and give voice to the experiences behind these portfolio-level figures across the LACRO region.
+Part 1: Product Understanding & Awareness
+Coverage Understanding
+Coverage understanding across the LACRO portfolio was strong: 85.2% of the 1,721 surveyed clients understood what their policy covers. This result held almost identically across gender, with 85.2% of female clients and 85.4% of male clients demonstrating clear understanding. Among clients who experienced an insured event in the past twelve months, understanding was slightly higher for those who filed a claim, at 85.5%, than for those who experienced an event but did not file, at 81.2%. This suggests that navigating a claim reinforces clients' grasp of their coverage.
+[VISUAL PENDING: part1_coverage_bar.png (Coverage Understanding by Segment)]
+Claim Process Understanding
+Understanding of the claims process was solid at 80.1% across the 1,721 surveyed clients, though somewhat lower than coverage understanding. Female clients reported 79.7% understanding and male clients 81.1%, a modest gap. The clearest divide appeared among clients who experienced an insured event in the past twelve months: 89.1% of those who filed a claim understood the process, compared with 63.8% of those who experienced an event but did not file. This gap indicates that direct experience with filing substantially strengthens process understanding, and points to an opportunity to reach clients before they need to claim.
+[VISUAL PENDING: part1_claims_process_bar.png (Claims Process Understanding by Segment)]
+Preferred Claims Channel
+Asked which channel they would prefer for submitting a claim, clients across the portfolio favoured messaging: 42.4% (n=730) prefer WhatsApp or other messaging applications, and 31.3% (n=539) would like an MFI officer to collect their documents in person. A further 18.0% (n=310) prefer visiting a VisionFund office directly, while 3.1% (n=54) chose other channels and 2.6% (n=44) preferred email.
+Product Value
+Clients across the LACRO portfolio saw clear value in their coverage: 80.1% of the 1,721 surveyed clients agreed that their insurance was worth the premium they paid. This majority indicates that, despite gaps in how benefits and claims are explained at enrollment, most clients recognise the protection their policy provides as a worthwhile investment. Sustaining and building on this perceived value depends on strengthening the information clients receive when they first sign up.
+Key Qualitative Insights
+Product understanding dominated this section's open responses: many clients knew they held a policy but were never given a clear explanation of the benefits or how to claim, with the lack of benefit explanation at enrollment and confusion about how to use the service standing out as top drivers. The sentiment split was 1 positive (10%), 6 negative (60%), and 3 neutral (30%). One caregiver captured the pattern, saying she does not know it because she was not given complete information, only the cost and not the benefits ("No lo conozco, no me dieron informacion completa sobre el seguro no solo el costo los beneficios").
+"No lo conozco , no me dieron informacion completa sobre el seguro no solo el costo los beneficios"
+(Female | age 31 | Copainala, Mexico | caregiver)
+"No se nada sobre el seguro solo me dijeron que lo tenia pero nadie me exlico"
+(Female | age 60 | Ometepec, Mexico | caregiver)
+"indica que cuando hizo uso del seguro no le asignaron un médico para consulta física; el no se sintio muy cómodo con la consulta teléfonica"
+(Male | age 41 | PATZICIA, Guatemala | caregiver)
+Part 2: Claims Experience
+Claims Funnel
+Across the surveyed portfolio, 1,721 clients responded, and 124 (7.2%) reported experiencing an insured event in the past 12 months. Of those who experienced an event, 55 (44.4%) went on to file a claim, meaning roughly 55.6% of eligible clients did not file, a meaningful leakage from event to claim. Among the 55 filed claims, 49 (89.1%) were approved and paid. This funnel showed that once clients navigate to filing, the great majority reach a paid outcome; the sharpest fall-off occurs earlier, between experiencing an event and submitting a claim.
+Stage | N | Rate
+Experienced insured event | 124 | 7.2%
+Filed a claim | 55 | 44.4%
+Claim paid | 49 | 89.1%
+[VISUAL PENDING: part2_funnel.png (Claims Funnel)]
+Reasons for Not Claiming
+Among the 69 clients who experienced an insured event but did not file a claim, the leading reason was not knowing how to file (26, 37.7%), followed by "Other" (24, 34.8%) and the loss not being significant (12, 17.4%). Within the "Other" responses, nine clients forgot or were unaware of the coverage and five cited missing or incomplete documentation, pointing to awareness and process gaps rather than dissatisfaction.
+[VISUAL PENDING: part2_no_claim_reasons.png (Reasons for Not Claiming)]
+Claim Challenges
+Among the 11 clients reporting claim challenges, the most common was difficulty collecting documents from hospitals or authorities (6, 54.5%), followed by difficulty submitting documents (3, 27.3%) and long waits to receive the amount (1, 9.1%). Several protection flags warrant attention: a medium-severity mis-selling case where an expected benefit was not delivered, and four medium-severity staff-misconduct reports describing unanswered calls, no follow-up on required medical studies, and an unaddressed telephone-consultation request, each delaying a legitimate outcome.
+[VISUAL PENDING: part2_claim_challenges.png (Top Claims Challenges (% of claimants who challenged))]
+Client Protection Signals
+36 client-reported protection concerns were identified during this survey (3 high, 24 medium, 9 low severity). See "Appendix: Client Protection Signals" for the full itemized list with client references for follow-up by the client protection team.
+Payout Outcomes
+Of the 55 filed claims, 49 (89.1%) were approved and paid, three (5.5%) were rejected, two (3.6%) remained in process, and one (1.8%) was approved but not yet paid. No respondent selected "I don't know." Among the 49 paid claims, coverage of the underlying cost was fairly evenly distributed: 17 clients (34.7%) had some of the cost covered, 16 (32.7%) had all of it covered, and 16 (32.7%) had most of it covered. This showed that most paid claimants received substantial reimbursement, with roughly two-thirds having all or most of their cost met.
+Key Qualitative Insights
+The section summary showed claims experience splitting between smooth cases needing only follow-up and blocked attempts caused by overdue installments or missing documents, with arrears and paperwork the main barriers and ease arising when follow-up is straightforward. The sentiment split across seven relevant responses was 2 positive, 4 negative, and 1 neutral. One claimant described the process as simply a matter of following up ("El proceso de reclamo, solo es darle seguimiento"). Illustrating the blocked pattern, a caregiver said she could not use the coverage when she called because she had overdue installments ("no pude usarlo porque tenia cuotas atrasadas"), and another cited "the price" ("el precio").
+"El proceso de reclamo, solo es darle seguimiento"
+(Female | age 60 | Puebla, Mexico | claimant)
+"YO REALMENTE NO LO HE USADO EN LA OCASION QUE LLAME NO PUDE USARLO PORQUE TENIA CUOTAS ATRASADAS"
+(Female | age 32 | SAN MARCOS, Honduras | caregiver)
+"el precio"
+(Female | age 38 | XALAPA, Mexico | caregiver)
+Part 3: Financial Inclusion
+Reaching Clients with No Prior Insurance Access
+For 77.2% of the 1,721 surveyed clients, VisionFund was their first insurer of any kind, extending financial protection to households that previously had no insurance at all. This reach was broadly balanced across gender, covering 76.3% of female clients and 79.3% of male clients. These figures show VisionFund bringing formal insurance protection to a large majority of households encountering it for the first time.
+Financial Stress and Coping
+Among the 124 clients who experienced an insured event in the last 12 months, whether or not they filed a claim, 6.5% reported resorting to at least one severe coping behavior. Separately, across all 1,721 surveyed clients, 1.7% reported high financial stress, an independent measure of the client base as a whole. Also across the full sample, 44.5% indicated that accessing alternative sources of financial support would be difficult, underscoring the value of reliable protection.
+[VISUAL PENDING: part3_financial_protection.png (Financial Protection Indicators)]
+Confidence in Payout
+Among all 1,721 surveyed clients, 84.7% expressed confidence that VisionFund will pay a valid claim. This high level of trust suggests that clients view the promise of protection as credible and dependable, an essential foundation for the value of insurance in previously underserved households.
+Key Qualitative Insights
+Clients valued first-time insurance access and the safety net it provides, highlighting affordable teleconsultation and whole-family coverage as distinctive compared with other lenders. The sentiment split (base too small for percentages) was 5 positive, 1 negative, and 1 neutral. One client praised "medical support in emergencies, with teleconsultations making quick diagnoses easier without leaving home" ("EL RESPALDO MEDICO ANTE EMERGENCIAS (TELECONSULTAS FACILITA DIAGNOSTICOS RAPIDOS SIN SALIR DE CASA )"). Another valued whole-family inclusion: "because here the whole family is included, and at other lenders it is only the account holder" ("Por que ahí entramos toda la familia, y en otras financieras solo es al titular").
+"EL RESPALDO MEDICO ANTE EMERGENCIAS (TELECONSULTAS FACILITA DIAGNOSTICOS RAPIDOS SIN SALIR DE CASA )"
+(Female | age 66 | PROGRESO, Honduras)
+"Por que ahí entramos toda la familia, y en otras financieras solo es al titular"
+(Female | age 47 | Orizaba, Mexico | caregiver)
+"Porque 20 quetzales por mes es buen precio para las veces que uno quiera ir al doctor"
+(Female | age 60 | SAN MARTIN, Guatemala)
+Part 4: Client Voice
+Net Promoter Score
+The portfolio's Net Promoter Score reached 48.3 across 1,721 clients, with 60.7% promoters, 27.0% passives, and 12.3% detractors, revealing strong overall advocacy. Among clients who rated the premium as not worth it, the leading concern was that never having used the product left its value unproven, so they could not yet judge or trust it. The next most common theme involved unresponsive service and no follow-up, with clients who tried to use their insurance reporting little help or poor advisor attention when they needed it most.
+[VISUAL PENDING: part4_nps.png (Net Promoter Score)]
+Promoter and Detractor Themes
+Promoters most often praised the product's value for money (264 mentions), followed by general satisfaction (256) and access and inclusion (184), showing that affordable, genuinely useful coverage anchors client advocacy. Detractors, by contrast, centred their comments on product understanding (83 mentions), general satisfaction (69), and improvement suggestions (49). The prominence of product understanding among detractors indicates that when clients struggle to grasp what their coverage does, dissatisfaction follows. This pattern suggests that clearer communication about benefits and use could convert uncertainty into confidence for a meaningful share of the portfolio.
+[VISUAL PENDING: part4_themes.png (Top NPS Theme Drivers)]
+Drivers of Satisfaction
+Satisfaction, measured through NPS (48.3, n=1,721), was shaped most strongly by whether clients felt the premium was worth it (rho=-0.478, p<0.0001), where feeling the premium is worth it correlates with a higher NPS, a positive relationship. Confidence in receiving a payout followed closely (rho=-0.453, p<0.0001), with higher confidence aligning with higher NPS. Lower financial stress also tracked higher satisfaction (rho=-0.307, p<0.0001), as did better coverage understanding (rho=-0.244, p<0.0001) and clearer grasp of the claims process (rho=-0.213, p<0.0001). Every relationship was meaningful, pointing to perceived value and payout trust as central levers.
+Driver | ρ (Spearman) | p-value | N
+Worth Premium | -0.478 | <0.0001 | 1721
+Confidence in Payout | -0.453 | <0.0001 | 1721
+Financial Stress (High) | -0.307 | <0.0001 | 1721
+Coverage Understanding | -0.244 | <0.0001 | 1721
+Claim Process Understanding | -0.213 | <0.0001 | 1721
+See "Appendix: Methodology Notes" for how to read ρ (rho), p-value, and N in this table.
+Key Qualitative Insights
+Across the responses judged relevant to this theme, product value drove promoters, who valued a low premium delivering a large benefit and a policy that pays out for real, while detractors questioned value when they already had trusted alternatives. The sentiment split was small at 4 positive and 2 negative. One promoter captured the affordability theme: "it is very little that you pay and the benefit is large" ("ES MUY POCO LO QUE SE PAGA Y EL BENEFICIO ES GRANDE"). A detractor illustrated the alternatives theme: "I personally do not feel the benefit is much since I have a family doctor who is very attentive to my family" ("YO PERSONALMENTE NO SIENTO QUE SEA MUCHO EL BENEFICIO YA QUE TENGO MEDICO DE CABECERA Q ESTA MUY PENDIENTE DE MI FAMILIA").
+"ES MUY POCO LO QUE SE PAGA Y EL BENEFICIO ES GRANDE"
+(Female | age 47 | PIMAMPIRO, Ecuador)
+"Que el seguro es real, no es como otro seguro que nunca aplica y solicitan muchos requisitos."
+(Female | age 38 | Tuxtepec, Mexico | caregiver)
+"YO PERSONALMENTE NO SIENTO QUE SEA MUCHO EL BENEFICIO YA QUE TENGO MEDICO DE CABECERA Q ESTA MUY PENDIENTE DE MI FAMILIA"
+(Male | age 33 | COMAYAGUA, Honduras | caregiver)
+Part 5: Child Wellbeing
+Child Wellbeing Drivers
+Among clients with children in the household, 36.1% reported positive child wellbeing (n=1313). The strongest driver revealed that clients who felt the premium was worth it showed better child wellbeing (rho=-0.260, p<0.0001). Higher financial stress aligned with lower child wellbeing (rho=-0.238, p<0.0001), the expected relationship. Greater confidence in payout (rho=-0.229), stronger claim-process understanding (rho=-0.174) and coverage understanding (rho=-0.171) each correlated with better wellbeing, all p<0.0001. Higher Net Promoter scores also aligned with better wellbeing (rho=+0.086, p=0.0017). Together, these suggest perceived value and understanding support children's wellbeing.
+Driver | ρ (Spearman) | p-value | N
+Worth Premium | -0.260 | <0.0001 | 1313
+Financial Stress (High) | -0.238 | <0.0001 | 1313
+Confidence in Payout | -0.229 | <0.0001 | 1313
+Claim Process Understanding | -0.174 | <0.0001 | 1313
+Coverage Understanding | -0.171 | <0.0001 | 1313
+Net Promoter Score | +0.086 | 0.0017 | 1313
+See "Appendix: Methodology Notes" for how to read ρ (rho), p-value, and N in this table.
+[VISUAL PENDING: part5_drivers.png (Child Wellbeing Drivers (Spearman Correlation))]
+Healthcare Access and Medical Cost
+Among clients who needed care, 33.9% said access to care improved (n=448). Among health-insurance clients who needed medical care, 39.1% reported that their medical costs decreased (n=519). This group reflects everyone who needed care regardless of whether they filed a claim, so these figures describe general experiences of improved access and lower costs across health clients who sought care, not outcomes tied to any specific insurance claim.
+[VISUAL PENDING: part5_healthcare.png (Healthcare Access and Medical Cost Impact)]
+Caregivers vs Non-Caregivers
+Metric | Caregiver (n=1,313) | Non-Caregiver (n=408) | Sig.*
+High Financial Stress † | 1.8% | 1.2% | 
+Healthcare Access Improved † | 8.9% | 8.6% | 
+* p < 0.05 (chi-squared or Fisher's exact test)
+† High Financial Stress: All surveyed clients (same base as Part 3's financial stress metric); not restricted to those who experienced an insured event
+† Healthcare Access Improved: Health-insurance clients who needed care (same base as Part 4's healthcare access metric)
+Comparing caregivers against non-caregivers on two measures unrelated to child wellbeing itself, high financial stress affected 1.8% of caregivers and 1.2% of non-caregivers among all surveyed clients, a difference that was not meaningful (p=0.4090). Improved healthcare access reached 8.9% of caregivers and 8.6% of non-caregivers among health-insurance clients who needed care, also not meaningful (p=0.8362). Caregiver status showed no meaningful effect on either measure.
+Key Qualitative Insights
+Across responses judged relevant here, caregivers valued the security the insurance provides children, and several asked for coverage of specific pediatric needs such as neurology and asthma care. The sentiment split was 4 positive, 2 negative, 1 neutral. One caregiver in Comayagua, Honduras, praised "the security it gives above all to children, since it can get me out in an emergency (my daughter suffers from asthma)" ("LA SEGURIDAD QUE BRINDA SOBRE TODO A LOS NIÑOS YA QUE ME PUEDE SACAR DE EMERGENCIA (HIJA SUFRE DE ASMA)"). Another in San Pedro Sula wished "the insurance covered neurology, since I have a daughter with hydrocephalus" ("ME GUSTARIA QUE EL SEGURO CUBRIERA NEUROLOGIA YA QUE TENGO UNA HIJA CON HIDROCEFALIA"), indicating gaps in specialized pediatric coverage.
+"LA SEGURIDAD QUE BRINDA SOBRE TODO A LOS NIÑOS YA QUE ME PUEDE SACAR DE EMERGENCIA (HIJA SUFRE DE ASMA)"
+(Female | age 35 | COMAYAGUA, Honduras | caregiver)
+"Atención médica para niños y reduce gastos"
+(Female | age 22 | Quevedo, Ecuador | caregiver)
+"NO PUEDO RECOMENDAR ALGO QUE NO HE USADO PERO ME GUSTARIA QUE EL SEGURO CUBRIERA NEUROLOGIA YA QUE TENGO UNA HIJA CON HIDROCEFALIA"
+(Female | age 31 | SAN PEDRO SULA, Honduras | caregiver)
+Part 6: Claimant vs. Non-Filer Outcomes
+Metric | Claimant (n=55) | Non-Filer (n=69) | Sig.*
+Coverage Understanding | 85.5% | 81.2% | 
+Claim Process Understanding | 89.1% | 63.8% | *
+Worth Premium | 98.2% | 82.6% | *
+Negative Coping (↓ better) | 9.1% | 4.3% | 
+High Financial Stress (↓ better) | 3.6% | 4.3% | 
+Confidence in Payout | 96.4% | 79.7% | *
+Net Promoter Score ‡ | 74.5 | 37.7 | 
+Child Wellbeing Improved † | 71.4% | 47.7% | *
+* p < 0.05 (chi-squared or Fisher's exact test)
+‡ Net Promoter Score: Significance for this row uses a Mann-Whitney U test on each group's underlying 0-10 scores, not the two-proportion z-test (chi-squared/Fisher's exact) used elsewhere in this table; NPS itself isn't a proportion.
+† Child Wellbeing Improved: Clients with children in the household (child wellbeing base), within each claimant/non-filer group; narrower than the full claimant/non-filer sample used by the other rows in this table
+[VISUAL PENDING: part6_scorecard.png (Key Metrics: Claimants vs. Non-Filers)]
+Findings
+Both groups in this scorecard are restricted to clients who experienced an insured event in the past twelve months: claimants filed a claim, while non-filers did not, so neither figure represents clients who never faced a claimable event. Among these clients, claimants understood the claim process far better than non-filers (89.1% versus 63.8%, p=0.0012) and were more likely to judge the cover worth its premium (98.2% versus 82.6%, p=0.0049). Confidence in receiving a payout was also higher (96.4% versus 79.7%, p=0.0060). Among households with children, claimants more often reported improved child wellbeing (71.4% versus 47.7%, p=0.0339).
+Key Qualitative Insights
+Where the policy paid, claimant outcomes were strongly positive, with the leading drivers being full coverage of a claimed event and a loan balance settled after a death. All three qualitative responses judged relevant to this section were positive (3 positive, 0 negative, 0 neutral), though this base is too small to represent the wider client base. One caregiver in Tulcan, Ecuador described full coverage of her son's accident: "it gave me total coverage in my son's accident" ("ME DIO TOTAL COBERTURA EN EL ACIDENTE DE MI HIJO"). A client in Puebla, Mexico found the process straightforward: "the claim process is just a matter of following up" ("El proceso de reclamo, solo es darle seguimiento"). These voices illustrate, rather than measure, the positive pattern.
+"ME DIO TOTAL COBERTURA EN EL ACIDENTE DE MI HIJO"
+(Female | age 59 | TULCAN, Ecuador | claimant, caregiver)
+"Porque el esposo anteriormente tuvo un crédito y falleció la aseguradora le pago el saldo en vfg"
+(Female | age 44 | TEJUTLA SAN MARCOS, Guatemala | caregiver)
+"El proceso de reclamo, solo es darle seguimiento"
+(Female | age 60 | Puebla, Mexico | claimant)
+Part 7: Gender Analysis
+Metric | Female (n=1,228) | Male (n=493) | Sig.*
+Coverage Understanding | 85.2% | 85.4% | 
+Claim Process Understanding | 79.7% | 81.1% | 
+Worth Premium | 82.0% | 75.3% | *
+Negative Coping (↓ better) | 5.3% | SUPPRESSED | 
+Child Wellbeing Improved | 35.0% | 39.2% | 
+Confidence in Payout | 86.2% | 80.9% | *
+* p < 0.05 (chi-squared or Fisher's exact test)
+[VISUAL PENDING: part7_scorecard.png (Key Metrics by Gender)]
+Findings
+Gender analysis revealed largely comparable understanding of coverage between women and men (85.2% versus 85.4%, p=0.9089) and of the claim process (79.7% versus 81.1%, p=0.5067). Two differences were meaningful: women were more likely to view their cover as worth the premium (82.0% versus 75.3%, p=0.0015) and expressed greater confidence in receiving a payout (86.2% versus 80.9%, p=0.0057). Child wellbeing improvements did not differ meaningfully (35.0% versus 39.2%, p=0.1607). Female negative-coping stood at 5.3%, while the male figure was data suppressed due to small sample size. Women formed the large majority of respondents, so these findings weight strongly toward their experience.
+Key Qualitative Insights
+Gendered experience centered on women's requests for female-specific health coverage and language-access barriers for indigenous women, alongside male views on financial protection. Among a very small set of relevant responses (1 positive, 1 negative, 1 neutral), one caregiver captured the demand for women's health packages: she did not know the service but would very much like insurance including packages for women such as cytology, mammography and endocrinology ("NO LO SE NO LO HE USADO PERO ME GUSTARIA MUCHO UN SEGURO QUE INCLUYA PAQUETES PARA MUJERES (CITOLOGIAS MAMOGRAFIAS ENDOCRINOLOGIA)"). Another illustrated language access: she knows the benefits but has difficulty speaking Spanish, so has not used the service ("conoce los beneficios, sin embargo se le dificulta hablar español por lo cual no ha usado el servicio").
+"NO LO SE NO LO HE USADO PERO ME GUSTARIA MUCHO UN SEGURO QUE INCLUYA PAQUETES PARA MUJERES (CITOLOGIAS MAMOGRAFIAS ENDOCRINOLOGIA)"
+(Female | age 43 | TALANGA, Honduras | caregiver)
+"PORQUE NOS AYUDA EN UN MOMENTO DE NO TENER LOS RECURSOS PARA LA SALUD"
+(Male | age 35 | GUARANDA, Ecuador | caregiver)
+"conoce los beneficios, sin embargo se le dificulta hablar español por lo cual no ha usado el servicio"
+(Female | age 52 | Patzicía, Guatemala | caregiver)
+Part 8 (Kling Index) is available on the analytics dashboard only and is not included in this document.
+Part 9: Additional Services
+Services Used
+Among all 1,721 surveyed clients, the additional non-claim services bundled with the insurance product broke down as follows. The largest group, 1,567 clients (91.1%), used none of these services. Face to face consultations, whether general or specialized, were used by 90 clients (5.2%), and teleconsultation, meaning a doctor by phone, by 38 clients (2.2%). Access to medicines through discounts or free provision reached 20 clients (1.2%), and lab examinations or lab tests were used by 16 clients (0.9%). These benefits are distinct from the claims-payout benefits covered elsewhere in this report.
+Service | N | %
+None | 1567 | 91.1%
+Face to face consultations (general or specialized) | 90 | 5.2%
+Teleconsultation - doctor by phone (general or specialized) | 38 | 2.2%
+Access to medicines (discounts or free) | 20 | 1.2%
+Lab examination/lab test | 16 | 0.9%
+Health events (mobile clinic, orange ambulance, medical brigades, etc.) | 7 | 0.4%
+Other | 3 | 0.2%
+[VISUAL PENDING: part9_services_used.png (Additional Services Used)]
+Service Helpfulness
+Among the 151 clients who used at least one additional service, 89.4% found the service or services they used helpful as they had wanted. This question was asked only of clients who used at least one such service, not of the full surveyed population, so this figure reflects the experience of that smaller group rather than all clients across the LACRO regional portfolio.
+Key Qualitative Insights
+A section summary for the additional services module is not yet available in this dataset, and qualitative verbatim responses have not yet been provided. As a result, this report cannot characterize the pattern of client sentiment toward the bundled non-claim services, nor illustrate it with a specific client voice. The quantitative findings above stand on their own: a small share of the surveyed population used any additional service, and among that group a strong majority found the services helpful. Once coded theme summaries and verbatim responses become available in a future data package, this section can be expanded to convey the client experience in their own words.
+Appendix: Client Protection Signals
+The following client-reported concerns were identified for follow-up by the client protection team.
+High severity
+Unfair claim denial: Client says when she called to use the insurance she was denied because she had overdue installments, blocking access to a legitimate benefit. (130065883, SAN MARCOS)
+Unfair claim denial: Client says the agent told him neither his daughter's nor his own claim was valid, denying a legitimate benefit without a clear explanation. (587099342, San Felipe)
+Unfair claim denial: Client says the agent told him neither his daughter's nor his own claim was valid, denying a legitimate benefit without a clear explanation. (587099342, San Felipe)
+Medium severity
+Mis-selling: Client says the insurance did not help with a discontinued medication and she had to buy it separately, indicating an expected benefit was not delivered though harm was limited. (549859, QUITO)
+Staff misconduct: Client reports the account manager gave no follow-up on the required blood, platelet, and chemotherapy studies, leaving her unable to proceed. (724084250, Puebla)
+Staff misconduct: Client reports trying to reach the insurer two months ago with no response, a notable unresponsiveness delaying a legitimate outcome. (521899, GUAMOTE)
+Staff misconduct: Client requested a telephone medical consultation and received no response, a service failure that delayed a legitimate benefit. (0014-0245-24965, SAN LUCAS SACATEPEQUEZ)
+Staff misconduct: Client reports the insurer does not answer calls, blocking access to the service they paid for. (537125, TULCAN)
+Staff misconduct: Client says no one answers the insurance phone numbers, preventing use of the service. (548898, LATACUNGA)
+Staff misconduct: Client spent a lot of phone credit and was not given the prescription properly, a service failure affecting the benefit received. (562555, TULCAN)
+Unfair claim denial: Caregiver reports her child had an accident and the advisor told her the insurance did not cover it, a denial without a clear valid explanation. (57698, COCHABAMBA)
+Staff misconduct: Client says the attention she should have received was not provided to her. (0014-0245-17656, SAN LUCAS SACATEPEQUEZ)
+Staff misconduct: Client wanted to use the insurance but got no answer to her calls, so she could not use it. (555608, SAN GABRIEL)
+Staff misconduct: Client says she was not given help when she needed it. (0014-0272-21660, SAN LUCAS SACATEPEQUEZ)
+Unfair claim denial: Client tried to claim once but was not helped due to missing papers, a service failure that blocked the outcome. (276806199, Orizaba)
+Staff misconduct: Client says she knows nothing about the insurance and only signed, suggesting she was enrolled without proper explanation. (601393, El Seibo)
+Staff misconduct: Client tried to use the insurance but no one answered the number she was given. (130053644, TALANGA)
+Staff misconduct: Client pays for the insurance but the advisor never explained it or gave any document. (322417218, Xochimilco)
+Staff misconduct: Client says she got no follow-up when she requested the service. (0011-0011-9775, ESCUINTLA)
+Staff misconduct: Advisor gives no information and a hospital-rent claim two years ago was slow to process, delaying a legitimate outcome. (799736206, Valle de Chalco)
+Unfair claim denial: Client booked a pediatric appointment but the clinic wanted to refer to Sucre and would not attend, wasting her travel money. (326677, VILLAMONTES)
+Mis-selling: Client says the insurance did not help with a discontinued medication and she had to buy it separately, indicating an expected benefit was not delivered though harm was limited. (549859, QUITO)
+Staff misconduct: Client reports the account manager gave no follow-up on the required blood, platelet, and chemotherapy studies, leaving her unable to proceed. (724084250, Puebla)
+Unfair claim denial: Client tried to claim once but was not helped due to missing papers, a service failure that blocked the outcome. (276806199, Orizaba)
+Staff misconduct: Client reports the account manager gave no follow-up on the required blood, platelet, and chemotherapy studies, leaving her unable to proceed. (724084250, Puebla)
+Unfair claim denial: Client tried to claim once but was not helped due to missing papers, a service failure that blocked the outcome. (276806199, Orizaba)
+Staff misconduct: Client reports trying to reach the insurer two months ago with no response, a notable unresponsiveness delaying a legitimate outcome. (521899, GUAMOTE)
+Low severity
+Staff misconduct: Client was not assigned an in person doctor and felt uncomfortable with the phone consultation, communication friction without denial of the benefit. (0006-0024-6205, PATZICIA)
+Staff misconduct: Client states the insurance has not helped at all, a dissatisfaction with no described financial harm or rights violation. (538508, LATACUNGA)
+Staff misconduct: Client asks that they answer the phone numbers printed on the brochures. (403118, YOUNG)
+Staff misconduct: Client called the number given to him and no one answered. (130066956, COMAYAGUA)
+Staff misconduct: Client complains that when she calls the phone just rings and no one answers. (577612, SAN GABRIEL)
+Staff misconduct: Client did not know he had an insurance in his credit. (12414519, Pinotepa)
+Staff misconduct: Client says she was only told she had the insurance but no one explained it. (613744322, Ometepec)
+Staff misconduct: Client says the advisor never tells her anything about the insurance, a communication gap. (66981489, Ometepec)
+Staff misconduct: Client says she was not given complete information about the insurance, only the cost. (819887955, Copainala)
+Appendix: Methodology Notes
+Spearman Rank Correlation (Parts 4 & 5 Drivers Tables)
+ρ (rho) is the Spearman rank correlation coefficient, a value from -1 to +1 showing how strongly two things move together: values near +1 or -1 indicate a strong relationship, values near 0 indicate little to none. Spearman correlation is calculated on the rank order of responses rather than their raw values, which makes it well suited to Likert-scale survey questions like the ones in Parts 4 and 5. p (the p-value) shows how likely a correlation this strong could appear by chance alone if no real relationship existed; p<0.05 is the conventional threshold for statistical significance. N is the number of respondents included in each specific calculation, which can vary by driver because not every question was asked of every client.
+Financial Stress, Coverage Understanding, Claim Process Understanding, Worth Premium, and Confidence in Payout are all scored so that a LOWER number is the more positive response (e.g. 1 = the most positive answer option for that question). A negative correlation with the outcome variable (client satisfaction, NPS, in Part 4; child wellbeing in Part 5) for any of these drivers therefore reflects a POSITIVE real-world relationship (e.g. a more positive response aligning with a better outcome), not a negative one. NPS itself runs the opposite way (0=worst, 10=best): when NPS appears as the outcome (Part 4), a negative correlation with it is what reflects the positive relationship described above; when NPS appears as a DRIVER of child wellbeing (Part 5 only), a positive correlation there likewise reflects a positive relationship.
