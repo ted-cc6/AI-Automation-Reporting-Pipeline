@@ -42,7 +42,7 @@ This file is the single source of truth for the next pipeline iteration. Every r
 | R-006 | LM6, LM7 | schema | Sentiment reported as counts with a stated base | 2 |
 | R-007 | LM8 | schema | Every restricted base metric carries a base description | 2 |
 | R-008 | LM5 | schema | Coping metric exposes component breakdown | 2 |
-| R-009 | LM3b | schema | Trend table replaces significance with comparability | 2 |
+| R-009 | LM3b | schema | Trend table replaces significance with comparability | 1 (pulled forward from 2, session-4 -- see R-009) |
 | R-010 | LM4, LM11 | code | Qualitative blocks omitted when no verbatims exist | 3 |
 | R-011 | LM10 | code | Non filer renamed to non claimant | 3 |
 | R-012 | LM3a | code | Trend columns labelled by wave year | 3 |
@@ -55,6 +55,7 @@ This file is the single source of truth for the next pipeline iteration. Every r
 | R-019 | self | code | Check suite gaps: C-013 window, C-009 detail specificity | 3 |
 | R-020 | self | code | CLI output filename diverges from dashboard path | 3 |
 | R-021 | self | code | Period label formatting duplicated across title and heading | 3 |
+| R-022 | self | data_config | Stale prior_run_id should fail loudly, not resolve silently | 1 |
 
 ---
 
@@ -260,41 +261,49 @@ confirming C-003 fails pre-dedup on exactly these five refs.
 ## R-004 Per indicator comparability declarations
 
 **Source:** LM3b, "replace with a column for Comparability ... indicate whether it is a clean comparison or indicative only"
-**Layer:** `data_config`
+**Layer:** `code`
 **Priority:** high
-**Pairs with:** R-009 (schema), R-012 (code)
+**Pairs with:** R-009 (pulled forward into this phase, same code path -- see R-009 below), R-012 (code, not in scope this session)
+**Status:** Re-specified (2026-08-20) -- layer changed from `data_config`, not yet implemented
 
-**Current behaviour**
-Comparability reasoning exists but is buried in five footnotes beneath the trend table. The table itself carries a significance column that is empty for three of five rows and statistically inappropriate for NPS.
+**Current behaviour (corrected, session-4 orientation, 2026-08-20)**
+Comparability reasoning already exists, but as a boolean in `analysis_engine/sections/part_10.py`'s `_COMPARABLE` dict (`True`/`False` per indicator), not the three-value status this requirement wants, and not in config. `_COMPARABLE[key]` gates whether `_compare_indicator()` attempts a delta/significance test at all -- a computation-time decision, not just a display label. A separate `_INCOMPARABILITY_REASON` dict carries reason text, but only for the three `False` indicators; the two comparable ones (`first_time_access`, `client_satisfaction_nps`) have no reason string today.
+
+The Sig. column is empty for **all five rows**, not "three of five" as this section originally stated -- corrected against the real rendered `fixtures/test9.txt:53-58`. Four rows (`access_to_alternatives`, `child_wellbeing_improvement`, `product_understanding` -- `comparable=False`; `client_satisfaction_nps` -- comparable but hand-special-cased to never compute a test, `part_10.py:273-290`) are empty by design, structurally incapable of ever showing a mark. Only `first_time_access` ever attempts a real two-proportion z-test, and in this run it came out empty too because p >= 0.05 -- five of five empty in practice, four of five empty by construction. The original "three of five" matched neither count.
+
+**Layer correction (session-4 orientation, 2026-08-20)**
+`report_spec.yaml` is loaded only in the generation phase (`generation/orchestrator.py`, `generation/run_generation.py`), strictly after `analysis_engine` has already run and written `analysis_results.json`. It cannot gate `_compare_indicator()`'s decision to attempt a delta/significance test at all -- that decision is made during analysis, before generation ever runs. `analysis_engine` does read its own YAML config elsewhere (`analysis_engine/country_config.py` loads `country_configs/*.yaml`), so an analysis-phase config file is an available pattern in principle, but this requirement doesn't need a new config file to stop being "hardcoded prose" -- the comparability decision is Python today and stays Python; only its shape and completeness change. Layer reclassified from `data_config` to `code` accordingly.
 
 **Intended behaviour**
-Each trend indicator carries a declared comparability status and a short reason, held in config so it can be updated when instruments change without touching code.
+`_COMPARABLE` in `analysis_engine/sections/part_10.py` becomes a three-value status per indicator (`"clean"`, `"indicative"`, `"not_comparable"`) instead of a bool, and every indicator -- including the two currently-comparable ones -- carries a reason string. Only `"clean"` attempts a significance test; `"indicative"` and `"not_comparable"` both skip it, exactly as today's `False` does -- no computation change, just a status distinguishing two cases today's boolean collapses into one. Per Lorenz (LM3): `access_to_alternatives` and `child_wellbeing_improvement` are `"indicative"` (the instrument changed, but a figure exists on both sides of the comparison); `product_understanding` is `"not_comparable"` (2025's combined question has no 2026 equivalent at all, so there is no current-wave figure to compare in the first place, not merely an incompatible one).
 
 **Rule**
-```yaml
-trend_indicators:
-  first_time_access:
-    comparability: clean
-    reason: "Identical question wording and options in both waves."
-  client_satisfaction_nps:
-    comparability: clean
-    reason: "Same 0 to 10 scale in both waves."
-  access_to_alternatives:
-    comparability: indicative
-    reason: "2026 adds a neutral midpoint and an I don't know option."
-  child_wellbeing:
-    comparability: indicative
-    reason: "2025 used a 5 point scale; 2026 uses binary yes or no."
-  product_understanding:
-    comparability: not_comparable
-    reason: "2025 used one combined 6 option question; 2026 splits it into two 4 point questions."
+```python
+# analysis_engine/sections/part_10.py
+_COMPARABILITY = {
+    "first_time_access": "clean",
+    "client_satisfaction_nps": "clean",
+    "access_to_alternatives": "indicative",
+    "child_wellbeing_improvement": "indicative",
+    "product_understanding": "not_comparable",
+}
+_COMPARABILITY_REASON = {
+    "first_time_access": "Identical question wording and options in both waves.",
+    "client_satisfaction_nps": "Same 0 to 10 scale in both waves.",
+    "access_to_alternatives": "2026 adds a neutral midpoint and an I don't know option.",
+    "child_wellbeing_improvement": "2025 used a 5 point scale; 2026 uses binary yes or no.",
+    "product_understanding": "2025 used one combined 6 option question; 2026 splits it into two 4 point questions.",
+}
 ```
-
-Permitted values: `clean`, `indicative`, `not_comparable`.
+Key fixed from the original draft's `child_wellbeing` to `child_wellbeing_improvement`, matching `_INDICATORS`, `_COMPARABLE`, and `report_spec.yaml`'s own `trend_indicators` key everywhere else in the codebase. `_INCOMPARABILITY_REASON`'s existing three reason strings are kept where they already exist (they match this spec's substance); only the two comparable indicators' reasons and the three-value status split are new.
 
 **Verification**
-- `assert every trend indicator has a comparability value in the permitted set`
+- `assert every trend indicator has a comparability value in {"clean", "indicative", "not_comparable"}`
 - `assert every indicator has a non empty reason string`
+- `assert only "clean" indicators have a significance test attempted` (same gate as today's boolean `True` -- `"indicative"` and `"not_comparable"` both skip it)
+
+**Correction (session-5, per Lorenz/LM3, 2026-08-20)**
+The first implementation (session-4) also suppressed BOTH wave values for every non-`"clean"` row, reasoning that "no computation change" meant "no display change either." That conflated the two: the delta/significance-test GATE is unchanged (still `"clean"` only, as designed above), but Lorenz's actual point in raising this in the first place was to STOP suppressing real numbers, not just to relabel why they were suppressed -- `"the whole point [of a Comparability column is] so we can SHOW both numbers and label the quality of the comparison, rather than suppressing one side."` `access_to_alternatives` and `child_wellbeing_improvement` both have real figures on both sides (48.9%/44.5% and 23.5%/36.1% respectively) that the first pass rendered as "NOT COMPARABLE" anyway. Fixed the same session it was caught in (see R-005's own implementation note for the rendering detail, since this crosses into that requirement's territory).
 
 ---
 
@@ -303,6 +312,7 @@ Permitted values: `clean`, `indicative`, `not_comparable`.
 **Source:** self identified
 **Layer:** `data_config`
 **Priority:** medium
+**Status:** Re-specified (2026-08-20) -- verification scope narrowed, not yet implemented
 
 **Current behaviour**
 The Dominican Republic is new in 2026 and contributes 270 respondents (15.7 percent). The trend section handles this correctly by computing a five country comparable subset, but the handling is described only in footnotes and the headline figures in the table are the all country values, so the table and its own footnotes disagree on which number matters.
@@ -318,9 +328,66 @@ trend_scope:
   primary_figures: comparable_subset
 ```
 
+**Scope correction (session-4 orientation, 2026-08-20)**
+The subset swap applies to the two `"clean"` rows only (`first_time_access`, `client_satisfaction_nps`), not every row where comparability `!= "not_comparable"` as originally verified here. `"indicative"`/`"not_comparable"` rows keep today's no-delta behaviour unchanged -- the three-value status (R-004) is a labelling/reason distinction, not a new significance-testing capability. Only `"clean"` rows ever populate `current_common_scope`, and R-004's design point is explicit that this session makes no computation changes beyond the status split. Extending the five-country swap to indicative rows would require attempting a delta for them, a real behaviour change outside this session's scope. **This note originally continued with "'NOT COMPARABLE' in the prior-wave column [for indicative rows] -- exactly like 'not_comparable' rows" -- that specific claim about DISPLAY (not delta-testing) was wrong and superseded the same session it shipped; see the session-5 correction below and in R-004.**
+
+**Implementation note**
+- `analysis_engine/sections/part_10.py`'s `calculate()` currently persists only `current_full` as `"current"` in the returned/saved dict (`analysis_results.json`) -- `current_common` (the five-country subset) is computed every run but discarded after use, never saved. This session also persists it (`"current_common": current_common` alongside `"current": current_full`), so a future wave's `_load_prior_snapshot()` can read back this wave's own five-country figure once it becomes someone else's prior wave. Not consumed by anything this session -- 2025's own data is inherently five-country already (Dominican Republic has no 2025 rows at all) -- but costs one line now versus a rerun later once a third wave exists. Verified persisted: `runs/lacro_final_check/analysis_results.json`'s `parts.part_10.current_common.first_time_access.value` = 0.7670572..., `client_satisfaction_nps.value` = 46.175... -- both match Test9's own published five-country footnote figures (76.7%, 46.2) exactly.
+- `generation/orchestrator.py`'s `_build_trend_data()` currently sets the table's `group_a_value` (2026) from `current_full_scope` unconditionally. For `"clean"` rows this switches it to `current_common_scope`'s value instead; `"indicative"`/`"not_comparable"` rows keep `current_full_scope`, matching what every other Part reports for that same indicator (there is no test result to keep it consistent with instead).
+- The Dominican Republic exclusion sentence, previously rebuilt inside each `"clean"` row's own footnote (appearing twice in `fixtures/test9.txt` -- once per clean row), now renders once as a table-level scope note before the table.
+
+**Correction (session-5, per Lorenz/LM3, 2026-08-20)**
+The session-4 implementation suppressed BOTH wave values for `"indicative"`/`"not_comparable"` rows, rendering the literal string "NOT COMPARABLE" in the prior-wave (2025) column even when a real figure existed. Caught immediately against the real render: `access_to_alternatives` (2025=48.9%, 2026=44.5%) and `child_wellbeing_improvement` (2025=23.5%, 2026=36.1%) both have real figures on both sides -- the instrument change is exactly why they're `"indicative"` rather than `"clean"`, not a reason either number is missing. Fixed: both values now render for every row whenever they exist; only the delta/significance test stays withheld (never computed for non-`"clean"` rows, unchanged from R-004). `product_understanding` is the genuinely different case R-004 already describes -- its OWN 2026 figure is truly absent (the unified schema has no combined-question form to compute it from), so it correctly shows a real 2025 value (confirmed resolving from `runs/lacro_2025_pooled/`) against 2026 "NOT APPLICABLE", not "NOT COMPARABLE" on either side.
+
+This required an authorised exception to this session's own file-scope constraint: `generation/validate_output.py`'s `_non_comparable_labels()` identified which rows need the "no comparative language" ban applied by checking `row["group_b_value"] == "NOT COMPARABLE"` literally -- once that string stopped being what those rows render, the check would have silently gone quiet for exactly the rows most needing it. Fixed to key off `comparability in ("indicative", "not_comparable")` instead, a durable signal independent of what the cell displays.
+
 **Verification**
 - `assert trend_table.scope_note appears exactly once`
-- `assert trend rows use comparable subset values when comparability != not_comparable`
+- `assert trend rows use comparable subset (current_common_scope) values for "clean" rows only`
+- `assert indicative/not_comparable rows render a real prior-wave value whenever one exists, never the literal string "NOT COMPARABLE" when data is available`
+- `assert no delta or significance test is computed for indicative/not_comparable rows even though both values may now be displayed`
+
+---
+
+## R-009 Trend table replaces significance with comparability
+
+**Source:** LM3b
+**Layer:** `schema`
+**Priority:** high
+**Depends on:** R-004
+**Status:** Pulled forward from Phase 2 into Phase 1 (2026-08-20) -- same code path as R-004 and R-005: removing the Sig. column and adding the Comparability column is one table restructure in `generation/orchestrator.py`'s `_build_trend_data()` and `generation/assembler.py`'s `build_part_10()`, not two. Splitting them across phases would leave R-004's three-value status computed but nothing downstream reading it. Not yet implemented.
+
+**Current behaviour (corrected, session-4 orientation, 2026-08-20)**
+Columns are Indicator, Current Wave, Prior Wave, Sig. The significance column is empty for **all five rows** (see R-004's correction of the same "three of five" error, made in the same pass), and its footnote claims a two proportion z test is used for all rows including NPS, which is not a proportion and for which respondent level prior wave scores were never retained.
+
+**Intended behaviour**
+Columns become Indicator, 2025, 2026, Comparability. The significance column and its footnote are removed entirely. The comparability reason moves from footnote to an inline note beneath the table, one line per indicator.
+
+**Rule**
+```python
+class TrendRow(BaseModel):
+    indicator_label: str
+    prior_wave_value: str | None      # "NOT COLLECTED" where absent
+    current_wave_value: str | None
+    comparability: Literal["clean", "indicative", "not_comparable"]
+    comparability_reason: str
+    # no significance field exists on this model
+```
+Illustrative shape carried over from the original draft, not a commitment to a new Pydantic model this session -- see the implementation plan for how this actually threads through the existing scorecard-row dict shape `_build_trend_data()` already produces (shared rendering path with Parts 6/7). Revisit this Rule block if implementation reveals the dict shape is the better fit long-term, per this document's own rule 5.
+
+**Implementation note**
+The literal "p=0.0553" text Test9 exhibits does not come from the table (which only ever renders "*" or nothing for a match) -- it comes from `generation/writer.py`'s `_build_scorecard_text()` (shared by Parts 6, 7, and 10), which builds a `(p=...)` string into the LLM prompt whenever `row["sig_p"]` is set, combined with the global VOICE RULES instruction to "cite the p-value." `significance_test()` (`analysis_engine/stats.py`) itself is not touched -- it is also used by Parts 5, 6, and 7's own legitimate significance tests via `scorecard_row()`. The fix is `orchestrator.py`'s `_build_trend_data()` no longer setting `sig_p`/`significant` on Part 10's rows; `_build_scorecard_text()`'s existing `if row['sig_p'] is not None` guard then goes quiet for Part 10 without any change to that shared function, and without touching Part 6/7's own rows. Proven directly (per instruction, not just inferred from the row dict): `tests/test_writer.py::TestBuildScorecardTextPart10NoPValueLeak` feeds Part-10-shaped rows into the real, unmodified `_build_scorecard_text()` and asserts no `(p=` text and no significance asterisk are produced, while a Part-6/7-shaped row with a real `sig_p` still cites it.
+
+Column order (session-5, per Lorenz): chronological, "Indicator, 2025, 2026, Comparability" -- current-wave-first was this session's own initial choice, not what was asked ("renaming... not restructuring"); Lorenz specifically wants left-to-right chronology since descending order invites misreading the direction of change, and is flagging to Lorenz's own reviewer (Lorenz to Lorenz's stakeholder) that this is a deliberate, acknowledged departure from her literal "rename" instruction. `row["group_a_value"]`/`["group_b_value"]` stay current/prior internally in `orchestrator.py` (unchanged, matches Parts 6/7's convention and what `writer.py`'s prompt text still calls them, R-012 not this session) -- the swap to chronological order happens only in `assembler.py`'s render step. C-005's header regex is order-agnostic (`20\d\d\s+20\d\d` matches either year first) and needed no change for the reorder.
+
+**Verification**
+- `assert "Sig." not in trend_table.headers`
+- `assert trend_table.headers == ["Indicator", "2025", "2026", "Comparability"]`
+- `assert no p value appears anywhere in Part 10`
+- `assert every row has a comparability value and reason`
+
+**Session-5 check-suite finding**
+C-005's header regex (`indicator\s+20\d\d\s+20\d\d\s+comparability`) assumed pure-whitespace-separated header cells and never matched this project's own `|`-delimited extraction convention (including the committed `fixtures/test9.txt`) regardless of whether the Comparability column existed -- fixed to `indicator[\s|]+20\d\d[\s|]+20\d\d[\s|]+comparability`. Separately, C-017 (R-012) fired on the natural-English footnote phrase "the prior wave" ("Not comparable to the prior wave: ...", present in the original text before this session too) rather than a genuine header, once the real header text no longer contained the more obvious literal "Current Wave"/"Prior Wave" trigger to mask it -- restricted to the header row region specifically (the text starting at "indicator" within the Trend Comparison section, not the whole section). Both authorised exceptions, per instruction.
 
 ---
 
@@ -465,37 +532,6 @@ The current headline is 6.5 percent of 124, which is roughly 8 respondents. Comp
 
 ---
 
-## R-009 Trend table replaces significance with comparability
-
-**Source:** LM3b
-**Layer:** `schema`
-**Priority:** high
-**Depends on:** R-004
-
-**Current behaviour**
-Columns are Indicator, Current Wave, Prior Wave, Sig. The significance column is empty for three of five rows, and its footnote claims a two proportion z test is used for all rows including NPS, which is not a proportion and for which respondent level prior wave scores were never retained.
-
-**Intended behaviour**
-Columns become Indicator, 2025, 2026, Comparability. The significance column and its footnote are removed entirely. The comparability reason moves from footnote to an inline note beneath the table, one line per indicator.
-
-**Rule**
-```python
-class TrendRow(BaseModel):
-    indicator_label: str
-    prior_wave_value: str | None      # "NOT COLLECTED" where absent
-    current_wave_value: str | None
-    comparability: Literal["clean", "indicative", "not_comparable"]
-    comparability_reason: str
-    # no significance field exists on this model
-```
-
-**Verification**
-- `assert "Sig." not in trend_table.headers`
-- `assert trend_table.headers == ["Indicator", "2025", "2026", "Comparability"]`
-- `assert no p value appears anywhere in Part 10`
-- `assert every row has a comparability value and reason`
-
----
 
 # Phase 3: Code
 
@@ -905,6 +941,55 @@ but the duplication itself is the same shape of latent defect.
 **Note**
 Found during session-2 orientation (2026-08-20), same pass as R-020. Not
 fixed this session.
+
+---
+
+## R-022 Stale prior_run_id should fail loudly, not resolve silently
+
+**Source:** self identified
+**Layer:** `data_config`
+**Priority:** medium
+**Status:** Not started -- logged only, no fix yet
+
+**Current behaviour**
+`runs/lacro_final_check/`'s own `analysis_results.json` stores
+`prior_run_id: "e2e_dryrun_lacro_2025_test"` -- a directory that no longer
+exists anywhere on disk. `analysis_engine/sections/part_10.py`'s
+`_load_prior_snapshot()` handles this the same way it handles a run that
+was simply never given a `--prior-run-id`: it logs a warning
+(`f"Part 10: prior_run_id={prior_run_id!r} has no analysis_results.json at
+{prior_path}"`) and returns `None`, so `calculate()` quietly sets
+`prior_available: False` and omits the comparison block entirely. Nothing
+in the pipeline distinguishes "no prior wave was ever configured" from "a
+prior wave WAS configured, but the directory it points at is gone" -- both
+produce the identical, silent, no-comparison output.
+
+The actual resolvable prior wave for this run is `runs/lacro_2025_pooled/`
+(confirmed by regenerating and matching Test9's own published figures
+exactly: 73.6% first-time access, 36.2 NPS) -- but nothing in the stored
+metadata points there. Finding it required manual substitution
+(`--prior-run-id lacro_2025_pooled` typed by hand), not anything the
+pipeline itself could have told an operator to do.
+
+**Intended behaviour**
+A `prior_run_id` that is set but doesn't resolve to a real
+`analysis_results.json` should fail the run at start (or at minimum
+surface as a loud, blocking warning an operator can't miss), not silently
+degrade to "no prior wave" -- the two situations have very different
+correct responses (proceed without a trend section vs. go find the right
+run id first) and today's behaviour makes them indistinguishable from the
+output alone.
+
+**Verification**
+- `assert a run whose stored/passed prior_run_id does not resolve to a real analysis_results.json fails loudly at run start, distinct from a run with no prior_run_id configured at all`
+
+**Note**
+Found during session-3 while regenerating `runs/lacro_final_check/` for
+R-005 verification (2026-08-20) -- the stale `prior_run_id` was silent
+until manually noticed and worked around. Not fixed in session 3 or
+session 5 (this session used `lacro_2025_pooled` directly, confirmed
+correct against Test9's own figures, rather than fixing the underlying
+silent-failure behaviour).
 
 ---
 

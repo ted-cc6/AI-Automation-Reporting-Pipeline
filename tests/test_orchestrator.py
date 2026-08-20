@@ -459,6 +459,8 @@ class TestCheckMetricCoverage:
 
 _TREND_SPEC = [{"key": "first_time_access", "label": "First-Time Access to Insurance", "fmt": "pct"}]
 
+_FTA_REASON = "Identical question wording and options in both waves."
+
 
 def _trend_analysis(definition_match) -> dict:
     return {"parts": {"part_10": {
@@ -467,7 +469,8 @@ def _trend_analysis(definition_match) -> dict:
         }},
         "prior_available": True,
         "comparison": {"first_time_access": {
-            "comparable": True,
+            "comparability": "clean",
+            "comparability_reason": _FTA_REASON,
             "current_common_scope": {
                 "value": 0.79, "n_valid": 300, "n_total": 300, "suppressed": False, "not_applicable": False,
             },
@@ -480,36 +483,47 @@ def _trend_analysis(definition_match) -> dict:
 
 class TestBuildTrendDataDefinitionMismatch:
     def test_mismatch_adds_warning_note(self):
-        rows = _build_trend_data(_trend_analysis(False), _TREND_SPEC)
+        rows, _ = _build_trend_data(_trend_analysis(False), _TREND_SPEC)
         assert "DEFINITION MISMATCH" in rows[0]["sig_test_note"]
 
     def test_match_adds_no_mismatch_warning(self):
-        # A comparable indicator always carries the common-country footnote
-        # (see _build_trend_data()'s docstring) -- only the DEFINITION
-        # MISMATCH warning is conditional on definition_match.
-        rows = _build_trend_data(_trend_analysis(True), _TREND_SPEC)
+        # A "clean" row's footnote is just its comparability reason unless
+        # a definition mismatch is also flagged -- the common-country
+        # explanation this used to carry moved to the table-level
+        # scope_note (R-005: stated once, not per row) once the row's own
+        # displayed value became the common-country figure itself.
+        rows, scope_note = _build_trend_data(_trend_analysis(True), _TREND_SPEC)
         assert "DEFINITION MISMATCH" not in rows[0]["sig_test_note"]
-        assert "five countries surveyed in both waves" in rows[0]["sig_test_note"]
+        assert rows[0]["sig_test_note"] == _FTA_REASON
+        assert "five countries surveyed in both waves" in scope_note
+        assert "Dominican Republic" in scope_note
 
     def test_unknown_match_adds_no_mismatch_warning(self):
-        rows = _build_trend_data(_trend_analysis(None), _TREND_SPEC)
+        rows, scope_note = _build_trend_data(_trend_analysis(None), _TREND_SPEC)
         assert "DEFINITION MISMATCH" not in rows[0]["sig_test_note"]
-        assert "five countries surveyed in both waves" in rows[0]["sig_test_note"]
+        assert "five countries surveyed in both waves" in scope_note
 
-    def test_mismatch_note_appends_to_existing_nps_note_not_overwrites(self):
-        analysis = _trend_analysis(False)
-        analysis["parts"]["part_10"]["comparison"]["first_time_access"]["significance"] = {
-            "p_value": None, "test": "NPS-style existing note",
-        }
-        spec = [{"key": "first_time_access", "label": "X", "fmt": "pct"}]
-        # Simulate an indicator that (hypothetically) already had its own note
-        # by reusing the NPS key so the "if key == client_satisfaction_nps"
-        # branch populates sig_note before the mismatch check runs.
-        analysis["parts"]["part_10"]["current"]["client_satisfaction_nps"] = analysis["parts"]["part_10"]["current"].pop("first_time_access")
-        analysis["parts"]["part_10"]["comparison"]["client_satisfaction_nps"] = analysis["parts"]["part_10"]["comparison"].pop("first_time_access")
-        rows = _build_trend_data(analysis, [{"key": "client_satisfaction_nps", "label": "NPS", "fmt": "nps"}])
-        assert "NPS-style existing note" in rows[0]["sig_test_note"]
+    def test_mismatch_note_appends_to_existing_reason_not_overwrites(self):
+        rows, _ = _build_trend_data(_trend_analysis(False), _TREND_SPEC)
+        assert _FTA_REASON in rows[0]["sig_test_note"]
         assert "DEFINITION MISMATCH" in rows[0]["sig_test_note"]
+
+    def test_sig_p_and_significant_are_never_populated_for_part_10(self):
+        # R-009: Part 10 never puts a real p-value into sig_p/significant,
+        # even for a "clean" row with a real significance test computed
+        # upstream (part_10.py) -- this is the actual fix for the p-value
+        # leak into generated narrative (writer.py's _build_scorecard_text()
+        # only quotes a p-value when sig_p is not None).
+        rows, _ = _build_trend_data(_trend_analysis(True), _TREND_SPEC)
+        assert rows[0]["sig_p"] is None
+        assert rows[0]["significant"] is False
+
+    def test_clean_row_uses_common_scope_as_current_wave_value(self):
+        # R-005: the table's own current-wave figure for a "clean" row is
+        # the five-country comparable subset (0.79), not the six-country
+        # full-scope figure (0.8) every other row uses.
+        rows, _ = _build_trend_data(_trend_analysis(True), _TREND_SPEC)
+        assert rows[0]["group_a_value"] == "79.0%"
 
 
 # ---------------------------------------------------------------------------
@@ -522,7 +536,7 @@ class TestBuildTrendDataDefinitionMismatch:
 # itself is not_applicable.
 # ---------------------------------------------------------------------------
 
-def _not_comparable_analysis(current_not_applicable: bool) -> dict:
+def _not_comparable_analysis(current_not_applicable: bool, comparability: str = "not_comparable") -> dict:
     return {"parts": {"part_10": {
         "current": {"product_understanding": {
             "value": None if current_not_applicable else 0.75,
@@ -533,9 +547,16 @@ def _not_comparable_analysis(current_not_applicable: bool) -> dict:
         }},
         "prior_available": True,
         "comparison": {"product_understanding": {
-            "comparable": False,
-            "incomparability_reason": "the 2025 instrument used one combined 6-option question; "
-                                       "2026 splits it into two separate 4-point questions",
+            "comparability": comparability,
+            "comparability_reason": "the 2025 instrument used one combined 6-option question; "
+                                     "2026 splits it into two separate 4-point questions",
+            # session-5: a real 2025 figure -- product_understanding's OWN
+            # not_comparable case is exactly "2025 has a figure, 2026
+            # doesn't" (the combined question only existed in 2025).
+            "prior": {
+                "value": 0.20, "n_valid": 480, "n_total": 480,
+                "suppressed": False, "not_applicable": False,
+            },
         }},
     }}}
 
@@ -544,24 +565,60 @@ _PU_SPEC = [{"key": "product_understanding", "label": "Product Understanding", "
 
 
 class TestBuildTrendDataNotApplicableCurrentWave:
-    def test_not_applicable_current_wave_does_not_say_new_baseline(self):
-        rows = _build_trend_data(_not_comparable_analysis(True), _PU_SPEC)
+    def test_not_applicable_current_wave_names_the_missing_2026_figure(self):
+        rows, _ = _build_trend_data(_not_comparable_analysis(True), _PU_SPEC)
         assert "new baseline" not in rows[0]["sig_test_note"]
-        assert "not computable from this wave's data" in rows[0]["sig_test_note"]
+        assert "only the prior wave's own figure is available" in rows[0]["sig_test_note"]
 
     def test_not_applicable_current_wave_still_names_the_reason(self):
-        rows = _build_trend_data(_not_comparable_analysis(True), _PU_SPEC)
+        rows, _ = _build_trend_data(_not_comparable_analysis(True), _PU_SPEC)
         assert "one combined 6-option question" in rows[0]["sig_test_note"]
 
-    def test_real_new_baseline_still_says_new_baseline(self):
-        # A genuinely comparable-format indicator whose current wave DOES
-        # have a real figure must keep the original "new baseline" wording
-        # -- this branch must not regress the case it already handled
-        # correctly.
-        rows = _build_trend_data(_not_comparable_analysis(False), _PU_SPEC)
-        assert "new baseline" in rows[0]["sig_test_note"]
-        assert "not computable from this wave's data" not in rows[0]["sig_test_note"]
+    def test_not_applicable_current_wave_still_shows_the_real_prior_value(self):
+        # session-5 (LM3, per Lorenz): product_understanding's own
+        # current-wave figure is genuinely absent (2026's split-question
+        # schema has no combined form), but its real 2025 value must
+        # still render, not "NOT COMPARABLE".
+        rows, _ = _build_trend_data(_not_comparable_analysis(True), _PU_SPEC)
+        assert rows[0]["group_b_value"] == "20.0%"
+
+    def test_real_current_wave_figure_does_not_add_the_missing_2026_note(self):
+        # A genuinely non-"clean" indicator whose current wave DOES have a
+        # real figure (access_to_alternatives/child_wellbeing_improvement
+        # in practice) must not get the "only the prior wave's own figure
+        # is available" sentence -- that's specific to product_
+        # understanding's own not_applicable case.
+        rows, _ = _build_trend_data(_not_comparable_analysis(False), _PU_SPEC)
+        assert "only the prior wave's own figure is available" not in rows[0]["sig_test_note"]
+        assert "Both figures are shown for reference" in rows[0]["sig_test_note"]
 
     def test_current_wave_table_cell_reads_not_applicable(self):
-        rows = _build_trend_data(_not_comparable_analysis(True), _PU_SPEC)
+        rows, _ = _build_trend_data(_not_comparable_analysis(True), _PU_SPEC)
         assert rows[0]["group_a_value"] == "NOT APPLICABLE"
+
+    def test_no_comparative_language_note_present_regardless(self):
+        # The "do not use comparative language" instruction must survive
+        # even though both cells can now show real numbers -- this is the
+        # actual restriction that stops the writer treating two displayed
+        # figures as an implied delta.
+        rows, _ = _build_trend_data(_not_comparable_analysis(True), _PU_SPEC)
+        assert "do not use comparative language" in rows[0]["sig_test_note"]
+
+    def test_comparability_field_carried_through_to_row(self):
+        rows, _ = _build_trend_data(_not_comparable_analysis(True), _PU_SPEC)
+        assert rows[0]["comparability"] == "not_comparable"
+
+    def test_indicative_footnote_reads_differently_from_not_comparable(self):
+        # R-004: the Comparability column already distinguishes "indicative"
+        # from "not_comparable"; the footnote prose should too, not repeat
+        # identical "not comparable" wording for a row Lorenz specifically
+        # wanted read as indicative rather than flatly non-comparable.
+        indicative_rows, _ = _build_trend_data(
+            _not_comparable_analysis(False, comparability="indicative"), _PU_SPEC
+        )
+        not_comparable_rows, _ = _build_trend_data(
+            _not_comparable_analysis(False, comparability="not_comparable"), _PU_SPEC
+        )
+        assert "Indicative only" in indicative_rows[0]["sig_test_note"]
+        assert "Indicative only" not in not_comparable_rows[0]["sig_test_note"]
+        assert "Not comparable to the prior wave" in not_comparable_rows[0]["sig_test_note"]

@@ -19,14 +19,27 @@ itself (a first-wave LARCO run, or a run started without --prior-run-id) --
 the comparison block is simply omitted, not treated as a failure.
 
 COMPARABILITY (2025 vs 2026, added when the 2026 wave moved LARCO onto the
-unified schema -- see project_region_scoping memory's Requirement 5): the
-survey instrument changed between waves for 3 of the 5 indicators (a
-different option set for access_to_alternatives, a different scale for
+unified schema -- see project_region_scoping memory's Requirement 5, and
+R-004 in docs/report_spec.md for the three-value status below): the survey
+instrument changed between waves for 3 of the 5 indicators (a different
+option set for access_to_alternatives, a different scale for
 child_wellbeing, and product_understanding split from one combined question
 into two separate ones). Only first_time_access and client_satisfaction_nps
-are genuinely comparable -- implemented as DATA (the _COMPARABLE table
-below), not a prompt instruction, so a non-comparable indicator's prior-wave
-value is structurally never computed or exposed to the writer at all.
+are genuinely "clean" -- implemented as DATA (the _COMPARABILITY table
+below), not a prompt instruction, so a delta/significance test is
+structurally never computed for a non-"clean" indicator at all.
+access_to_alternatives and child_wellbeing_improvement are "indicative"
+(instrument changed, but a figure exists on both sides -- LM3); no delta or
+significance test is attempted for them either, same computation gate as
+"not_comparable" -- but (session-5, per Lorenz) both waves' real values ARE
+still kept and shown for indicative/not_comparable rows whenever they
+exist, just without a tested delta between them. Suppressing a real number
+just because the comparison isn't rigorous defeats the point of a
+three-value status instead of a binary flag. product_understanding is
+"not_comparable": 2025's combined question has no 2026 equivalent at all,
+not merely an incompatible one -- its OWN current-wave value is genuinely
+absent (not_applicable), which is a different reason for showing no 2026
+figure than "the comparison wasn't attempted."
 
 SAMPLE COMPOSITION (also Requirement 5): Dominican Republic is new in the
 2026 wave and has no 2025-wave data at all (data_loader_larco/
@@ -76,17 +89,31 @@ _INDICATORS = [
 ]
 
 # Verified against the actual 2025/2026 instruments (see module docstring).
-# The reason each non-comparable indicator changed is carried alongside the
-# flag, since the writer must state it in one sentence, not just omit the
-# comparison silently.
-_COMPARABLE = {
-    "first_time_access": True,
-    "access_to_alternatives": False,
-    "child_wellbeing_improvement": False,
-    "client_satisfaction_nps": True,
-    "product_understanding": False,
+# R-004: three-value status, not the boolean this was before -- "indicative"
+# and "not_comparable" both skip the delta/significance test below (same
+# gate today's False provided), but are genuinely different situations a
+# reader needs told apart: "indicative" means the instrument changed but a
+# figure exists on both sides (access_to_alternatives, child_wellbeing_
+# improvement); "not_comparable" means there is no current-wave figure to
+# compare in the first place, not merely an incompatible one
+# (product_understanding -- 2025's single combined question has no 2026
+# equivalent at all in the unified schema). Only "clean" attempts a
+# significance test -- see _compare_indicator() below.
+_COMPARABILITY = {
+    "first_time_access": "clean",
+    "client_satisfaction_nps": "clean",
+    "access_to_alternatives": "indicative",
+    "child_wellbeing_improvement": "indicative",
+    "product_understanding": "not_comparable",
 }
-_INCOMPARABILITY_REASON = {
+# Every indicator carries a reason now, including the two "clean" ones,
+# which previously had none (a boolean True needed no explanation; a
+# three-value status naming a specific tier does). The three pre-existing
+# reason strings are kept verbatim -- they already matched the spec's
+# substance before this rewrite.
+_COMPARABILITY_REASON = {
+    "first_time_access": "Identical question wording and options in both waves.",
+    "client_satisfaction_nps": "Same 0 to 10 scale in both waves.",
     "access_to_alternatives": (
         "the 2025 instrument offered 4 forced-choice options; 2026 adds a neutral "
         "midpoint and \"I don't know\" (selected by 17.7% in 2026), which the 2025 "
@@ -231,24 +258,34 @@ def _load_prior_snapshot(prior_run_id: "str | None", runs_dir: Path) -> "dict | 
 
 
 def _compare_indicator(key: str, label: str, current_full: dict, current_common: dict,
-                        prior: "dict | None", comparable: bool) -> dict:
+                        prior: "dict | None", comparability: str) -> dict:
     row = {
         "label": label,
-        "comparable": comparable,
+        "comparability": comparability,
+        "comparability_reason": _COMPARABILITY_REASON.get(key),
         "current_full_scope": current_full,
     }
+    prior = prior or _missing_col(_INDICATOR_DEFINITIONS[key]["column"])
+    row["prior"] = prior
 
-    if not comparable:
-        # No comparison attempted at all, on either base -- a non-comparable
-        # indicator gets a fresh-baseline snapshot only (Requirement 5:
-        # never pass a 2025 figure for these, so the writer has no prior
-        # number available to misuse). current_common_scope/prior/delta
-        # stay None/absent rather than a misleading zero or suppressed
-        # marker -- there is nothing to suppress, the comparison was never
-        # attempted by design.
-        row["incomparability_reason"] = _INCOMPARABILITY_REASON.get(key)
+    if comparability != "clean":
+        # session-5 (LM3, per Lorenz): "indicative" and "not_comparable"
+        # both still skip the delta/significance test -- same binary gate
+        # as today's True/False, no computation change -- but BOTH sides'
+        # real values are now kept and shown when they exist. The earlier
+        # version of this branch discarded `prior` entirely for any
+        # non-"clean" row, which silently suppressed a real 2025 figure
+        # for access_to_alternatives/child_wellbeing_improvement (the
+        # instrument changed, but a number exists on both sides) -- that
+        # defeated the entire point of a three-value Comparability column
+        # instead of a binary flag: "so we can SHOW both numbers and
+        # label the quality of the comparison, rather than suppressing
+        # one side." Definition-match is deliberately NOT computed here --
+        # the comparability tier itself already IS the declared,
+        # expected definition change; flagging it again as a "mismatch"
+        # on top of the reason already stated would be redundant, not
+        # informative.
         row["current_common_scope"] = None
-        row["prior"] = None
         row["delta"] = None
         row["delta_unit"] = None
         row["significance"] = None
@@ -256,8 +293,6 @@ def _compare_indicator(key: str, label: str, current_full: dict, current_common:
         return row
 
     row["current_common_scope"] = current_common
-    prior = prior or _missing_col(_INDICATOR_DEFINITIONS[key]["column"])
-    row["prior"] = prior
 
     # Definition-match check: None (unknown) when either side lacks a
     # fingerprint (e.g. prior wave predates this feature) -- never treated as
@@ -339,13 +374,20 @@ def calculate(ds, segment_masks: dict, prior_run_id: "str | None" = None,
         comparison = {
             key: _compare_indicator(
                 key, label, current_full[key], current_common[key],
-                prior.get(key), comparable=_COMPARABLE[key],
+                prior.get(key), comparability=_COMPARABILITY[key],
             )
             for key, label in _INDICATORS
         }
 
     return {
         "current": current_full,
+        # R-005: previously computed every run and discarded after use --
+        # never persisted, so a future wave comparing against THIS one as
+        # its prior had no five-country figure to read back, only
+        # current_full's six-country one. Persisted now so that gap doesn't
+        # recur; not read by anything this session (2025's own data is
+        # already five-country only, Dominican Republic has no 2025 rows).
+        "current_common": current_common,
         "sample_composition": sample_composition,
         "prior_run_id": prior_run_id,
         "prior_available": prior is not None,

@@ -380,31 +380,63 @@ def _build_scorecard_7(analysis: dict, scorecard_spec: list) -> list:
     return rows
 
 
-def _build_trend_data(analysis: dict, trend_spec: list) -> list:
+def _build_trend_data(analysis: dict, trend_spec: list) -> "tuple[list, str]":
     """Part 10's wave-over-wave trend rows, shaped like
     _build_scorecard_6/7()'s output (label/group_a_*/group_b_*/sig_p/
     significant/population/sig_test_note) so writer.py's existing
     scorecard-table prompt builder and assembler.py's existing
     scorecard-table renderer can both be reused unmodified -- "group_a"/
     "group_b" become "Current Wave"/"Prior Wave" instead of two segments.
+    (writer.py hardcodes those two literal group labels itself for Part 10's
+    prompt text, R-012/not this session -- row["group_a_label"]/
+    ["group_b_label"] below are unread by anything, kept only because every
+    other scorecard-shaped row carries them.)
 
     Unlike every other part, part_10's current/prior/delta/significance are
     already fully pre-computed by analysis_engine/sections/part_10.py itself
     (it reads the prior run's own JSON at analysis time) -- this just
     formats what's already there, it doesn't re-derive anything.
 
-    Comparability (see part_10.py's _COMPARABLE table): "Current Wave"
-    always shows the FULL six-country figure (group_a_value), matching
-    every other figure in the report -- but for the two comparable
-    indicators, the delta/significance test underneath was computed on the
-    five-country COMMON base (Dominican Republic excluded, since it has no
-    2025 counterpart), not the full-scope figure shown in the table. A
-    footnote states that common-country figure explicitly, so a reader
-    scanning just the table sees the number the significance test actually
-    used, not just the two headline numbers either side of it. Non-
-    comparable rows get "Prior Wave" = "NOT COMPARABLE" plus a footnote
-    naming the instrument change, never a fabricated or silently-omitted
-    prior value.
+    R-004/R-009 (session-4): comparability is a three-value status now
+    ("clean"/"indicative"/"not_comparable", part_10.py's _COMPARABILITY
+    table), carried on each row as `comparability` for assembler.py to
+    render as its own Comparability column -- no more Sig. column, and this
+    function no longer puts a real p-value into `sig_p`/`significant` for
+    Part 10 at all (always None/False here). Parts 6/7 build their own rows
+    through separate functions and are unaffected; writer.py's
+    _build_scorecard_text() (shared by Parts 6, 7, and 10) reads sig_p
+    generically and simply has nothing to quote for Part 10 rows now.
+
+    R-005: for "clean" rows only, `group_a_value` (the table's current-wave
+    figure) is the five-country comparable-subset value
+    (current_common_scope), not the six-country full-scope one -- the
+    number shown and the number the delta/significance test was computed
+    from are now the same number, so no per-row footnote is needed to
+    reconcile them (unlike the superseded version of this function, which
+    had to explain the discrepancy every time). "indicative"/
+    "not_comparable" rows keep `current_full_scope` for `group_a_value`
+    (matching every other figure for that same indicator elsewhere in the
+    report -- there is no test result to keep it consistent with instead).
+
+    session-5 (LM3, per Lorenz): `group_b_value` for a non-"clean" row is
+    now the real prior-wave figure whenever one exists, not the literal
+    string "NOT COMPARABLE" -- suppressing a real number just because the
+    comparison isn't rigorous defeated the point of a three-value
+    Comparability column ("so we can SHOW both numbers and label the
+    quality of the comparison, rather than suppressing one side"). No
+    delta or significance test is computed for these rows either way (see
+    part_10.py's _compare_indicator()) -- only what's DISPLAYED changed.
+    validate_output.py's `_non_comparable_labels()` was updated in the same
+    session to key off `comparability != "clean"` instead of the now-
+    unreliable `group_b_value == "NOT COMPARABLE"` string match, so the
+    comparative-language ban on these rows' generated narrative still
+    applies.
+
+    Returns (rows, scope_note) -- scope_note is the single, table-level
+    sentence naming which row(s) are five-country and why Dominican
+    Republic is excluded from them (R-005: stated once near the table, not
+    repeated per row); "" if no clean row produced a comparison this run
+    (no prior wave, or every clean indicator's own data was missing).
     """
     part_10 = get_nested(analysis, "parts.part_10", default=None) or {}
     current = part_10.get("current", {})
@@ -412,6 +444,7 @@ def _build_trend_data(analysis: dict, trend_spec: list) -> list:
     prior_available = bool(part_10.get("prior_available"))
 
     rows = []
+    clean_labels_with_comparison = []
     for ind in trend_spec:
         key, label, fmt = ind["key"], ind["label"], ind["fmt"]
         cur = current.get(key, {})
@@ -422,86 +455,94 @@ def _build_trend_data(analysis: dict, trend_spec: list) -> list:
         )
 
         val_b = "N/A (no prior wave)"
-        sig_p = None
-        sig_note = None
+        comparability = None
+        footnote = None
         if prior_available and key in comparison:
             comp = comparison[key]
+            comparability = comp.get("comparability")
+            reason = comp.get("comparability_reason")
+            prior = comp.get("prior") or {}
+            val_b = format_value(
+                prior.get("value"), fmt,
+                suppressed=bool(prior.get("suppressed", False)),
+                not_applicable=bool(prior.get("not_applicable", False)),
+            )
 
-            if not comp.get("comparable", True):
-                val_b = "NOT COMPARABLE"
-                reason = comp.get("incomparability_reason")
-                # "New baseline" is only true when the CURRENT wave actually
-                # has a figure to serve as one -- val_a's own not_applicable
-                # flag (computed a few lines above) says otherwise for an
-                # indicator like product_understanding on the 2026 unified
-                # schema (no single combined question exists this wave at
-                # all). A real generated report called such a wave "the
-                # founding baseline" for an indicator it had NO figure for
-                # in either wave -- distinct wording avoids repeating that.
-                current_not_applicable = bool(cur.get("not_applicable", False))
-                if current_not_applicable:
-                    # Deliberately avoids the phrase "new baseline" even in
-                    # negated form ("not a new baseline") -- a model can
-                    # still latch onto the phrase mid-sentence, which is
-                    # exactly the failure this branch exists to prevent.
-                    sig_note = (
-                        f"Not comparable to the prior wave: {reason}. This wave's format has "
-                        "no figure for this indicator either, in the combined-question form it "
-                        "is defined from -- simply not computable from this wave's data in that "
-                        "form." if reason else
-                        "This wave's format has no figure for this indicator at all -- simply "
-                        "not computable from this wave's data."
-                    )
-                else:
-                    sig_note = (
-                        f"Not comparable to the prior wave: {reason}. This wave's figure is a "
-                        "new baseline, not a change from 2025 -- do not use comparative language "
-                        "(rose, fell, improved, declined, increased, decreased, up, down, since "
-                        "last year) for this indicator." if reason else
-                        "Not comparable to the prior wave (instrument changed) -- new baseline only."
+            if comparability != "clean":
+                # session-5 (LM3, per Lorenz): both waves' real figures are
+                # shown here -- val_a (computed above, from current_full)
+                # and val_b (from prior, just above) -- whenever they
+                # exist. The earlier version of this branch hardcoded
+                # val_b to the literal string "NOT COMPARABLE", discarding
+                # a real 2025 figure for access_to_alternatives/
+                # child_wellbeing_improvement even though the instrument
+                # change that makes them "indicative" doesn't mean the
+                # number itself is missing -- that suppression defeated
+                # the entire point of a three-value Comparability column:
+                # "so we can SHOW both numbers and label the quality of
+                # the comparison, rather than suppressing one side." No
+                # delta or significance test is computed either way (see
+                # part_10.py's _compare_indicator()) -- only whether a
+                # real number is DISPLAYED changed, not what's tested.
+                #
+                # "Indicative" and "not_comparable" still read differently
+                # to a reader even though neither attempts a delta (R-004:
+                # the column already distinguishes them; the footnote
+                # prose should too, not just repeat "not comparable" for
+                # both).
+                prefix = (
+                    "Indicative only, not a rigorous comparison"
+                    if comparability == "indicative" else
+                    "Not comparable to the prior wave"
+                )
+                reason_clause = f": {reason}" if reason else " (instrument changed)"
+                footnote = (
+                    f"{prefix}{reason_clause}. Both figures are shown for reference, not as a "
+                    "tested change -- do not use comparative language (rose, fell, improved, "
+                    "declined, increased, decreased, up, down, since last year) to describe the "
+                    "difference between them."
+                )
+                # product_understanding on the 2026 unified schema: the
+                # CURRENT wave itself has no figure at all (not merely an
+                # incompatible one) -- val_a already reads NOT APPLICABLE
+                # (computed above from cur's own not_applicable flag), but
+                # say so explicitly here too, since otherwise a reader
+                # comparing this footnote against a row showing two real
+                # numbers (access_to_alternatives, child_wellbeing) could
+                # assume the same "reference only" framing implies a 2026
+                # figure exists somewhere it just isn't showing.
+                if bool(cur.get("not_applicable", False)):
+                    footnote += (
+                        " This wave's format has no figure for this indicator at all, in the "
+                        "form it is defined from -- only the prior wave's own figure is available."
                     )
             else:
-                prior = comp.get("prior") or {}
-                val_b = format_value(
-                    prior.get("value"), fmt,
-                    suppressed=bool(prior.get("suppressed", False)),
-                    not_applicable=bool(prior.get("not_applicable", False)),
-                )
-                sig = comp.get("significance") or {}
-                sig_p = sig.get("p_value")
-                if key == "client_satisfaction_nps":
-                    sig_note = sig.get("test")
-
-                # The delta/significance test above was computed on the
-                # common-country base, not the full-scope val_a shown in
-                # this same row -- state that number explicitly (see
-                # function docstring).
+                # R-005: this row's own current-wave value is the five-
+                # country comparable subset, the same base the delta was
+                # computed on -- not the six-country current_full_scope
+                # every other row (and every other figure in the report)
+                # uses. See scope_note below for the one-time DR exclusion
+                # statement this replaces per-row footnote text with.
                 common = comp.get("current_common_scope") or {}
-                common_val = format_value(
+                val_a = format_value(
                     common.get("value"), fmt,
                     suppressed=bool(common.get("suppressed", False)),
                     not_applicable=bool(common.get("not_applicable", False)),
                 )
-                common_note = (
-                    f"The delta/significance test above compares the five countries surveyed "
-                    f"in both waves only (Dominican Republic excluded -- new in 2026, no 2025 "
-                    f"counterpart): {common_val} in this wave on those five countries, "
-                    f"against {val_b} in 2025."
-                )
-                sig_note = f"{sig_note} {common_note}" if sig_note else common_note
+                clean_labels_with_comparison.append(label)
+                footnote = reason
 
                 # Definition-match mismatch (see analysis_engine/sections/
-                # part_10.py's _compare_indicator()) overrides/extends
-                # whatever sig_note already says -- a changed question/
-                # scale/base between waves needs to be flagged prominently,
-                # not compared silently.
+                # part_10.py's _compare_indicator()) still needs flagging
+                # prominently -- a changed question/scale/base between
+                # waves is a real problem independent of significance.
                 if comp.get("definition_match") is False:
                     mismatch = (
                         "DEFINITION MISMATCH: this indicator's underlying question, scale, "
                         "or population base differs between the current and prior wave -- "
                         "the comparison above may not be measuring the same thing both times."
                     )
-                    sig_note = f"{sig_note} {mismatch}" if sig_note else mismatch
+                    footnote = f"{footnote} {mismatch}" if footnote else mismatch
 
         rows.append({
             "label":         label,
@@ -509,12 +550,21 @@ def _build_trend_data(analysis: dict, trend_spec: list) -> list:
             "group_a_value": val_a,
             "group_b_label": "Prior Wave",
             "group_b_value": val_b,
-            "sig_p":         sig_p,
-            "significant":   bool(sig_p is not None and sig_p < 0.05),
+            "sig_p":         None,
+            "significant":   False,
             "population":    None,
-            "sig_test_note": sig_note,
+            "sig_test_note": footnote,
+            "comparability": comparability,
         })
-    return rows
+
+    scope_note = ""
+    if clean_labels_with_comparison:
+        scope_note = (
+            f"{' and '.join(clean_labels_with_comparison)} report the five countries surveyed "
+            "in both waves; Dominican Republic is new in 2026 and excluded from those row(s), "
+            "with no 2025 counterpart."
+        )
+    return rows, scope_note
 
 
 def _build_scorecard_5(analysis: dict, scorecard_spec: list) -> list:
@@ -605,6 +655,7 @@ def build_part_package(part_key: str, analysis: dict, qual: dict,
     # Scorecard rows for Parts 5, 6 & 7
     scorecard = []
     groups: dict = {}
+    trend_scope_note = ""
     if part_key == "part_5" and "scorecard_metrics" in spec_part:
         scorecard = _build_scorecard_5(analysis, spec_part["scorecard_metrics"])
         groups = get_nested(analysis, "parts.part_5.caregiver_comparison.groups", default={}) or {}
@@ -620,7 +671,7 @@ def build_part_package(part_key: str, analysis: dict, qual: dict,
         # base/suppression), so a single per-table N in the header would be
         # misleading here; build_part_10() renders plain "Current Wave"/
         # "Prior Wave" column headers with no n= suffix.
-        scorecard = _build_trend_data(analysis, spec_part["trend_indicators"])
+        scorecard, trend_scope_note = _build_trend_data(analysis, spec_part["trend_indicators"])
 
     # Visuals
     visuals = []
@@ -640,6 +691,7 @@ def build_part_package(part_key: str, analysis: dict, qual: dict,
         "scorecard": scorecard,
         "groups":   groups,
         "visuals":  visuals,
+        "trend_scope_note": trend_scope_note,
     }
 
 

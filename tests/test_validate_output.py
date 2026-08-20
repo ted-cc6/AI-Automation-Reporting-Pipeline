@@ -169,11 +169,16 @@ class TestLoadProductMix:
 
 
 class TestComparativeVerbOnNonComparable:
+    # session-5 (R-004/R-005/R-009, per Lorenz/LM3): a non-"clean" row now
+    # shows a real prior-wave value (48.9%) rather than the literal string
+    # "NOT COMPARABLE" -- _non_comparable_labels() was updated in the same
+    # session to key off `comparability` instead, so this fixture carries
+    # that field explicitly rather than relying on group_b_value's text.
     _SCORECARD = [
         {"label": "Access to Alternatives (Difficult)", "group_a_value": "44.5%",
-         "group_b_value": "NOT COMPARABLE"},
+         "group_b_value": "48.9%", "comparability": "indicative"},
         {"label": "First-Time Access to Insurance", "group_a_value": "77.2%",
-         "group_b_value": "73.6%"},
+         "group_b_value": "73.6%", "comparability": "clean"},
     ]
 
     def test_comparative_verb_on_non_comparable_indicator_is_rejected(self):

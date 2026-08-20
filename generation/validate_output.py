@@ -350,14 +350,31 @@ def _check_tiny_sentiment_base_percentages(text: str, part_key: str, text_key: s
 
 def _non_comparable_labels(package: dict) -> list:
     """Part 10 package's non-comparable indicator labels, read from the
-    scorecard _build_trend_data() already built -- a row's "Prior Wave"
-    column is the literal string "NOT COMPARABLE" exactly when
-    part_10.py's _COMPARABLE table marked that indicator non-comparable."""
+    scorecard _build_trend_data() already built.
+
+    Session-5 (R-004/R-005/R-009, per Lorenz/LM3): previously kept on the
+    literal string "NOT COMPARABLE" in a row's prior-wave column, which
+    used to be the only way this row type ever rendered. It no longer is
+    -- an "indicative"/"not_comparable" row now shows its real prior-wave
+    figure whenever one exists (suppressing it defeated the point of a
+    three-value Comparability column instead of a binary flag), so the
+    string match silently stopped identifying these rows at all once that
+    changed -- the comparative-language ban below would have gone quiet
+    for exactly the rows that need it most. `comparability != "clean"` is
+    the actual, durable signal: no significance test is ever computed for
+    "indicative" or "not_comparable" rows regardless of what their own
+    cells display, so the ban must keep applying to them by that fact,
+    not by a string this session's own change happened to remove.
+    `comparability` is `None` for a row with no prior wave at all (nothing
+    was compared, so nothing to ban) -- excluded here exactly as the old
+    string match also excluded it (its group_b_value was "N/A (no prior
+    wave)", never "NOT COMPARABLE" either).
+    """
     if package.get("part") != "part_10":
         return []
     return [
         row["label"] for row in package.get("scorecard", [])
-        if row.get("group_b_value") == "NOT COMPARABLE"
+        if row.get("comparability") in ("indicative", "not_comparable")
     ]
 
 

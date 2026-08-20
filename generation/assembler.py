@@ -928,6 +928,16 @@ def build_part_9(doc, package: dict, texts: dict):
 # generation/orchestrator.py's orchestrate())
 # ---------------------------------------------------------------------------
 
+# R-009: status word only in the Comparability column (a full reason
+# string wraps badly in a table cell); the reason itself renders as a
+# per-row footnote instead -- see build_part_10()'s footnotes list.
+_COMPARABILITY_DISPLAY = {
+    "clean": "Clean",
+    "indicative": "Indicative",
+    "not_comparable": "Not comparable",
+}
+
+
 def build_part_10(doc, package: dict, texts: dict):
     _add_heading(doc, f"Part 10: {package['title']}", level=1)
     sections = package.get("sections", {})
@@ -939,17 +949,34 @@ def build_part_10(doc, package: dict, texts: dict):
         # note) -- plain column headers, not _group_header()'s "(n=...)"
         # suffix, since a single per-table N would misrepresent rows that
         # each have their own base/suppression.
-        headers = ["Indicator", "Current Wave", "Prior Wave", "Sig.*"]
+        #
+        # R-009: "2025"/"2026" are hardcoded literals here, not derived
+        # from a config value the way R-012 wants (prior_wave.year/
+        # current_wave.year) -- R-012 is not in scope this session. A
+        # future wave reusing this needs either R-012 implemented or these
+        # two literals updated by hand.
+        #
+        # Column order is chronological (2025 then 2026), not "current
+        # wave first" -- a reader expects left-to-right chronology in a
+        # trend table; descending order invites misreading the direction
+        # of change. row["group_a_value"]/["group_b_value"] stay
+        # current/prior internally (unchanged from Parts 6/7's own
+        # convention, and what writer.py's prompt text still calls
+        # "Current Wave"/"Prior Wave" -- R-012, not this session), so the
+        # two are swapped only here, at render time, not in the data.
+        headers = ["Indicator", "2025", "2026", "Comparability"]
         rows, footnotes = [], []
         for row in scorecard:
-            sig_mark = "*" if row["significant"] else ""
             label = row["label"]
+            comparability = _COMPARABILITY_DISPLAY.get(row.get("comparability"), "")
             if row.get("sig_test_note"):
                 label += " ‡"
                 footnotes.append(f"‡ {row['label']}: {row['sig_test_note']}")
-            rows.append([label, row["group_a_value"], row["group_b_value"], sig_mark])
+            rows.append([label, row["group_b_value"], row["group_a_value"], comparability])
+        scope_note = package.get("trend_scope_note", "")
+        if scope_note:
+            _add_paragraph(doc, scope_note)
         _add_table(doc, headers, rows)
-        _add_paragraph(doc, "* p < 0.05 (two-proportion z-test)")
         for fn in footnotes:
             _add_paragraph(doc, fn)
 

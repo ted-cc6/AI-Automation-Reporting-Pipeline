@@ -13,6 +13,7 @@ import pytest
 
 import generation.writer as writer
 from generation.writer import (
+    _build_scorecard_text,
     _build_sections_text,
     _house_voice,
     _house_voice_text,
@@ -546,3 +547,61 @@ class TestFmtInsightSummaryTinySentimentBase:
 
     def test_no_sentiment_split_omits_the_line_entirely(self):
         assert "SENTIMENT SPLIT" not in writer._fmt_insight_summary({"theme_summary": "x"})
+
+
+# ---------------------------------------------------------------------------
+# _build_scorecard_text -- R-009 (session-4): Part 10's own p-value leak
+# doesn't live here (this function is shared by Parts 6, 7, and 10, and is
+# not touched this session) -- it lives in orchestrator.py's
+# _build_trend_data() no longer populating sig_p/significant for Part 10's
+# rows at all. This is the actual proof of that fix: rows shaped exactly as
+# orchestrator.py now produces them, fed into this real, unmodified
+# function, must reach the LLM prompt with no "(p=...)" text -- not just an
+# assertion on the row dict in isolation, and not the rendered docx table
+# (which never showed a raw p-value to begin with; the leak was always in
+# the prompt, not the render). Parts 6/7's own rows (sig_p populated) must
+# keep citing a p-value exactly as before -- this function itself is
+# unchanged, only what Part 10 now passes into it.
+# ---------------------------------------------------------------------------
+
+class TestBuildScorecardTextPart10NoPValueLeak:
+    def _trend_row(self, **overrides) -> dict:
+        row = {
+            "label": "First-Time Access to Insurance",
+            "group_a_value": "76.7%", "group_b_value": "73.6%",
+            "sig_p": None, "significant": False,
+            "population": None,
+            "sig_test_note": "Identical question wording and options in both waves.",
+        }
+        row.update(overrides)
+        return row
+
+    def test_part10_shaped_row_with_sig_p_none_produces_no_p_note(self):
+        text = _build_scorecard_text([self._trend_row()], "Current Wave", "Prior Wave")
+        assert "(p=" not in text
+        assert "p=" not in text
+
+    def test_part10_shaped_row_never_shows_a_significance_asterisk(self):
+        # significant is always False for Part 10 (orchestrator.py never
+        # sets it True), so the asterisk this function would otherwise
+        # print (sig_mark = "*" if row["significant"] else "") must never
+        # appear on this row's own line.
+        text = _build_scorecard_text([self._trend_row()], "Current Wave", "Prior Wave")
+        row_line = next(l for l in text.splitlines() if "First-Time Access" in l)
+        assert "*" not in row_line
+
+    def test_reason_still_reaches_the_prompt_as_a_note(self):
+        # The comparability reason (R-004) still needs to reach the model,
+        # via the same sig_test_note field Parts 6/7's real significance
+        # notes already use -- renaming that field would have silently cut
+        # this off, which is exactly why orchestrator.py keeps the name.
+        text = _build_scorecard_text([self._trend_row()], "Current Wave", "Prior Wave")
+        assert "Identical question wording and options in both waves." in text
+
+    def test_part6_shaped_row_with_real_sig_p_still_cites_it(self):
+        # Confirms the fix is scoped to Part 10's own data, not a change to
+        # this shared function -- a Part 6/7-style row with a real p-value
+        # must keep citing it exactly as before.
+        row = self._trend_row(sig_p=0.0234, significant=True)
+        text = _build_scorecard_text([row], "Claimant", "Non-Claimant")
+        assert "(p=" in text

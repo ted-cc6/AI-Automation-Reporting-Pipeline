@@ -404,11 +404,20 @@ def protection_stated_total_matches_entries(text: str):
 
 @reg.add("C-005", "R-004", BLOCKING)
 def trend_table_declares_comparability(text: str):
-    """Every trend indicator carries a comparability declaration."""
+    """Every trend indicator carries a comparability declaration.
+
+    R-009 (session-4): header separator was `\\s+` only, so a real pipe-
+    delimited table row ("Indicator | 2026 | 2025 | Comparability" -- this
+    project's own extraction convention, including the committed
+    fixtures/test9.txt) never matched at all, regardless of whether the
+    Comparability column was actually present. `[\\s|]+` accepts either;
+    still requires the four words in order, so a genuinely missing column
+    still fails.
+    """
     t = _lower(text)
     if "trend comparison" not in t:
         return None, "no trend section"
-    header = re.search(r"indicator\s+20\d\d\s+20\d\d\s+comparability", t)
+    header = re.search(r"indicator[\s|]+20\d\d[\s|]+20\d\d[\s|]+comparability", t)
     if not header:
         return False, "trend table has no Comparability column header"
     return True, ""
@@ -625,11 +634,29 @@ def non_filer_is_renamed(text: str):
 
 @reg.add("C-017", "R-012", BLOCKING)
 def trend_columns_use_wave_years(text: str):
-    """LM3: columns are labelled by year, not Current and Prior Wave."""
+    """LM3: columns are labelled by year, not Current and Prior Wave.
+
+    Restricted to the table header region (session-5, found during
+    R-004/R-005/R-009): previously scanned the whole trend section for the
+    bare substrings "current wave"/"prior wave" anywhere, which also
+    matched ordinary footnote prose ("Not comparable to the prior wave:
+    ..." -- natural English, not a header). False positive, caught
+    regenerating Part 10 with a genuinely year-labelled header that still
+    failed this check purely because of unrelated footnote text further
+    down the same section. Now bounded to the header row itself: the text
+    starting at "indicator" within the Trend Comparison section, for a
+    short, header-row-sized window -- not the whole section.
+    """
     t = _lower(text)
-    if "trend comparison" not in t:
+    section = re.search(r"trend comparison(.{0,2600})", t, re.S)
+    if not section:
         return None, "no trend section"
-    if "current wave" in t or "prior wave" in t:
+    body = section.group(1)
+    header_start = body.find("indicator")
+    if header_start == -1:
+        return None, "no trend table header found"
+    header_region = body[header_start:header_start + 100]
+    if "current wave" in header_region or "prior wave" in header_region:
         return False, "trend table still uses Current Wave / Prior Wave headers"
     return True, ""
 

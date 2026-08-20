@@ -21,6 +21,7 @@ from generation.assembler import (
     _load_analysis_meta,
     assemble,
     build_part_7,
+    build_part_10,
 )
 
 
@@ -636,3 +637,133 @@ class TestAssembleExecutiveSummary:
         out = tmp_path / "out.docx"
         assemble([], {}, "no_parts_run", out)
         assert "Executive Summary" not in self._doc_text(out)
+
+
+# ---------------------------------------------------------------------------
+# Part 10 -- Trend Comparison table (R-009: Sig. column replaced with
+# Comparability; R-005: DR-exclusion scope note stated once near the table,
+# not per row).
+# ---------------------------------------------------------------------------
+
+_TREND_PACKAGE = {
+    "title": "Trend Comparison",
+    "sections": {"insight": {"verbatims": []}},
+    "visuals": [],
+    "trend_scope_note": (
+        "First-Time Access to Insurance and Client Satisfaction (NPS) report the five "
+        "countries surveyed in both waves; Dominican Republic is new in 2026 and excluded "
+        "from those row(s), with no 2025 counterpart."
+    ),
+    "scorecard": [
+        {
+            "label": "First-Time Access to Insurance",
+            "group_a_label": "Current Wave", "group_a_value": "76.7%",
+            "group_b_label": "Prior Wave", "group_b_value": "73.6%",
+            "sig_p": None, "significant": False, "population": None,
+            "sig_test_note": "Identical question wording and options in both waves.",
+            "comparability": "clean",
+        },
+        {
+            # session-5 (LM3, per Lorenz): both wave values shown, not
+            # "NOT COMPARABLE" -- the instrument changed but a real figure
+            # exists on both sides (48.9% in 2025, 44.5% in 2026).
+            "label": "Access to Alternatives (Difficult)",
+            "group_a_label": "Current Wave", "group_a_value": "44.5%",
+            "group_b_label": "Prior Wave", "group_b_value": "48.9%",
+            "sig_p": None, "significant": False, "population": None,
+            "sig_test_note": "Indicative only, not a rigorous comparison: the 2025 instrument "
+                              "offered 4 forced-choice options; 2026 adds a neutral midpoint. "
+                              "Both figures are shown for reference, not as a tested change -- "
+                              "do not use comparative language to describe the difference "
+                              "between them.",
+            "comparability": "indicative",
+        },
+        {
+            # product_understanding's genuinely different case: 2026 truly
+            # has no figure (not_applicable), but 2025's real value is
+            # still shown, not suppressed to "NOT COMPARABLE" either.
+            "label": "Product Understanding",
+            "group_a_label": "Current Wave", "group_a_value": "NOT APPLICABLE",
+            "group_b_label": "Prior Wave", "group_b_value": "20.0%",
+            "sig_p": None, "significant": False, "population": None,
+            "sig_test_note": "Not comparable to the prior wave: the 2025 instrument used one "
+                              "combined 6-option question. Both figures are shown for reference, "
+                              "not as a tested change -- do not use comparative language to "
+                              "describe the difference between them. This wave's format has no "
+                              "figure for this indicator at all, in the form it is defined from "
+                              "-- only the prior wave's own figure is available.",
+            "comparability": "not_comparable",
+        },
+    ],
+}
+
+
+class TestBuildPart10TrendTable:
+    def _render(self, package=None):
+        doc = Document()
+        build_part_10(doc, package or _TREND_PACKAGE, {"narrative": "x", "insight": "y"})
+        return doc
+
+    def test_headers_are_chronological_indicator_years_comparability(self):
+        # Chronological (2025 then 2026), not "current wave first" --
+        # Lorenz's explicit call: left-to-right chronology is what a
+        # reader expects from a trend table.
+        doc = self._render()
+        table = doc.tables[0]
+        headers = [c.text for c in table.rows[0].cells]
+        assert headers == ["Indicator", "2025", "2026", "Comparability"]
+
+    def test_no_sig_column_or_significance_caption_anywhere(self):
+        doc = self._render()
+        table = doc.tables[0]
+        for row in table.rows:
+            for cell in row.cells:
+                assert "Sig" not in cell.text
+        body = "\n".join(p.text for p in doc.paragraphs)
+        assert "z-test" not in body
+        assert "p < 0.05" not in body
+
+    def test_comparability_column_shows_status_word_only(self):
+        doc = self._render()
+        table = doc.tables[0]
+        data_rows = [[c.text for c in row.cells] for row in table.rows[1:]]
+        # Columns are now [label, 2025 (group_b), 2026 (group_a), comparability].
+        assert ["First-Time Access to Insurance ‡", "73.6%", "76.7%", "Clean"] in data_rows
+        assert ["Access to Alternatives (Difficult) ‡", "48.9%", "44.5%", "Indicative"] in data_rows
+        assert ["Product Understanding ‡", "20.0%", "NOT APPLICABLE", "Not comparable"] in data_rows
+        # The reason text itself must NOT be in the table cell -- it wraps
+        # badly there and belongs in the footnote instead (Lorenz's request).
+        for row in data_rows:
+            assert "instrument" not in row[3]
+            assert "wording" not in row[3]
+
+    def test_indicative_and_not_comparable_rows_show_real_prior_values(self):
+        # session-5 (LM3, per Lorenz): the whole point of the fix -- a
+        # non-"clean" row must never render the literal string
+        # "NOT COMPARABLE" when a real number exists for that wave.
+        doc = self._render()
+        table = doc.tables[0]
+        for row in table.rows[1:]:
+            cells = [c.text for c in row.cells]
+            assert "NOT COMPARABLE" not in cells
+
+    def test_footnotes_state_no_comparative_language_for_non_clean_rows(self):
+        body = "\n".join(p.text for p in self._render().paragraphs)
+        assert "do not use comparative language" in body
+
+    def test_reason_appears_as_a_footnote_not_in_the_cell(self):
+        body = "\n".join(p.text for p in self._render().paragraphs)
+        assert "‡ First-Time Access to Insurance: Identical question wording" in body
+        assert "‡ Access to Alternatives (Difficult): Indicative only" in body
+        assert "‡ Product Understanding: Not comparable to the prior wave" in body
+        assert "only the prior wave's own figure is available" in body
+
+    def test_scope_note_rendered_once_near_the_table(self):
+        body = "\n".join(p.text for p in self._render().paragraphs)
+        assert body.count("Dominican Republic is new in 2026") == 1
+        assert "five countries surveyed in both waves" in body
+
+    def test_no_scope_note_omits_the_paragraph_entirely(self):
+        package = dict(_TREND_PACKAGE, trend_scope_note="")
+        body = "\n".join(p.text for p in self._render(package).paragraphs)
+        assert "Dominican Republic" not in body

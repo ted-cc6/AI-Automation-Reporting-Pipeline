@@ -17,6 +17,8 @@ import pytest
 from analysis_engine.sections.part_10 import (
     COMMON_LACRO_COUNTRIES,
     NEW_COUNTRY_2026,
+    _COMPARABILITY,
+    _COMPARABILITY_REASON,
     _INDICATOR_DEFINITIONS,
     _compare_indicator,
     _current_snapshot,
@@ -41,9 +43,10 @@ class TestComparableIndicators:
         prior = _snap(value=0.736, definition=d)
         row = _compare_indicator(
             "first_time_access", "First-Time Access", current_full, current_common,
-            prior, comparable=True,
+            prior, comparability="clean",
         )
-        assert row["comparable"] is True
+        assert row["comparability"] == "clean"
+        assert row["comparability_reason"] == _COMPARABILITY_REASON["first_time_access"]
         assert row["current_full_scope"] == current_full
         assert row["current_common_scope"] == current_common
         assert row["delta"] == pytest.approx(0.767 - 0.736)
@@ -56,7 +59,7 @@ class TestComparableIndicators:
         prior = _snap(value=36.2, definition=d)
         row = _compare_indicator(
             "client_satisfaction_nps", "Client Satisfaction (NPS)", current_full,
-            current_common, prior, comparable=True,
+            current_common, prior, comparability="clean",
         )
         assert row["delta"] == pytest.approx(46.2 - 36.2)
         assert row["delta_unit"] == "NPS points"
@@ -70,34 +73,84 @@ class TestComparableIndicators:
 
 
 class TestNonComparableIndicators:
-    def test_non_comparable_indicator_gets_no_prior_or_delta(self):
-        current_full = _snap(value=0.445)
+    def test_not_comparable_indicator_gets_no_delta_but_keeps_its_prior_value(self):
+        # session-5 (LM3, per Lorenz): a non-"clean" indicator still skips
+        # the delta/significance test, but its real prior-wave value is
+        # now RETAINED, not discarded -- suppressing a real number just
+        # because the comparison isn't rigorous defeated the point of a
+        # three-value Comparability column.
+        current_full = _snap(value=0.14)
+        prior = _snap(value=0.20)
         row = _compare_indicator(
-            "access_to_alternatives", "Access to Alternatives", current_full,
-            current_common=_snap(value=0.44), prior=_snap(value=0.30),
-            comparable=False,
+            "product_understanding", "Product Understanding", current_full,
+            current_common=_snap(value=0.15), prior=prior,
+            comparability="not_comparable",
         )
-        assert row["comparable"] is False
+        assert row["comparability"] == "not_comparable"
         assert row["current_full_scope"] == current_full
         assert row["current_common_scope"] is None
-        assert row["prior"] is None
+        assert row["prior"] == prior
         assert row["delta"] is None
         assert row["delta_unit"] is None
         assert row["significance"] is None
         assert row["definition_match"] is None
-        assert row["incomparability_reason"]
+        assert row["comparability_reason"]
 
-    def test_non_comparable_indicator_ignores_prior_even_if_given(self):
-        # Even when a prior value IS available, comparable=False must not
-        # leak it into the row -- the writer must never see a number it
-        # could mistake for a valid comparison.
+    def test_missing_prior_falls_back_to_a_missing_placeholder(self):
+        # If the prior wave genuinely has nothing for this indicator (no
+        # prior dict at all), _missing_col()'s placeholder is used --
+        # never a silent None that would render as an empty cell with no
+        # explanation.
         row = _compare_indicator(
             "product_understanding", "Product Understanding", _snap(value=None),
-            current_common=_snap(value=0.5), prior=_snap(value=0.4),
-            comparable=False,
+            current_common=_snap(value=0.5), prior=None,
+            comparability="not_comparable",
         )
-        assert row["prior"] is None
+        assert row["prior"]["not_applicable"] is True
         assert row["delta"] is None
+
+    def test_indicative_indicator_gets_no_delta_but_keeps_both_values(self):
+        # R-004: "indicative" is gated exactly like "not_comparable" for
+        # delta/significance (no computation change from today's boolean
+        # False), but a figure exists on both sides for these two
+        # indicators specifically (LM3) -- both must be retained.
+        current_full = _snap(value=0.445)
+        prior = _snap(value=0.30)
+        row = _compare_indicator(
+            "access_to_alternatives", "Access to Alternatives", current_full,
+            current_common=_snap(value=0.44), prior=prior,
+            comparability="indicative",
+        )
+        assert row["comparability"] == "indicative"
+        assert row["current_common_scope"] is None
+        assert row["prior"] == prior
+        assert row["delta"] is None
+        assert row["significance"] is None
+        assert row["comparability_reason"]
+
+
+class TestComparabilityTable:
+    def test_every_indicator_has_a_permitted_status(self):
+        for key, status in _COMPARABILITY.items():
+            assert status in {"clean", "indicative", "not_comparable"}
+
+    def test_every_indicator_has_a_non_empty_reason(self):
+        # R-004: the two "clean" indicators previously had no reason at
+        # all (a boolean True needed no explanation) -- every indicator
+        # gets one now, including them.
+        for key in _COMPARABILITY:
+            assert _COMPARABILITY_REASON.get(key), f"{key} has no reason string"
+
+    def test_only_clean_indicators_are_clean(self):
+        # LM3 (Lorenz): access_to_alternatives and child_wellbeing_improvement
+        # are "indicative", not "not_comparable" -- an instrument change with
+        # a figure on both sides is a different situation from
+        # product_understanding, which has no current-wave figure at all.
+        assert _COMPARABILITY["first_time_access"] == "clean"
+        assert _COMPARABILITY["client_satisfaction_nps"] == "clean"
+        assert _COMPARABILITY["access_to_alternatives"] == "indicative"
+        assert _COMPARABILITY["child_wellbeing_improvement"] == "indicative"
+        assert _COMPARABILITY["product_understanding"] == "not_comparable"
 
 
 class TestDefinitionMatch:
@@ -108,7 +161,7 @@ class TestDefinitionMatch:
         prior = _snap(definition=d)
         row = _compare_indicator(
             "first_time_access", "First-Time Access", current_full, current_common,
-            prior, comparable=True,
+            prior, comparability="clean",
         )
         assert row["definition_match"] is True
 
@@ -118,7 +171,7 @@ class TestDefinitionMatch:
         prior = _snap(definition={"column": "q_prior_access_OLD", "rule": "different rule", "base": "all_respondents"})
         row = _compare_indicator(
             "first_time_access", "First-Time Access", current_full, current_common,
-            prior, comparable=True,
+            prior, comparability="clean",
         )
         assert row["definition_match"] is False
 
@@ -130,7 +183,7 @@ class TestDefinitionMatch:
         prior = {"value": 0.4, "n_valid": 400}  # no "definition" key
         row = _compare_indicator(
             "first_time_access", "First-Time Access", current_full, current_common,
-            prior, comparable=True,
+            prior, comparability="clean",
         )
         assert row["definition_match"] is None
 
@@ -141,7 +194,7 @@ class TestDefinitionMatch:
         prior = _snap(value=15.0, definition={"column": "different", "rule": "x", "base": "y"})
         row = _compare_indicator(
             "client_satisfaction_nps", "Client Satisfaction (NPS)", current_full,
-            current_common, prior, comparable=True,
+            current_common, prior, comparability="clean",
         )
         assert row["definition_match"] is False
         # NPS's own special-cased fields must still be present alongside it.
@@ -230,4 +283,21 @@ class TestCalculateSampleComposition:
         ds = self._FakeDataset(df)
         result = calculate(ds, segment_masks={})
         assert result["current"]["first_time_access"]["n_valid"] == 5
+
+    def test_current_common_is_persisted_alongside_current_full(self):
+        # R-005: previously computed every run and discarded -- never
+        # saved, so a future wave using THIS run as its own prior had no
+        # five-country figure to read back. Now persisted as its own key.
+        countries = COMMON_LACRO_COUNTRIES[:2] * 3 + [NEW_COUNTRY_2026] * 4
+        df = pd.DataFrame({
+            "country": countries,
+            "q_prior_access": pd.array([True] * 10, dtype="boolean"),
+        })
+        ds = self._FakeDataset(df)
+        result = calculate(ds, segment_masks={})
+        assert "current_common" in result
+        # Common-scope excludes the 4 Dominican Republic rows -- only the
+        # 6 rows on the two common countries should count.
+        assert result["current_common"]["first_time_access"]["n_valid"] == 6
+        assert result["current"]["first_time_access"]["n_valid"] == 10
 
