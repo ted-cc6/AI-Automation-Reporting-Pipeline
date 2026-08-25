@@ -327,25 +327,42 @@ _PCT_PATTERN = re.compile(r"\(\s*\d{1,3}%\s*\)")
 
 
 def _check_tiny_sentiment_base_percentages(text: str, part_key: str, text_key: str,
-                                            sentiment_total: "int | None") -> list[dict]:
-    """Flags prose that states a "(NN%)" figure for a sentiment split whose
-    real base was below the threshold writer.py instructs it to report as
-    counts-only. Heuristic, not precise (can't prove which sentence in a
-    multi-sentence insight block the split described), so this is a "warn"
-    finding for a human to judge, the same severity class as the other
-    heuristic checks in this module -- not a hard reject, since a percentage
-    appearing here could legitimately belong to a different, larger figure
-    quoted elsewhere in the same block."""
-    if sentiment_total is None or sentiment_total >= _SENTIMENT_SPLIT_MIN_BASE_FOR_PCT:
+                                            sentiment_split: "dict | None") -> list[dict]:
+    """Flags prose that states a "(NN%)" figure while at least one GROUP in
+    this section's sentiment split has a real base below the threshold
+    writer.py instructs it to report as counts-only.
+
+    Runs PER GROUP (session-8, per instruction), not on a summed total --
+    sentiment_split is R-006a's uniform nested shape
+    ({group_label: {positive, negative, neutral, base_n, ...}}, a
+    single-group section under the key "all"). Summing groups back into
+    one combined total would silently hide a small group's problem behind
+    a large one's size (e.g. Part 7: hundreds of women alongside a
+    handful of men) -- exactly the uninformative portfolio-wide number
+    R-006a exists to avoid reintroducing.
+
+    Heuristic, not precise (can't prove which group's sentence in a
+    multi-sentence insight block a given percentage describes), so this
+    is a "warn" finding for a human to judge, the same severity class as
+    the other heuristic checks in this module -- not a hard reject, since
+    a percentage appearing here could legitimately belong to a different
+    group's larger, percentage-eligible base.
+    """
+    if not sentiment_split or not _PCT_PATTERN.search(text):
         return []
-    if not _PCT_PATTERN.search(text):
-        return []
-    return [_make_finding(
-        "warn", part_key, text_key, "percentage_on_tiny_sentiment_base",
-        f"sentiment split base is only {sentiment_total}, but this text states a percentage "
-        "for it; writer.py instructs counts-only below the threshold -- confirm the percentage "
-        "isn't describing that split before treating this as a false positive",
-    )]
+    findings = []
+    for group_label, group_data in sentiment_split.items():
+        base_n = group_data.get("base_n") if isinstance(group_data, dict) else None
+        if base_n is None or base_n >= _SENTIMENT_SPLIT_MIN_BASE_FOR_PCT:
+            continue
+        findings.append(_make_finding(
+            "warn", part_key, text_key, "percentage_on_tiny_sentiment_base",
+            f"sentiment split group '{group_label}' has a base of only {base_n}, but this "
+            "text states a percentage; writer.py instructs counts-only below the threshold "
+            "for that group -- confirm the percentage isn't describing that group's split "
+            "before treating this as a false positive",
+        ))
+    return findings
 
 
 def _non_comparable_labels(package: dict) -> list:
@@ -407,11 +424,13 @@ def validate_report(all_texts: dict, packages: list, in_scope_countries: set,
         non_comparable_labels = _non_comparable_labels(package)
         insight_summary = (package.get("sections") or {}).get("insight", {}).get("insight_summary") or {}
         insight_verbatims = (package.get("sections") or {}).get("insight", {}).get("verbatims", [])
+        # R-006a's uniform nested shape (session-8): {group_label: split},
+        # a single-group section under "all" -- passed through as-is to
+        # _check_tiny_sentiment_base_percentages(), which runs its check
+        # per group rather than on a summed total (see that function's
+        # own docstring for why summing would reintroduce exactly the
+        # uninformative portfolio-wide number this change exists to avoid).
         sentiment_split = insight_summary.get("sentiment_split")
-        sentiment_total = (
-            sum(v for v in sentiment_split.values() if isinstance(v, (int, float)))
-            if sentiment_split else None
-        )
 
         for text_key, text in texts.items():
             if not isinstance(text, str) or not text:
@@ -425,6 +444,6 @@ def validate_report(all_texts: dict, packages: list, in_scope_countries: set,
             findings += _check_product_claims(text, part_key, text_key, product_mix or {})
             if text_key == "insight":
                 findings += _check_unverified_quotes(text, part_key, text_key, insight_verbatims)
-                findings += _check_tiny_sentiment_base_percentages(text, part_key, text_key, sentiment_total)
+                findings += _check_tiny_sentiment_base_percentages(text, part_key, text_key, sentiment_split)
 
     return findings

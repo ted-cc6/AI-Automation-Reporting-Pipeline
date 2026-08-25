@@ -527,26 +527,80 @@ class TestWriteAllPartsPart10Hardening:
 # defense for this same rule).
 # ---------------------------------------------------------------------------
 
+def _split(positive, negative, neutral, selection_rule="base description"):
+    """R-006a's deterministic split shape for one group."""
+    return {
+        "positive": positive, "negative": negative, "neutral": neutral,
+        "base_n": positive + negative + neutral,
+        "source_pool_n": positive + negative + neutral,
+        "selection_rule": selection_rule,
+    }
+
+
 class TestFmtInsightSummaryTinySentimentBase:
+    """sentiment_split is always {group_label: split} (session-8) -- a
+    single-group section nests under "all"."""
+
     def test_small_base_instructs_counts_only(self):
-        summary = {"sentiment_split": {"positive": 2, "negative": 1, "neutral": 0}}
+        summary = {"sentiment_split": {"all": _split(2, 1, 0)}}
         text = writer._fmt_insight_summary(summary)
         assert "n=3, too small to state as percentages" in text
         assert "do NOT" in text
 
-    def test_large_base_uses_the_approx_percent_instruction(self):
-        summary = {"sentiment_split": {"positive": 18, "negative": 9, "neutral": 3}}
+    def test_large_base_permits_percentages(self):
+        summary = {"sentiment_split": {"all": _split(18, 9, 3)}}
         text = writer._fmt_insight_summary(summary)
-        assert "approx." in text
         assert "too small" not in text
+        assert "SENTIMENT SPLIT:" in text
 
     def test_threshold_boundary_does_not_trigger_tiny_base_wording(self):
-        summary = {"sentiment_split": {"positive": 10, "negative": 0, "neutral": 0}}
+        summary = {"sentiment_split": {"all": _split(10, 0, 0)}}
         text = writer._fmt_insight_summary(summary)
         assert "too small" not in text
 
     def test_no_sentiment_split_omits_the_line_entirely(self):
         assert "SENTIMENT SPLIT" not in writer._fmt_insight_summary({"theme_summary": "x"})
+
+    def test_selection_rule_is_surfaced_to_the_prompt(self):
+        summary = {"sentiment_split": {"all": _split(18, 9, 3, selection_rule="53 of 55 claimants qualify.")}}
+        text = writer._fmt_insight_summary(summary)
+        assert "53 of 55 claimants qualify." in text
+
+
+class TestFmtInsightSummaryMultiGroup:
+    """Part 7's female/male split (session-8) -- more than one group must
+    produce a comparison instruction, not two isolated statements."""
+
+    def test_single_group_gets_no_comparison_instruction(self):
+        summary = {"sentiment_split": {"all": _split(18, 9, 3)}}
+        text = writer._fmt_insight_summary(summary)
+        assert "compare these groups" not in text
+        assert "SENTIMENT SPLIT BY GROUP" not in text
+
+    def test_multi_group_gets_a_comparison_instruction(self):
+        summary = {"sentiment_split": {
+            "female": _split(428, 396, 260, selection_rule="1084 of 1196 women qualify."),
+            "male": _split(180, 150, 90, selection_rule="420 of 478 men qualify."),
+        }}
+        text = writer._fmt_insight_summary(summary)
+        assert "SENTIMENT SPLIT BY GROUP" in text
+        assert "compare these groups explicitly" in text
+        assert "FEMALE" in text and "MALE" in text
+        assert "1084 of 1196 women qualify." in text
+        assert "420 of 478 men qualify." in text
+
+    def test_each_group_gets_its_own_percentage_eligibility(self):
+        # One group above the threshold, one below -- each must be judged
+        # independently, not by a combined/summed total across groups.
+        summary = {"sentiment_split": {
+            "female": _split(18, 9, 3),   # base_n=30, percentage-eligible
+            "male": _split(2, 1, 0),      # base_n=3, too small
+        }}
+        text = writer._fmt_insight_summary(summary)
+        female_line = next(l for l in text.splitlines() if l.strip().startswith("FEMALE"))
+        male_line = next(l for l in text.splitlines() if l.strip().startswith("MALE"))
+        assert "too small" not in female_line
+        assert "too small to state as percentages" in male_line
 
 
 # ---------------------------------------------------------------------------

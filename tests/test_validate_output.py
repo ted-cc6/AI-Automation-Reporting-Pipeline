@@ -301,14 +301,22 @@ class TestUnstatedBase:
         assert not any(f["category"] == "unstated_base" for f in findings)
 
 
+def _grp(positive, negative, neutral):
+    """R-006a's deterministic split shape for one group (test helper)."""
+    return {"positive": positive, "negative": negative, "neutral": neutral,
+            "base_n": positive + negative + neutral, "source_pool_n": positive + negative + neutral}
+
+
 class TestTinySentimentBasePercentage:
     # Mirrors generation/writer.py's _SENTIMENT_SPLIT_MIN_BASE_FOR_PCT
     # instruction (counts-only below the threshold) -- this is the advisory
     # second line of defense: writer.py shapes the prompt so the model
     # shouldn't state a percentage at all below the threshold, and this
-    # check flags it if one shows up anyway.
+    # check flags it if one shows up anyway. sentiment_split is R-006a's
+    # uniform nested shape (session-8): {group_label: split}, a
+    # single-group section under "all".
     def test_percentage_on_tiny_base_is_flagged(self):
-        pkg = _package(sentiment_split={"positive": 2, "negative": 1, "neutral": 0})
+        pkg = _package(sentiment_split={"all": _grp(2, 1, 0)})
         texts = {"part_1": {"insight": "Sentiment was strongly positive (67%) among relevant responses."}}
         findings = validate_report(texts, [pkg], set())
         matches = [f for f in findings if f["category"] == "percentage_on_tiny_sentiment_base"]
@@ -316,13 +324,13 @@ class TestTinySentimentBasePercentage:
         assert matches[0]["severity"] == "warn"
 
     def test_counts_only_phrasing_on_tiny_base_is_not_flagged(self):
-        pkg = _package(sentiment_split={"positive": 2, "negative": 1, "neutral": 0})
+        pkg = _package(sentiment_split={"all": _grp(2, 1, 0)})
         texts = {"part_1": {"insight": "2 clients were positive and 1 was negative."}}
         findings = validate_report(texts, [pkg], set())
         assert not any(f["category"] == "percentage_on_tiny_sentiment_base" for f in findings)
 
     def test_percentage_on_large_base_is_not_flagged(self):
-        pkg = _package(sentiment_split={"positive": 18, "negative": 9, "neutral": 3})
+        pkg = _package(sentiment_split={"all": _grp(18, 9, 3)})
         texts = {"part_1": {"insight": "Sentiment was mostly positive (60%) among relevant responses."}}
         findings = validate_report(texts, [pkg], set())
         assert not any(f["category"] == "percentage_on_tiny_sentiment_base" for f in findings)
@@ -334,8 +342,31 @@ class TestTinySentimentBasePercentage:
         assert not any(f["category"] == "percentage_on_tiny_sentiment_base" for f in findings)
 
     def test_only_checked_on_insight_text_key(self):
-        pkg = _package(sentiment_split={"positive": 2, "negative": 1, "neutral": 0})
+        pkg = _package(sentiment_split={"all": _grp(2, 1, 0)})
         texts = {"part_1": {"s1_1": "An unrelated metric reads 67% here."}}
+        findings = validate_report(texts, [pkg], set())
+        assert not any(f["category"] == "percentage_on_tiny_sentiment_base" for f in findings)
+
+    def test_small_group_flagged_even_when_another_group_is_large(self):
+        # session-8, per instruction: summing groups back into one total
+        # would hide a small group's problem behind a large one's size --
+        # each group must be judged on its own base_n.
+        pkg = _package(sentiment_split={
+            "female": _grp(200, 150, 78),  # base_n=428, percentage-eligible
+            "male": _grp(2, 1, 0),         # base_n=3, tiny
+        })
+        texts = {"part_1": {"insight": "Sentiment was positive (47%) among women and men alike."}}
+        findings = validate_report(texts, [pkg], set())
+        matches = [f for f in findings if f["category"] == "percentage_on_tiny_sentiment_base"]
+        assert len(matches) == 1
+        assert "male" in matches[0]["detail"]
+
+    def test_both_groups_large_is_not_flagged(self):
+        pkg = _package(sentiment_split={
+            "female": _grp(200, 150, 78),
+            "male": _grp(80, 60, 30),
+        })
+        texts = {"part_1": {"insight": "Sentiment was positive (47%) among women and (46%) among men."}}
         findings = validate_report(texts, [pkg], set())
         assert not any(f["category"] == "percentage_on_tiny_sentiment_base" for f in findings)
 

@@ -16,10 +16,13 @@ from qualitative.parse_results import (
     _count_themes,
     _dedupe_protection_flags_by_client,
     _humanize_top_drivers,
+    _load_theme_section_map,
     _lookup_profile,
     _normalise_reason,
     _validate,
+    compute_part7_sentiment_splits,
     compute_stage1_sentiment_splits,
+    compute_stage2_sentiment_splits,
     parse_and_save,
 )
 
@@ -146,9 +149,9 @@ class TestCountThemes:
 
 # ---------------------------------------------------------------------------
 # R-006a Stage 1: deterministic sentiment_split for part5 (caregivers) and
-# part6 (claimants). Part 7 (Gender) is intentionally NOT computed here --
-# it needs two splits (female, male), a schema change pending approval;
-# see compute_stage1_sentiment_splits's module-level docstring.
+# part6 (claimants). Every section's sentiment_split is nested by group
+# (session-8, per instruction: one uniform shape everywhere, no Part-7-only
+# special case) -- a single-group section uses the key "all".
 # ---------------------------------------------------------------------------
 
 class TestComputeStage1SentimentSplits:
@@ -163,11 +166,15 @@ class TestComputeStage1SentimentSplits:
         return {"promoters": entries, "passives": [], "detractors": []}
 
     def test_only_parts_5_and_6_are_returned(self):
-        # Part 7 is deliberately excluded pending the two-split schema
-        # decision -- a single portfolio-wide split for Gender would tell a
-        # reader nothing about gender.
+        # Part 7 has its own function (compute_part7_sentiment_splits) --
+        # this one covers exactly the two segment-defined sections.
         result = compute_stage1_sentiment_splits(self._tags([]), self._df())
         assert set(result.keys()) == {"part5", "part6"}
+
+    def test_single_group_section_is_nested_under_all(self):
+        result = compute_stage1_sentiment_splits(self._tags([]), self._df())
+        assert set(result["part5"].keys()) == {"all"}
+        assert set(result["part6"].keys()) == {"all"}
 
     def test_part5_base_and_source_pool_from_caregiver_flag(self):
         tags = self._tags([
@@ -175,7 +182,7 @@ class TestComputeStage1SentimentSplits:
             ["row_0004", ["staff_service"], "negative"],
             ["row_0002", ["staff_service"], "neutral"],  # not a caregiver -- excluded
         ])
-        part5 = compute_stage1_sentiment_splits(tags, self._df())["part5"]
+        part5 = compute_stage1_sentiment_splits(tags, self._df())["part5"]["all"]
         assert part5["source_pool_n"] == 3  # caregivers: rows 0, 1, 4
         assert part5["base_n"] == 2
         assert part5["positive"] == 1
@@ -192,7 +199,7 @@ class TestComputeStage1SentimentSplits:
             ["row_0000", ["claims_process"], "positive"],
             ["row_0002", ["claims_process"], "negative"],
         ])
-        part6 = compute_stage1_sentiment_splits(tags, self._df())["part6"]
+        part6 = compute_stage1_sentiment_splits(tags, self._df())["part6"]["all"]
         assert part6["source_pool_n"] == 2  # claimants: rows 0, 2
         assert part6["base_n"] == 2
         assert "excluding responses under 10 characters" in part6["selection_rule"]
@@ -205,19 +212,19 @@ class TestComputeStage1SentimentSplits:
         ])
         result = compute_stage1_sentiment_splits(tags, self._df())
         for section in ("part5", "part6"):
-            entry = result[section]
+            entry = result[section]["all"]
             assert entry["positive"] + entry["negative"] + entry["neutral"] == entry["base_n"]
 
     def test_two_element_entry_without_sentiment_is_not_counted(self):
         tags = self._tags([["row_0000", ["staff_service"]]])  # no sentiment
-        part5 = compute_stage1_sentiment_splits(tags, self._df())["part5"]
+        part5 = compute_stage1_sentiment_splits(tags, self._df())["part5"]["all"]
         assert part5["base_n"] == 0
 
     def test_untagged_in_segment_respondent_widens_the_gap_visibly(self):
         # A caregiver never tagged (e.g. a failed batch) shows up as
         # source_pool_n > base_n, not silently absorbed into either number.
         tags = self._tags([["row_0000", ["staff_service"], "positive"]])  # rows 1, 4 untagged
-        part5 = compute_stage1_sentiment_splits(tags, self._df())["part5"]
+        part5 = compute_stage1_sentiment_splits(tags, self._df())["part5"]["all"]
         assert part5["source_pool_n"] == 3
         assert part5["base_n"] == 1
         assert part5["source_pool_n"] > part5["base_n"]
@@ -253,13 +260,183 @@ class TestStage1SyntheticSplitGuard:
         n = 9
         sentiments = (["positive", "negative", "neutral"] * (n // 3))
         result = compute_stage1_sentiment_splits(self._tags(n, sentiments), self._df(n))
-        assert result["part5"]["base_n"] == 9
+        assert result["part5"]["all"]["base_n"] == 9
 
     def test_uneven_real_looking_distribution_does_not_raise(self):
         n = 30
         sentiments = (["positive"] * 12) + (["negative"] * 11) + (["neutral"] * 7)
         result = compute_stage1_sentiment_splits(self._tags(n, sentiments), self._df(n))
-        assert result["part5"]["base_n"] == 30
+        assert result["part5"]["all"]["base_n"] == 30
+
+
+# ---------------------------------------------------------------------------
+# R-006a Part 7: Gender needs two groups, not one -- female and male, each
+# with its own base_n/source_pool_n/selection_rule, same uniform nested
+# shape every other section uses (session-8).
+# ---------------------------------------------------------------------------
+
+class TestComputePart7SentimentSplits:
+    def _df(self):
+        # index 0..3: 2 female (0, 1), 2 male (2, 3)
+        return pd.DataFrame({"q_sex": ["Female", "Female", "Male", "Male"]}, index=range(4))
+
+    def _tags(self, entries):
+        return {"promoters": entries, "passives": [], "detractors": []}
+
+    def test_returns_female_and_male_groups(self):
+        result = compute_part7_sentiment_splits(self._tags([]), self._df())
+        assert set(result["part7"].keys()) == {"female", "male"}
+
+    def test_each_group_scoped_to_its_own_sex(self):
+        tags = self._tags([
+            ["row_0000", ["staff_service"], "positive"],  # female
+            ["row_0002", ["staff_service"], "negative"],  # male
+        ])
+        part7 = compute_part7_sentiment_splits(tags, self._df())["part7"]
+        assert part7["female"]["source_pool_n"] == 2
+        assert part7["female"]["base_n"] == 1
+        assert part7["female"]["positive"] == 1
+        assert part7["male"]["source_pool_n"] == 2
+        assert part7["male"]["base_n"] == 1
+        assert part7["male"]["negative"] == 1
+
+    def test_selection_rule_names_the_group(self):
+        result = compute_part7_sentiment_splits(self._tags([]), self._df())
+        assert "women" in result["part7"]["female"]["selection_rule"]
+        assert "men" in result["part7"]["male"]["selection_rule"]
+        assert "excluding responses under 10 characters" in result["part7"]["female"]["selection_rule"]
+
+    def test_synthetic_guard_applies_per_group(self):
+        n = 30
+        sentiments = ["positive", "negative", "neutral"] * (n // 3)
+        df = pd.DataFrame({"q_sex": ["Female"] * n}, index=range(n))
+        tags = {
+            "promoters": [[f"row_{i:04d}", ["staff_service"], sentiments[i]] for i in range(n)],
+            "passives": [], "detractors": [],
+        }
+        with pytest.raises(ValueError, match="synthetic or placeholder"):
+            compute_part7_sentiment_splits(tags, df)
+
+
+# ---------------------------------------------------------------------------
+# R-006a Stage 2: deterministic sentiment_split for Parts 1-4 via
+# config.yaml's theme_codes mapping (Lorenz-approved, session-7). Real
+# config.yaml is used deliberately (not a stub) -- this is exactly the
+# mapping a live run reads, and a config edit that breaks the mapping
+# should break these tests too.
+# ---------------------------------------------------------------------------
+
+class TestLoadThemeSectionMap:
+    def test_matches_approved_single_mapping(self):
+        # payout_adequacy -> part2 only, staff_service -> part4 only
+        # (session-7: single-map, not dual-map -- co-tagging handles
+        # cross-cutting cases instead).
+        mapping = _load_theme_section_map()
+        assert mapping["part1"] == {"product_understanding"}
+        assert mapping["part2"] == {"claims_speed", "claims_process", "payout_adequacy"}
+        assert mapping["part3"] == {"access_inclusion", "financial_relief"}
+        assert mapping["part4"] == {
+            "product_value", "staff_service", "general_satisfaction",
+            "improvement_suggestion", "complaint_grievance",
+        }
+
+    def test_part5_6_7_have_no_theme_mapping(self):
+        mapping = _load_theme_section_map()
+        assert "part5" not in mapping
+        assert "part6" not in mapping
+        assert "part7" not in mapping
+
+    def test_child_family_and_crop_agricultural_are_unmapped(self):
+        # Approved as unmapped: they match part5's / Vietnam's own
+        # constructs, not any of Parts 1-4's topics.
+        mapping = _load_theme_section_map()
+        all_mapped_codes = set().union(*mapping.values())
+        assert "child_family" not in all_mapped_codes
+        assert "crop_agricultural" not in all_mapped_codes
+
+    def test_no_theme_code_is_dual_mapped(self):
+        # session-7 principle: each theme maps to exactly one primary
+        # section; cross-cutting cases are handled by co-tagging, not by
+        # listing the same code under two sections.
+        mapping = _load_theme_section_map()
+        seen = {}
+        for section, codes in mapping.items():
+            for code in codes:
+                assert code not in seen, (
+                    f"{code} is mapped to both {seen.get(code)} and {section} -- "
+                    "the approved principle is single-mapping, not dual-mapping"
+                )
+                seen[code] = section
+
+
+class TestComputeStage2SentimentSplits:
+    def _tags(self, entries):
+        return {"promoters": entries, "passives": [], "detractors": []}
+
+    def test_only_parts_1_through_4_are_returned(self):
+        result = compute_stage2_sentiment_splits(self._tags([]))
+        assert set(result.keys()) == {"part1", "part2", "part3", "part4"}
+
+    def test_single_group_section_is_nested_under_all(self):
+        result = compute_stage2_sentiment_splits(self._tags([]))
+        for section in result.values():
+            assert set(section.keys()) == {"all"}
+
+    def test_record_routes_to_its_mapped_section_only(self):
+        tags = self._tags([
+            ["row_0000", ["product_understanding"], "positive"],  # part1 only
+        ])
+        result = compute_stage2_sentiment_splits(tags)
+        assert result["part1"]["all"]["base_n"] == 1
+        assert result["part2"]["all"]["base_n"] == 0
+        assert result["part3"]["all"]["base_n"] == 0
+        assert result["part4"]["all"]["base_n"] == 0
+
+    def test_co_tagged_record_reaches_both_sections_not_one(self):
+        # session-7 principle in action: a staff complaint during a claim
+        # carries BOTH staff_service (part4) and claims_process (part2)
+        # and reaches both -- this is co-tagging, not dual-mapping, and
+        # is exactly why payout_adequacy/staff_service were single-mapped.
+        tags = self._tags([
+            ["row_0000", ["staff_service", "claims_process"], "negative"],
+        ])
+        result = compute_stage2_sentiment_splits(tags)
+        assert result["part2"]["all"]["base_n"] == 1
+        assert result["part4"]["all"]["base_n"] == 1
+        # Not double counted within a single section, and unrelated
+        # sections stay at zero.
+        assert result["part1"]["all"]["base_n"] == 0
+        assert result["part3"]["all"]["base_n"] == 0
+
+    def test_unmapped_theme_contributes_to_no_section(self):
+        # Expected, not a defect (session-6/7 design constraint).
+        tags = self._tags([["row_0000", ["child_family"], "positive"]])
+        result = compute_stage2_sentiment_splits(tags)
+        assert all(result[s]["all"]["base_n"] == 0 for s in result)
+
+    def test_source_pool_n_is_the_full_tagged_pool_same_across_sections(self):
+        tags = self._tags([
+            ["row_0000", ["product_understanding"], "positive"],
+            ["row_0001", ["child_family"], "neutral"],  # unmapped, still tagged
+        ])
+        result = compute_stage2_sentiment_splits(tags)
+        for section in ("part1", "part2", "part3", "part4"):
+            assert result[section]["all"]["source_pool_n"] == 2
+
+    def test_selection_rule_names_the_mapped_theme_codes(self):
+        result = compute_stage2_sentiment_splits(self._tags([]))
+        assert "product_understanding" in result["part1"]["all"]["selection_rule"]
+        assert "excluding responses under 10 characters" in result["part1"]["all"]["selection_rule"]
+
+    def test_counts_always_sum_to_base_n(self):
+        tags = self._tags([
+            ["row_0000", ["product_understanding"], "positive"],
+            ["row_0001", ["claims_speed"], "negative"],
+        ])
+        result = compute_stage2_sentiment_splits(tags)
+        for section in result.values():
+            entry = section["all"]
+            assert entry["positive"] + entry["negative"] + entry["neutral"] == entry["base_n"]
 
 
 def _flag(client_id, flag_type, severity, reason, id_="row_0001", branch="Branch A"):
@@ -354,14 +531,17 @@ class TestDedupeProtectionFlagsByClient:
         assert len(deduped) == 2
 
 
-class TestParseAndSaveStage1Wiring:
-    """Confirms compute_stage1_sentiment_splits() is actually wired into
-    parse_and_save(), not just correct in isolation."""
+class TestParseAndSaveStage1And2Wiring:
+    """Confirms compute_stage1_sentiment_splits(),
+    compute_stage2_sentiment_splits(), and compute_part7_sentiment_splits()
+    are actually wired into parse_and_save(), not just correct in
+    isolation. Every section is nested-by-group (session-8)."""
 
     def _df(self):
         return pd.DataFrame({
             "flag_child_wellbeing_denominator": [True, False],
             "q_claim_submitted": [False, False],
+            "q_sex": ["Female", "Male"],
         }, index=[0, 1])
 
     def test_part5_sentiment_split_is_overridden_with_deterministic_values(self, tmp_path, monkeypatch):
@@ -379,29 +559,59 @@ class TestParseAndSaveStage1Wiring:
         result = parse_and_save(raw, self._df(), run_id="test_run")
 
         part5 = result["section_insights"]["part5"]
-        # Deterministic split replaces the model's estimate...
-        assert part5["sentiment_split"]["base_n"] == 1
-        assert part5["sentiment_split"]["positive"] == 1
-        assert "selection_rule" in part5["sentiment_split"]
+        # Deterministic split replaces the model's estimate, nested under "all"...
+        assert part5["sentiment_split"]["all"]["base_n"] == 1
+        assert part5["sentiment_split"]["all"]["positive"] == 1
+        assert "selection_rule" in part5["sentiment_split"]["all"]
         # ...but theme_summary/top_drivers (still the model's own) are untouched.
         assert part5["theme_summary"] == "model's own summary"
 
-    def test_part1_sentiment_split_is_left_untouched_stage2_not_implemented(self, tmp_path, monkeypatch):
+    def test_part1_sentiment_split_is_overridden_via_stage2_theme_mapping(self, tmp_path, monkeypatch):
         monkeypatch.chdir(tmp_path)
         raw = _base_raw(
-            nps_tags={"promoters": [], "passives": [], "detractors": []},
+            nps_tags={
+                # product_understanding -> part1 only (config.yaml's mapping)
+                "promoters": [["row_0000", ["product_understanding"], "positive"]],
+                "passives": [], "detractors": [],
+            },
             section_insights={
-                "part1": {"theme_summary": "x", "top_drivers": [],
+                "part1": {"theme_summary": "model's own summary", "top_drivers": [],
                           "sentiment_split": {"positive": 1, "negative": 2, "neutral": 3}},
             },
         )
         result = parse_and_save(raw, self._df(), run_id="test_run")
 
-        # Untouched: still the model's raw estimate, no base_n/source_pool_n/
-        # selection_rule -- Parts 1-4 need Stage 2's theme-to-section mapping first.
         part1 = result["section_insights"]["part1"]
-        assert part1["sentiment_split"] == {"positive": 1, "negative": 2, "neutral": 3}
-        assert "base_n" not in part1["sentiment_split"]
+        assert part1["sentiment_split"]["all"]["base_n"] == 1
+        assert part1["sentiment_split"]["all"]["positive"] == 1
+        assert "selection_rule" in part1["sentiment_split"]["all"]
+        assert part1["theme_summary"] == "model's own summary"
+
+    def test_part7_sentiment_split_is_overridden_with_two_groups(self, tmp_path, monkeypatch):
+        monkeypatch.chdir(tmp_path)
+        raw = _base_raw(
+            nps_tags={
+                "promoters": [
+                    ["row_0000", ["staff_service"], "positive"],  # female (row 0)
+                    ["row_0001", ["staff_service"], "negative"],  # male (row 1)
+                ],
+                "passives": [], "detractors": [],
+            },
+            section_insights={
+                "part7": {"theme_summary": "model's own summary", "top_drivers": [],
+                          "sentiment_split": {"positive": 1, "negative": 2, "neutral": 3}},
+            },
+        )
+        result = parse_and_save(raw, self._df(), run_id="test_run")
+
+        part7 = result["section_insights"]["part7"]
+        assert set(part7["sentiment_split"].keys()) == {"female", "male"}
+        assert part7["sentiment_split"]["female"]["base_n"] == 1
+        assert part7["sentiment_split"]["female"]["positive"] == 1
+        assert part7["sentiment_split"]["male"]["base_n"] == 1
+        assert part7["sentiment_split"]["male"]["negative"] == 1
+        assert part7["theme_summary"] == "model's own summary"
+        assert "base_n" not in part7["sentiment_split"]
 
 
 class TestHumanizeTopDrivers:

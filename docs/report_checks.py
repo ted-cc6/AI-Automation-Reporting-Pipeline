@@ -425,15 +425,50 @@ def trend_table_declares_comparability(text: str):
 
 # ------------------------------------------------------------ Phase 2: schema
 
+# Shared by C-006 and C-007 (session-8): a sentiment split's stated base
+# is expected to echo whichever population noun its selection_rule used
+# (R-006a's Stage 1/2/Part 7 wording: "caregivers", "claimants",
+# "women"/"men", or the generic "responses") -- not always literally
+# "responses", so this is broadened beyond that one word.
+_SENTIMENT_BASE_PATTERN = re.compile(
+    r"\b(of|from|across)\b.{0,60}\b(responses?|respondents?|caregivers?|claimants?|women|men)\b",
+    re.IGNORECASE,
+)
+
+
 @reg.add("C-006", "R-006", BLOCKING)
-def sentiment_uses_counts_not_percentages(text: str):
-    """Sentiment splits are integer counts, never percentages."""
-    hits = _find_all(text, r"sentiment split[^.]{0,160}")
+def sentiment_percentage_paired_with_count_and_base(text: str):
+    """A sentiment percentage, if stated, is always paired with its count
+    and its stated base.
+
+    Revised session-8, per Lorenz: the original rule ("never emit a
+    percentage for sentiment") answered LM7's actual concern -- an
+    unstated, unverified base dressed up as a percentage -- with a
+    blanket ban that stopped applying once R-006a made the base real,
+    code-computed, and stated. A percentage is now permitted once
+    base_n >= 10 (docs/report_spec.md's R-006a, percentage rule
+    revision); what still must never happen is a bare percentage with no
+    count or base alongside it.
+
+    Grouped sections (R-006a Part 7's female/male, session-8's uniform
+    nested sentiment_split shape) are expected to produce more than one
+    "sentiment split" mention in prose, one per group -- _find_all()
+    already returns every occurrence, so each group's window is checked
+    independently; no shape-specific branching is needed here.
+    """
+    hits = _find_all(text, r"sentiment split[^.]{0,200}")
     if not hits:
         return None, "no sentiment splits found"
-    bad = [h for h in hits if "%" in h]
+    bad = []
+    for h in hits:
+        if "%" not in h:
+            continue
+        has_paired_count = re.search(r"\d+\s*\(\s*\d{1,3}\s*%\s*\)", h)
+        has_base = _SENTIMENT_BASE_PATTERN.search(h)
+        if not (has_paired_count and has_base):
+            bad.append(h)
     if bad:
-        return False, f"{len(bad)} sentiment split(s) expressed as percentages: {bad[0][:110]}"
+        return False, f"{len(bad)} sentiment percentage(s) not paired with both a count and a stated base: {bad[0][:110]}"
     return True, ""
 
 
@@ -443,11 +478,17 @@ def sentiment_states_its_base(text: str):
 
     Guards the Test9 failure mode where a split is reported with no
     indication of how 1,948 free text responses became 7.
+
+    Grouped sections (session-8, R-006a's uniform nested sentiment_split
+    shape -- Part 7's female/male) are expected to produce multiple
+    "sentiment split" mentions, one per group, each with its OWN base --
+    checked independently per hit, same as before; a grouped section is
+    not a special case here, it just produces more hits.
     """
     hits = _find_all(text, r"sentiment split[^.]{0,200}")
     if not hits:
         return None, "no sentiment splits found"
-    missing = [h for h in hits if not re.search(r"\b(of|from|across)\b.{0,60}\bresponses?\b", h, re.I)]
+    missing = [h for h in hits if not _SENTIMENT_BASE_PATTERN.search(h)]
     if missing:
         return False, f"{len(missing)} of {len(hits)} splits do not state a base"
     return True, ""

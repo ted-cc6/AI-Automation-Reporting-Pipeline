@@ -356,10 +356,47 @@ def _fmt_qual_value(key: str, value) -> str:
 _SENTIMENT_SPLIT_MIN_BASE_FOR_PCT = 10
 
 
+def _fmt_sentiment_group(group_label: str, group_data: dict) -> str:
+    """One group's SENTIMENT SPLIT line -- shared by the single-group and
+    multi-group render paths in _fmt_insight_summary() below. group_data
+    is R-006a's deterministic split shape: positive/negative/neutral/
+    base_n/source_pool_n/selection_rule (docs/report_spec.md's
+    SentimentSplit)."""
+    positive = group_data.get("positive", 0)
+    negative = group_data.get("negative", 0)
+    neutral = group_data.get("neutral", 0)
+    base_n = group_data.get("base_n", positive + negative + neutral)
+    selection_rule = group_data.get("selection_rule", "")
+    counts_str = f"positive={positive}, negative={negative}, neutral={neutral}"
+
+    if base_n < _SENTIMENT_SPLIT_MIN_BASE_FOR_PCT:
+        return (
+            f"  {group_label} (n={base_n}, too small to state as percentages): {counts_str} "
+            "-- report these as plain counts only (e.g. \"2 positive, 1 negative\"); do NOT "
+            "compute or state a percentage for this group, the base is too small for one to "
+            f"be meaningful. Base: {selection_rule}"
+        )
+    return f"  {group_label} (n={base_n}): {counts_str}. Base: {selection_rule}"
+
+
 def _fmt_insight_summary(summary: dict | None) -> str:
     """Format the section-scoped theme/driver/sentiment summary (qualitative
-    Task 5B) that grounds an insight block in the aggregate response pool,
-    not just the 1-3 quoted verbatims below it."""
+    Task 5B, overridden for most sections by R-006a's deterministic
+    sentiment_split -- docs/report_spec.md) that grounds an insight block
+    in the aggregate response pool, not just the 1-3 quoted verbatims
+    below it.
+
+    sentiment_split is always {group_label: {positive, negative, neutral,
+    base_n, source_pool_n, selection_rule}} (session-8, per instruction:
+    ONE shape everywhere, a single-group section nested under the key
+    "all" -- no Part-7-only special case). This function always iterates
+    groups and never branches on which section it's formatting. A section
+    with more than one group (Part 7: female, male) gets an explicit
+    instruction to compare the groups in prose -- reporting two isolated
+    splits side by side would defeat the entire reason the section has
+    more than one group in the first place (Part 7 exists to contrast
+    women and men, not to restate the portfolio-wide split twice).
+    """
     if not summary:
         return "  SECTION SUMMARY: (not available)"
     lines = []
@@ -367,22 +404,20 @@ def _fmt_insight_summary(summary: dict | None) -> str:
         lines.append(f"  THEME SUMMARY: {summary['theme_summary']}")
     if summary.get("top_drivers"):
         lines.append(f"  TOP DRIVERS: {', '.join(summary['top_drivers'])}")
+
     split = summary.get("sentiment_split")
     if split:
-        split_str = ", ".join(f"{k}={v}" for k, v in split.items())
-        total = sum(v for v in split.values() if isinstance(v, (int, float)))
-        if total < _SENTIMENT_SPLIT_MIN_BASE_FOR_PCT:
+        group_lines = [_fmt_sentiment_group(label.upper(), data) for label, data in split.items()]
+        if len(split) > 1:
             lines.append(
-                f"  SENTIMENT SPLIT (n={total}, too small to state as percentages): {split_str} "
-                "-- report these as plain counts only (e.g. \"2 positive, 1 negative\"); do NOT "
-                "compute or state a percentage for this section, the base is too small for one "
-                "to be meaningful"
+                "  SENTIMENT SPLIT BY GROUP (compare these groups explicitly in your prose, e.g. "
+                "\"women were more likely to report X than men\"; do NOT report each group's "
+                "figures as a separate, isolated statement -- the comparison IS the finding):"
             )
         else:
-            lines.append(
-                "  SENTIMENT SPLIT (approx., across all responses judged relevant to this "
-                f"section): {split_str}"
-            )
+            lines.append("  SENTIMENT SPLIT:")
+        lines.extend(group_lines)
+
     return "\n".join(lines) if lines else "  SECTION SUMMARY: (not available)"
 
 

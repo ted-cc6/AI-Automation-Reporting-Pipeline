@@ -607,8 +607,40 @@ codes plausibly grouped per section -- lands in the low-to-mid hundreds
 per section once a mapping is designed, consistent with the "hundreds"
 expectation for those four sections specifically.
 
-**Intended behaviour**
-Sentiment is always reported as integer counts. The base is always stated. The selection rule is always available to the renderer. Percentages are never emitted for sentiment.
+**Intended behaviour (revised session-8, per Lorenz, 2026-08-2X -- see
+correction below)**
+Sentiment is always reported as integer counts, with a percentage
+permitted alongside once the base is large enough to make one
+meaningful. The base is always stated. The selection rule is always
+available to the renderer.
+
+**Percentage rule revised (session-8, per Lorenz, 2026-08-2X)**
+The original rule below ("percentages are never emitted for
+sentiment") and the `SentimentSplit` model's "no float or percentage
+field" design were written when every section's base was 3 to 10 and
+unstated. Re-reading LM7 precisely: *"I am leaning towards the actual
+counts because it's less prone to misinterpretation"* objects to an
+**unstated, unverified base being dressed up as a percentage** --
+100% of 3 reads as a finding when it is nothing of the kind. It is not
+an objection to percentages as a concept. That rationale does not
+survive R-006a: bases are now real, code-computed, and stated
+(`base_n`/`source_pool_n`/`selection_rule`), and at the scale R-006a
+Stage 1/2 actually produce (hundreds, not single digits), a bare count
+becomes LESS informative than a percentage once two differently-sized
+groups are compared -- 428 positive women against 180 positive men
+(Part 7) is not interpretable without normalising by each group's own
+base. Suppressing the percentage there would not protect a reader from
+misinterpretation, it would cause it.
+
+Revised rule: a percentage MAY be reported for a sentiment split
+whenever `base_n >= 10` (the existing `_SENTIMENT_SPLIT_MIN_BASE_FOR_PCT`
+threshold, unchanged), and MUST always appear alongside its count,
+never alone. `generation/writer.py`'s existing VOICE RULES instruction
+("state EVERY category as `n (pct%)` together... never a bare count
+and never a bare percentage on its own") already enforces exactly
+this and is correct as written -- it stays unchanged; nothing in
+`writer.py` needed to change for this revision. Below `base_n = 10`,
+counts only, unchanged from the original rule.
 
 **Rule**
 ```python
@@ -640,19 +672,15 @@ class SentimentSplit(BaseModel):
         return self
 ```
 
-No float or percentage field exists on this model, so a ratio cannot be returned.
+No float or percentage field exists on this model -- a ratio is
+computed at render time from the stated counts and `base_n`, per the
+revised rule above, not carried as data. This model's job is still to
+guarantee a real, stated base exists to compute a percentage FROM;
+that guarantee, not a blanket percentage ban, is what LM7's concern
+actually required.
 
 **Verification**
-- `assert no sentiment string in the rendered report contains "%"` --
-  **not enforceable today (session-6, 2026-08-20).**
-  `generation/writer.py`'s `_fmt_insight_summary()` only forbids
-  percentages when the sentiment split's total is below
-  `_SENTIMENT_SPLIT_MIN_BASE_FOR_PCT = 10` (`writer.py:356`); at or
-  above that threshold there is no prohibition at all. Test9's Part 1
-  sits exactly on that boundary (base 10) and renders percentages as a
-  direct result. This bullet becomes structurally true once
-  `SentimentSplit` has no percentage field at all -- the current
-  renderer has no such ban outside the `< 10` branch.
+- `assert every rendered sentiment percentage is accompanied by its count and its base_n` (revised session-8; supersedes the original "no sentiment string contains %" bullet, which banned the wrong thing -- see the percentage rule revision above)
 - `assert every sentiment block states base_n and source_pool_n`
 - `assert positive + negative + neutral == base_n for all sections`
 - `assert base_n is derived from a Python-computed pool, not a model self-report, for every section where a deterministic mapping exists`
@@ -692,26 +720,220 @@ Two corrections made during implementation, before commit:
   shape, see below) -- it is defense in depth for Parts 5/6, not a
   guarantee against every possible synthetic pattern.
 
-**Part 7 (Gender): paused, not implemented -- schema decision needed**
-A single `sentiment_split` over the full ~1,674-response pool (no
-population filter -- Part 7 is a topic lens over the whole client base,
-not a subset) is the portfolio-wide split restated; it tells a reader
-nothing about gender specifically. Part 7 needs two splits (female,
-male), each with its own `base_n`/`source_pool_n`/`selection_rule`.
+**Part 7 (Gender): direct answer (session-7, 2026-08-2X) -- the schema
+permits only one split per section. Two splits were not built.**
 
-This is a schema change, not implementable against the `SentimentSplit`
-Rule above as written: `section_insights.*.sentiment_split` is
-currently one flat dict per section, and two consumers assume that flat
-shape uniformly across every section --
-`generation/writer.py`'s `_fmt_insight_summary()` (`writer.py:370-373`,
-sums `split.values()` and joins `k=v` pairs) and
-`generation/validate_output.py`'s sentiment-base checks (`validate_output.py:410-414`,
-same summation). Restructuring Part 7's `sentiment_split` into two
-sub-splits (e.g. `{"female": {...}, "male": {...}}`) would need both
-updated, and is a real, visible change to the Rule model's shape for at
-least one section -- flagged per instruction rather than built. Pending
-approval on the representation (nested by sex under `sentiment_split`,
-versus a new sibling key, versus something else).
+The prior "paused" wording in this section answered neither of the
+questions it was asked. Precisely: `section_insights.*.sentiment_split`
+is, today, one flat dict per section
+(`{positive, negative, neutral, base_n, source_pool_n, selection_rule}`),
+enforced not by a formal schema but by two consumers that both assume
+that flat shape uniformly across every section -- `generation/writer.py`'s
+`_fmt_insight_summary()` (`writer.py:370-373`, sums `split.values()` and
+joins `k=v` pairs over the dict) and `generation/validate_output.py`'s
+sentiment-base checks (`validate_output.py:410-414`, same summation). A
+two-way split for Part 7 cannot be added by changing
+`qualitative/parse_results.py` alone -- both of those consumers would
+need to branch on Part 7 specifically. That cross-file scope, not any
+uncertainty about what was wanted, is why it was not built this
+session: R-006a Stage 1's authorization covered `parse_results.py`
+(and `llm_call.py`'s Task 1 prompt), not the rendering/validation
+layer.
+
+Proposed shape (session-7): `{"female": {...}, "male": {...}}` for
+Part 7 only, every other section staying a bare flat dict. **Revised
+before building (session-8, per instruction): rejected in favour of ONE
+uniform shape for every section.**
+
+**Part 7 implemented (session-8, 2026-08-2X)**
+Every section's `sentiment_split` is now `{group_label: {positive,
+negative, neutral, base_n, source_pool_n, selection_rule}}` -- a
+single-group section (Parts 1 through 6) nests under the one key
+`"all"`; Part 7 uses `{"female": {...}, "male": {...}}`. No section is a
+schema special case: `_fmt_insight_summary()` and
+`validate_output.py`'s sentiment-base check always iterate
+`sentiment_split.items()` as groups, never branch on section identity or
+group count. This means a hypothetical future section needing its own
+split (by country, by claimant status) needs no further schema work --
+it is simply another set of group keys.
+
+`qualitative/parse_results.py`'s new `compute_part7_sentiment_splits()`
+computes each sex's population the same way Stage 1 computes part5/part6
+(a demographic count in `df`, independent of tagging -- `source_pool_n`
+= total women/men; `base_n` = the subset who left a response of at
+least `min_text_length` and were tagged), sharing the same synthetic-
+split guard (`_finalize_split`).
+
+**writer.py: local instruction, no VOICE RULES change** (per
+instruction, approved before building) -- `_fmt_insight_summary()`
+renders one line per group, and when a section has more than one group
+it prepends a local instruction ("compare these groups explicitly in
+your prose... do NOT report each group's figures as a separate,
+isolated statement") specific to that section's own text block, not the
+shared VOICE RULES every part's prompt uses. VOICE RULES' existing
+"state EVERY category as `n (pct%)` together" instruction already
+applies per group unchanged (each group's own `base_n` gates whether
+that group is percentage-eligible, per the revised percentage rule
+above) -- comparing two groups now naturally uses each one's own
+percentage, which is exactly why the percentage rule needed revising
+first (428 positive women against 180 positive men is not comparable
+without normalising by each group's own base).
+
+**validate_output.py: per-group, not summed** (per instruction) -- the
+old `sentiment_total = sum(v for v in sentiment_split.values() if
+isinstance(v, (int, float)))` assumed a flat dict; under the nested
+shape every value is itself a dict, so that line would have silently
+summed to 0 for every section, misfiring on every percentage found
+anywhere. Rewritten: `_check_tiny_sentiment_base_percentages()` now
+takes the whole `sentiment_split` dict and checks each group's own
+`base_n` independently, so a tiny group's problem is never hidden
+behind a large group's size in the same section.
+
+**C-006 / C-007 (docs/report_checks.py), authorised for these two
+checks only:** C-006 renamed in substance to
+`sentiment_percentage_paired_with_count_and_base` -- no longer bans
+"%", instead requires every percentage found within a "sentiment split"
+text window to be paired with both a raw count (`"N (pct%)"`) and a
+stated base. C-007 unchanged in intent (states its base) but its base-
+detection pattern is broadened from the literal word "responses" to
+also match the population nouns R-006a's `selection_rule` text now uses
+("caregivers", "claimants", "women", "men"). Both already iterate every
+"sentiment split" mention `_find_all()` finds in the text, so a grouped
+section producing multiple mentions (one per group) needed no
+structural change -- only the two checks' own logic (percentage
+pairing; base-word vocabulary).
+
+**Consumer audit (session-8, per instruction, before building):**
+grepped the whole repo including `dashboard/` and any frontend code.
+Two authorised consumers (`writer.py`, `validate_output.py`) plus one
+NOT authorised and left untouched: `qualitative/run_qualitative.py`'s
+own CLI debug summary printer (lines ~128-141) also read
+`sentiment_split` -- fixed anyway per instruction (in scope: "three
+lines and a console log that prints wrong is a trap for whoever reads
+it next") to iterate groups instead of assuming a flat dict.
+`qualitative/llm_call.py`'s synthesis prompt still shows the model a
+flat `sentiment_split` example in its OUTPUT SCHEMA text for all seven
+sections -- left as is per instruction (overridden downstream for every
+section regardless of what the model actually returns there; changing
+prompt text is a separate authorisation). No dashboard or frontend code
+reads `sentiment_split` at all.
+
+**Separately (session-8 smoke test finding, fixed not logged, per
+instruction):** neither `qualitative/run_qualitative.py` nor
+`dashboard/api/pipeline_runner.py` called `load_dotenv()`, so a `.env`
+file at the project root was never picked up by the real pipeline --
+only `os.environ` being pre-populated some other way worked. Both now
+call `load_dotenv()` against the project-root `.env` at import time.
+
+---
+
+## R-006a Stage 2: theme-to-section mapping for Parts 1-4
+
+**Layer:** `code` (config-driven)
+**Priority:** high
+**Status:** Implemented (session-7, 2026-08-2X) -- **unverified against
+real tags**, see below.
+
+**Mapping (Lorenz-approved, session-7)**
+Stored in `qualitative/config.yaml`'s `report_sections` entries, as a
+`theme_codes` list per Part 1-4 section (`qualitative/parse_results.py`'s
+`_load_theme_section_map()` reads it back into a `{section: set(codes)}`
+lookup):
+
+| Section | Theme codes | Count |
+|---|---|---|
+| Part 1 (Product Understanding) | `product_understanding` | 1 |
+| Part 2 (Claims Experience) | `claims_speed`, `claims_process`, `payout_adequacy` | 3 |
+| Part 3 (Financial Inclusion) | `access_inclusion`, `financial_relief` | 2 |
+| Part 4 (Client Voice) | `product_value`, `staff_service`, `general_satisfaction`, `improvement_suggestion`, `complaint_grievance` | 5 |
+
+`child_family` and `crop_agricultural` are unmapped by design -- they
+match Part 5's and Vietnam's own constructs, not any of Parts 1-4's
+topics; a record tagged only with one of these contributes to no
+Part 1-4 base (expected, not a defect).
+
+**Principle (record this next to the mapping, per instruction): single
+primary mapping, not dual-mapping**
+Each theme code maps to exactly one section. A cross-cutting case is
+handled by **co-tagging**, not by listing a code under two sections: a
+response about a staff complaint arising during a claim carries both
+`staff_service` and `claims_process`, and reaches both Part 4 and
+Part 2 that way (`compute_stage2_sentiment_splits()` already does
+this -- a record belongs to every section whose `theme_codes` intersect
+its own tags, so co-tagging naturally produces overlap where it is
+real). Dual-mapping a broad code like `staff_service` to a second
+section directly would instead pull every unrelated staff complaint
+into that section regardless of what the complaint was actually about.
+Two judgment calls resolved this way this session: `payout_adequacy`
+to Part 2 only (not also Part 3), `staff_service` to Part 4 only (not
+also Part 2). Apply the same principle to any future addition.
+
+**Projected relative base sizes (flagged per instruction, not yet
+verified)**
+Part 1 carries exactly one theme code against Part 4's five. Part 1's
+`base_n` is expected to be materially smaller than Part 4's for that
+structural reason alone -- Part 1 has a narrower, more specific topic
+(product knowledge specifically) where Part 4 is a broad "general NPS
+driver" catch-all across five different codes. A smaller Part 1 base
+must not be read as evidence of a bug or of under-tagging; it is the
+direct, predictable consequence of the code counts above.
+
+**Pinned `source_pool_n` for theme-mapped sections (distinct from Stage
+1's demographic reading, same contract)**
+There is no independent "eligible to be about claims" population the
+way there is an "eligible to be a caregiver" one -- eligibility for a
+theme-mapped section can only be known after tagging. `source_pool_n`
+for Parts 1-4 is therefore every NPS record Task 1 tagged with at least
+one theme (the pool that could possibly have matched ANY section) --
+the same number across all four sections. `base_n` is the subset of
+that pool whose themes specifically matched THIS section's
+`theme_codes`. Both still satisfy the same pinned contract from Stage 1
+(`source_pool_n` is what was eligible to count; `base_n` is what
+actually did).
+
+**First real-tag signal (session-8, smoke test, 2026-08-2X) -- still not
+a full run**
+A `GEMINI_API_KEY` is now configured; a one-batch smoke test (200 real
+records, mixed nps_group, `runs/lacro_final_check/`) tagged real themes
+and sentiment (see the session-8 smoke test report). Applying the
+approved Stage 2 mapping to those 200 real tags, before any full run:
+
+| Section | Codes | base_n | of 200 |
+|---|---|---|---|
+| Part 1 (Product Understanding) | 1 | 41 | 20.5% |
+| Part 2 (Claims Experience) | 3 | 6 | 3.0% |
+| Part 3 (Financial Inclusion) | 2 | 38 | 19.0% |
+| Part 4 (Client Voice) | 5 | 132 | 66.0% |
+
+Part 1 vs Part 4 confirmed directionally as projected (Part 4 far
+larger). **Not confirmed: code count predicting base size in general.**
+Part 2 has 3 codes -- more than Part 1's 1 -- but the SMALLEST base of
+the four, well below Part 1's. Reading the actual tagged text explains
+why: this pool is NPS follow-up ("why did you give this score"), and
+most responses default to general satisfaction, value, and staff
+themes (Part 4's territory) rather than claims-process specifics, which
+show up more in a claim-specific survey question than in a general NPS
+prompt -- most LACRO respondents describing their NPS score simply
+never mention a claim at all. Scaled to the full ~1,674-response pool,
+Part 2's base could land in the neighbourhood of 50, not the low-to-mid
+hundreds the original structural estimate assumed uniformly across all
+four sections. This is a real fact about what the NPS follow-up prompt
+actually elicits, not a flaw in the mapping -- the mapping is analytically
+correct regardless of how many responses happen to land in each bucket.
+Flagged for review, not treated as disqualifying.
+
+**Still unverified**: this is 200 of ~1,674 responses (12%), one batch,
+not a full run, and `source_pool_n` here is 200 (the smoke sample), not
+the real full-pool figure. **The first full live run must still print
+every Part 1-4 `base_n` and `source_pool_n` for review before this
+mapping is treated as settled** -- this smoke-test signal narrows the
+uncertainty (confirms the mechanism works end to end on real tags,
+surfaces the Part 2 size finding early) but does not replace it.
+
+**Verification**
+- `assert every Part 1-4 selection_rule names the theme codes it matched on`
+- `assert no theme code appears in more than one section's theme_codes` (single-mapping principle)
+- `assert Part 1-4 base_n and source_pool_n counts are printed and reviewed against a real FULL run before this mapping is marked settled`
 
 ---
 

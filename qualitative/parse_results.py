@@ -134,17 +134,18 @@ def _humanize_top_drivers(section_insights: dict) -> dict:
 # "best-judgment approximate counts... among the material you reviewed"
 # estimate over a roughly 6-candidate shortlist.
 #
-# Part 7 (Gender) is NOT active here. A single split over the whole
-# respondent pool is the portfolio-wide split restated and tells a reader
-# nothing about gender -- Part 7 needs two splits (female, male), which the
-# current section_insights.sentiment_split shape (one flat dict per
-# section, consumed as such by generation/writer.py's
-# _fmt_insight_summary() and generation/validate_output.py's sentiment-base
-# checks) does not support. That is a schema change pending approval, not
-# implemented here -- see docs/report_spec.md's R-006a Part 7 note.
+# Part 7 (Gender) has its own function below (compute_part7_sentiment_
+# splits()) -- it needs two groups (female, male), not one, since a single
+# split over the whole respondent pool is the portfolio-wide split
+# restated and tells a reader nothing about gender. Every
+# sentiment_split, including this module's single-group sections, is
+# returned in the SAME uniform nested (group -> split) shape (session-8,
+# per instruction: no Part-7-only special case) -- see
+# _wrap_single_group()'s docstring.
 #
-# Parts 1-4 are topic-defined (no such flag exists) and are untouched --
-# Stage 2, pending a theme-to-section mapping design.
+# Parts 1-4 are topic-defined (no per-record demographic flag exists for
+# "relevant to this topic") -- see compute_stage2_sentiment_splits()
+# below for their theme-mapped equivalent (R-006a Stage 2).
 #
 # Pinned definition (docs/report_spec.md's R-006a; state it once so it
 # cannot drift between sections): source_pool_n is the section's ELIGIBLE
@@ -227,6 +228,43 @@ def _looks_synthetic(counts: dict, base_n: int) -> bool:
     )
 
 
+def _finalize_split(group_label: str, counts: dict, source_pool_n: int, selection_rule: str) -> dict:
+    """Shared by every stage (1, 2, and Part 7): apply the synthetic-split
+    guard (identical failure mode regardless of which stage or group
+    produced it) and assemble ONE group's result dict. Raises ValueError;
+    see _looks_synthetic(). group_label is used only in the error message
+    (e.g. "part5" for a single-group section, "part7.female" for a group
+    within a multi-group section) so a raised guard is traceable to its
+    source."""
+    base_n = sum(counts.values())
+    if _looks_synthetic(counts, base_n):
+        raise ValueError(
+            f"{group_label}: sentiment split is exactly tied "
+            f"({counts['positive']}/{counts['negative']}/{counts['neutral']}) "
+            f"at base_n={base_n} -- this is the signature of a synthetic "
+            "or placeholder split (e.g. a round-robin demo), not a real "
+            "classification. Refusing to let it reach a rendered report."
+        )
+    return {
+        **counts,
+        "base_n": base_n,
+        "source_pool_n": source_pool_n,
+        "selection_rule": selection_rule,
+    }
+
+
+def _wrap_single_group(inner: dict) -> dict:
+    """Uniform nested sentiment_split shape (session-8, per instruction):
+    EVERY section's sentiment_split is keyed by group, never a bare
+    flat dict -- a section with one group uses the single key "all". A
+    section that needs splitting (Part 7 today; by country or claimant
+    status in a hypothetical future one) uses its own group keys instead
+    (see compute_part7_sentiment_splits()) with no further schema work,
+    since every consumer already iterates groups rather than branching on
+    section key."""
+    return {"all": inner}
+
+
 def compute_stage1_sentiment_splits(nps_tags: dict, df: pd.DataFrame) -> dict:
     """R-006a Stage 1: {section_key: {"positive": int, "negative": int,
     "neutral": int, "base_n": int, "source_pool_n": int,
@@ -254,30 +292,184 @@ def compute_stage1_sentiment_splits(nps_tags: dict, df: pd.DataFrame) -> dict:
             if idx is None or idx not in mask.index or not mask.loc[idx]:
                 continue
             counts[sentiment] += 1
-        base_n = sum(counts.values())
-
-        if _looks_synthetic(counts, base_n):
-            raise ValueError(
-                f"{section_key}: sentiment split is exactly tied "
-                f"({counts['positive']}/{counts['negative']}/{counts['neutral']}) "
-                f"at base_n={base_n} -- this is the signature of a synthetic "
-                "or placeholder split (e.g. a round-robin demo), not a real "
-                "classification. Refusing to let it reach a rendered report."
-            )
 
         selection_rule = (
             f"NPS follow-up responses from {population_label}, excluding "
-            f"responses under {min_text_length} characters; {base_n} of "
-            f"{source_pool_n} {population_label} qualify."
+            f"responses under {min_text_length} characters; "
+            f"{sum(counts.values())} of {source_pool_n} {population_label} qualify."
         )
 
-        results[section_key] = {
-            **counts,
-            "base_n": base_n,
-            "source_pool_n": source_pool_n,
-            "selection_rule": selection_rule,
-        }
+        results[section_key] = _wrap_single_group(
+            _finalize_split(section_key, counts, source_pool_n, selection_rule)
+        )
     return results
+
+
+# ---------------------------------------------------------------------------
+# R-006a Stage 2 (docs/report_spec.md): deterministic sentiment_split for
+# Parts 1-4, whose population is defined by a theme-to-section mapping
+# (qualitative/config.yaml's report_sections[*].theme_codes) rather than a
+# demographic segment. A record belongs to a section if ANY of its 1-3
+# tagged theme codes appear in that section's theme_codes list -- overlap
+# across sections is expected (a response tagged both staff_service and
+# claims_process reaches both Part 4 and Part 2), and a record whose
+# themes match none of Parts 1-4 contributes to none of them. See
+# config.yaml's own header comment for the mapping and its principle
+# (primary section + co-tagging, not dual-mapping).
+#
+# source_pool_n here is NOT a demographic population (there is no
+# independent "eligible to be about claims" population the way there is
+# an "eligible to be a caregiver" one) -- it is every NPS record Task 1
+# actually tagged with at least one theme (the pool that could possibly
+# have matched ANY section), same for all four sections. base_n is the
+# subset of that pool whose themes specifically matched THIS section.
+# This is a real, intentional difference from Stage 1's source_pool_n
+# (a fixed demographic count, computed independent of tagging) -- both
+# still satisfy the same pinned contract (source_pool_n is what was
+# eligible to count; base_n is what actually did).
+#
+# UNVERIFIED AGAINST REAL TAGS (session-7, 2026-08-2X): no GEMINI_API_KEY
+# is configured and no qualitative_results.json exists for
+# runs/lacro_final_check/, so this has been unit-tested against synthetic
+# tag data only, never a real Task 1 output. The mapping itself (which
+# theme codes belong to which section) is Lorenz-approved, but its
+# PRACTICAL EFFECT -- how many real responses actually carry each theme,
+# and therefore each section's real base_n -- is unknown until a live run
+# happens. The first live run must print every Part 1-4 base_n for
+# review before this mapping is treated as settled, not just approved in
+# principle.
+#
+# Projected relative base sizes (informational, not yet verified): Part 1
+# carries exactly ONE theme code (product_understanding) against Part 4's
+# FIVE (product_value, staff_service, general_satisfaction,
+# improvement_suggestion, complaint_grievance). Part 1's base_n is
+# expected to be materially smaller than Part 4's for that structural
+# reason alone -- a smaller Part 1 base is not evidence of a problem, it
+# is the direct, predictable consequence of Part 1 having a narrower,
+# more specific topic than Part 4's broad "general NPS driver" catch-all.
+# ---------------------------------------------------------------------------
+
+_STAGE2_SECTIONS = ("part1", "part2", "part3", "part4")
+
+
+def _load_theme_section_map() -> dict:
+    """{section_key: set(theme_codes)} for every report_sections entry
+    that declares theme_codes (part1-4 today) -- see config.yaml's own
+    header comment for the mapping and its principle."""
+    config = load_config()
+    out = {}
+    for entry in config.get("report_sections", []):
+        codes = entry.get("theme_codes")
+        if codes:
+            out[entry["key"]] = set(codes)
+    return out
+
+
+def compute_stage2_sentiment_splits(nps_tags: dict) -> dict:
+    """R-006a Stage 2: {section_key: {"positive": int, "negative": int,
+    "neutral": int, "base_n": int, "source_pool_n": int,
+    "selection_rule": str}} for part1 through part4 (see this module's
+    Stage 2 header comment for the mapping, its unverified status, and
+    the pinned source_pool_n/base_n definitions for theme-matched
+    sections specifically).
+
+    Shares Stage 1's synthetic-split guard (_finalize_split) -- a
+    placeholder split must never reach a rendered report regardless of
+    which stage produced it.
+    """
+    theme_map = _load_theme_section_map()
+    min_text_length = load_config().get("min_text_length", 10)
+
+    # Every tagged NPS record (row_id -> (themes, sentiment)), regardless
+    # of theme -- source_pool_n for every Stage-2 section, since nothing
+    # about a section narrows WHICH records were eligible to be tagged,
+    # only which of the tagged records matched its theme_codes.
+    tagged_full = {}
+    for grp in NPS_GROUPS:
+        for entry in nps_tags.get(grp, []):
+            if isinstance(entry, list) and len(entry) == 3:
+                row_id, themes, sentiment = entry
+                if sentiment in _SENTIMENT_VALUES and isinstance(themes, list):
+                    tagged_full[row_id] = (themes, sentiment)
+    source_pool_n = len(tagged_full)
+
+    results = {}
+    for section_key in _STAGE2_SECTIONS:
+        section_codes = theme_map.get(section_key, set())
+        counts = {v: 0 for v in _SENTIMENT_VALUES}
+        for themes, sentiment in tagged_full.values():
+            if section_codes.intersection(themes):
+                counts[sentiment] += 1
+
+        codes_str = ", ".join(sorted(section_codes)) if section_codes else "(none configured)"
+        selection_rule = (
+            f"NPS follow-up responses tagged with a theme mapped to this "
+            f"section ({codes_str}), excluding responses under "
+            f"{min_text_length} characters; {sum(counts.values())} of "
+            f"{source_pool_n} tagged responses qualify."
+        )
+
+        results[section_key] = _wrap_single_group(
+            _finalize_split(section_key, counts, source_pool_n, selection_rule)
+        )
+    return results
+
+
+# ---------------------------------------------------------------------------
+# R-006a Part 7 (docs/report_spec.md): Gender needs two splits, female and
+# male, not the portfolio-wide restatement a single split would produce --
+# comparing two groups is the entire point of a Gender section. Uses the
+# SAME uniform nested shape every other section uses (session-8, per
+# instruction: no Part-7-only special case) -- {"female": {...},
+# "male": {...}} instead of {"all": {...}}. Population per group is a
+# demographic count (like Stage 1's part5/part6), independent of tagging,
+# NOT a Stage-2-style theme match -- Gender is a lens over the whole
+# client base, not a topic.
+# ---------------------------------------------------------------------------
+
+_PART7_GROUPS = (
+    ("female", "women"),
+    ("male", "men"),
+)
+
+
+def compute_part7_sentiment_splits(nps_tags: dict, df: pd.DataFrame) -> dict:
+    """{"part7": {"female": {...}, "male": {...}}} -- see this module's
+    Part 7 header comment. Each group's base_n/source_pool_n/
+    selection_rule follow the same pinned Stage-1 contract
+    (source_pool_n = total women/men in df; base_n = subset who left a
+    response of at least min_text_length and were tagged)."""
+    tagged = _flatten_tagged_sentiment(nps_tags)
+    min_text_length = load_config().get("min_text_length", 10)
+
+    if "q_sex" not in df.columns:
+        sex = pd.Series("", index=df.index)
+    else:
+        sex = df["q_sex"].fillna("")
+
+    groups = {}
+    for sex_value, population_label in _PART7_GROUPS:
+        mask = sex == sex_value.capitalize()
+        source_pool_n = int(mask.sum())
+
+        counts = {v: 0 for v in _SENTIMENT_VALUES}
+        for row_id, sentiment in tagged.items():
+            idx = _row_id_to_index(row_id)
+            if idx is None or idx not in mask.index or not mask.loc[idx]:
+                continue
+            counts[sentiment] += 1
+
+        selection_rule = (
+            f"NPS follow-up responses from {population_label}, excluding "
+            f"responses under {min_text_length} characters; "
+            f"{sum(counts.values())} of {source_pool_n} {population_label} qualify."
+        )
+
+        groups[sex_value] = _finalize_split(
+            f"part7.{sex_value}", counts, source_pool_n, selection_rule
+        )
+
+    return {"part7": groups}
 
 
 def _lookup_profile(row_id: str, df: pd.DataFrame) -> dict:
@@ -470,13 +662,20 @@ def parse_and_save(
     _check_section_insights(section_insights)
     section_insights = _humanize_top_drivers(section_insights)
 
-    # R-006a Stage 1: override part5/part6/part7's sentiment_split with the
-    # deterministic, code-computed version -- theme_summary/top_drivers for
-    # these sections are untouched (still the model's own synthesis), and
-    # parts 1-4 are untouched entirely (still model-estimated, pending
-    # Stage 2's theme-to-section mapping design).
-    stage1_splits = compute_stage1_sentiment_splits(raw_gemini.get("nps_tags", {}), df)
-    for section_key, split in stage1_splits.items():
+    # R-006a Stage 1 + Stage 2 + Part 7: override every section's
+    # sentiment_split with its code-computed, uniformly-nested (group ->
+    # split) version -- part5/part6 (segment-based, Stage 1), part1-4
+    # (theme-mapped, Stage 2, unverified against real tags -- see
+    # compute_stage2_sentiment_splits()'s module comment), and part7
+    # (female/male, session-8). theme_summary/top_drivers are untouched
+    # (still the model's own synthesis) for every section.
+    nps_tags = raw_gemini.get("nps_tags", {})
+    deterministic_splits = {
+        **compute_stage1_sentiment_splits(nps_tags, df),
+        **compute_stage2_sentiment_splits(nps_tags),
+        **compute_part7_sentiment_splits(nps_tags, df),
+    }
+    for section_key, split in deterministic_splits.items():
         existing = section_insights.get(section_key)
         base = existing if isinstance(existing, dict) else {}
         section_insights = {**section_insights, section_key: {**base, "sentiment_split": split}}

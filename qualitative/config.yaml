@@ -195,23 +195,45 @@ protection_flags:
     label: "Data Privacy"
     description: "Concerns about how personal or financial data is used or shared"
 
-# Report sections for verbatim nominations
+# Report sections for verbatim nominations.
+#
+# theme_codes (part1-4 only): R-006a Stage 2's deterministic
+# theme-to-section mapping (docs/report_spec.md), reviewed and approved
+# by Lorenz (session-7, 2026-08-2X). Each theme code maps to exactly ONE
+# primary section -- a cross-cutting case is handled by co-tagging
+# (a response about a staff complaint during a claim carries BOTH
+# staff_service and claims_process, and reaches both sections that way),
+# not by listing the same code under two sections' theme_codes. Dual-
+# mapping a broad code like staff_service would instead pull every
+# unrelated staff complaint into whichever second section it was also
+# listed under. Apply this same principle to any future addition here.
+#
+# part5/part6/part7 deliberately have NO theme_codes: part5/part6 are
+# segment-defined (prefer_segment below), not theme-matched, and giving
+# them a second, theme-based population definition would create two
+# competing definitions for the same section. part7 is unfiltered
+# (Gender is a whole-portfolio lens); see R-006a's own note on its
+# pending two-split (female/male) schema decision.
 report_sections:
   - key: part1
     title: "Product Understanding"
     topic_hint: "Understanding of insurance coverage and claims process; education gaps; client confusion"
+    theme_codes: [product_understanding]
 
   - key: part2
     title: "Claims Experience"
     topic_hint: "Claims filing experience, challenges, support needed, coping after insured event"
+    theme_codes: [claims_speed, claims_process, payout_adequacy]
 
   - key: part3
     title: "Financial Inclusion"
     topic_hint: "First insurance access, safety net value, financial relief from having coverage"
+    theme_codes: [access_inclusion, financial_relief]
 
   - key: part4
     title: "Client Voice"
     topic_hint: "NPS drivers — why promoters recommend and detractors are dissatisfied; value for money"
+    theme_codes: [product_value, staff_service, general_satisfaction, improvement_suggestion, complaint_grievance]
 
   - key: part5
     title: "Child Wellbeing"

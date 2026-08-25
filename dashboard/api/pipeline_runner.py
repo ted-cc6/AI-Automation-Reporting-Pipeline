@@ -26,6 +26,17 @@ from pathlib import Path
 
 import pandas as pd
 import yaml
+from dotenv import load_dotenv
+
+# A .env file at the project root is optional -- load_dotenv() silently
+# no-ops if it's absent (e.g. a deployed environment that sets
+# GEMINI_API_KEY directly). Without this call, qualitative/llm_call.py's
+# own os.environ.get("GEMINI_API_KEY") fallback (used whenever this
+# module's own LlmConfig doesn't carry an explicit api_key) never sees a
+# .env file's contents at all -- confirmed missing during the session-8
+# smoke test. dashboard/api/pipeline_runner.py is two directories below
+# the project root (dashboard/api/), hence parents[2].
+load_dotenv(Path(__file__).resolve().parents[2] / ".env")
 
 import run_analysis as ra
 from data_loader import (

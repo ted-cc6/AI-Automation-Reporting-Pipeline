@@ -20,6 +20,7 @@ import sys
 from pathlib import Path
 
 import pandas as pd
+from dotenv import load_dotenv
 
 from qualitative.prepare_payload import load_config, build_payload, print_payload_stats
 from qualitative.llm_call import call_gemini
@@ -35,6 +36,14 @@ log = logging.getLogger(__name__)
 
 ROOT = Path(__file__).parent.parent
 PARQUET_PATH = ROOT / "data" / "survey_clean.parquet"
+
+# A .env file at the project root is optional -- load_dotenv() silently
+# no-ops if it's absent (e.g. a deployed environment that sets
+# GEMINI_API_KEY directly). Without this call, qualitative/llm_call.py's
+# own os.environ.get("GEMINI_API_KEY") fallback (used when this CLI's
+# caller doesn't pass api_key explicitly) never sees a .env file's
+# contents at all -- confirmed missing during the session-8 smoke test.
+load_dotenv(ROOT / ".env")
 
 
 def main():
@@ -125,11 +134,17 @@ def main():
         entry = si[section]
         summary = entry.get("theme_summary", "")
         drivers = ", ".join(entry.get("top_drivers", []))
-        split = entry.get("sentiment_split", {})
-        split_str = ", ".join(f"{k}={v}" for k, v in split.items())
         print(f"    {section}: {summary}")
         if drivers:
-            print(f"      drivers: {drivers}  |  sentiment: {split_str}")
+            print(f"      drivers: {drivers}")
+        # sentiment_split is R-006a's uniform nested shape (session-8):
+        # {group_label: {positive, negative, neutral, base_n, ...}}, a
+        # single-group section under "all" -- print each group on its
+        # own line rather than the dict's own repr, which used to work
+        # by coincidence when there was only ever one flat split.
+        for group_label, split in (entry.get("sentiment_split") or {}).items():
+            counts = f"positive={split.get('positive')}, negative={split.get('negative')}, neutral={split.get('neutral')}"
+            print(f"      sentiment [{group_label}]: {counts}  (base_n={split.get('base_n')} of source_pool_n={split.get('source_pool_n')})")
 
     flags = result.get("protection_flags", [])
     print(f"  Protection flags found: {len(flags)}")
