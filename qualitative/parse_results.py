@@ -529,43 +529,149 @@ def _lookup_profile(row_id: str, df: pd.DataFrame) -> dict:
     }
 
 
-def _lookup_text(row_id: str, df: pd.DataFrame, text_cols: list) -> str:
-    """Find the open-ended text for a row_id across all text columns."""
+# ---------------------------------------------------------------------------
+# R-030 (docs/report_spec.md, session-9): _lookup_text() used to walk
+# text_cols in a fixed order and return the first non-null match --
+# correct only because most respondents have text in exactly one column.
+# A respondent with text in two columns (the same row_id collision R-018/
+# R-029 are about) could have a verbatim attributed to the WRONG column's
+# answer: the model may have selected a row_id specifically because of
+# its claims-other text, and _lookup_text would silently render that
+# respondent's NPS text instead, simply because NPS columns sort first in
+# text_cols. This is a reader-facing correctness defect, not an internal
+# one -- a quote attributed to a client may be a different answer from
+# the same client than the one that actually justified its selection.
+#
+# Fixed for the RESOLVABLE case only, per instruction: when a row_id
+# appears in the full payload under exactly one column, that column is
+# used directly, with certainty, no prompt change needed. When a row_id
+# appears under more than one column, Python has no way to know which one
+# the model actually read -- only the model's own selection step knows
+# that, and Task 4A is not currently asked to say (asking it to would be
+# a prompt change, out of scope here, separately authorised). That
+# residual case falls back to the original fixed-order guess, UNCHANGED
+# behaviour, not silently claimed to be fixed.
+#
+# The fallback must be observable, not silent (per instruction): every
+# call to _enrich_section_verbatims() returns a resolution count
+# alongside the enriched verbatims, and parse_and_save() logs it and
+# writes it into qualitative_results.json's meta -- so a non-zero
+# fallback count on a real run is seen, not inferred.
+# ---------------------------------------------------------------------------
+
+# A record's own dataframe column, in RAW-COLUMN vocabulary -- deliberately
+# separate from llm_call._record_column(), which resolves the payload
+# GROUP name instead (the vocabulary protection flags' own "column" field
+# uses, e.g. "claim_challenges_other_support"). Conflating the two was a
+# real bug caught before this shipped: neither is valid input for the
+# other's purpose -- "claim_challenges_other_support" is not a real
+# dataframe column _lookup_text() could query, and
+# "q_claim_challenges__other_text" is never what a protection flag's
+# "column" field contains. Non-NPS records already store the raw column
+# directly as "source_column" (prepare_payload.py); NPS records only
+# store nps_group, so it's translated to the matching raw NPS column here.
+_NPS_GROUP_TO_RAW_COLUMN = {
+    "promoter": "q_nps_promoter_followup",
+    "passive": "q_nps_passive_followup",
+    "detractor": "q_nps_detractor_followup",
+}
+
+
+def _raw_column_for_record(rec: dict) -> "str | None":
+    """The actual dataframe column a record's text came from -- see the
+    module comment above for why this is a separate helper from
+    llm_call._record_column(), not a shared one."""
+    source_column = rec.get("source_column")
+    if source_column:
+        return source_column
+    return _NPS_GROUP_TO_RAW_COLUMN.get(rec.get("nps_group"))
+
+
+def build_row_id_column_map(payload: "dict | None") -> dict:
+    """{row_id: raw_dataframe_column} for every row_id that appears under
+    EXACTLY ONE column across the full payload (every group) -- a row_id
+    appearing under 2+ distinct columns is deliberately left OUT of this
+    map (not mapped to None), so callers can tell "resolved" apart from
+    "ambiguous, not present" with a single `in` check rather than a
+    sentinel value. Returns {} if payload is None (matches the pre-R-030
+    fixed-order behaviour unconditionally, e.g. for callers that don't
+    have payload in scope yet)."""
+    if not payload:
+        return {}
+    seen: dict[str, set] = {}
+    for group_name, records in payload.items():
+        if not isinstance(records, list):
+            continue
+        for rec in records:
+            row_id = rec.get("id")
+            if not row_id:
+                continue
+            column = _raw_column_for_record(rec)
+            seen.setdefault(row_id, set()).add(column)
+    return {row_id: next(iter(cols)) for row_id, cols in seen.items() if len(cols) == 1}
+
+
+def _lookup_text(row_id: str, df: pd.DataFrame, text_cols: list,
+                  resolved_column: "str | None" = None) -> "tuple[str, bool]":
+    """Find the open-ended text for a row_id. Returns (text, was_exact) --
+    was_exact is True when resolved_column was given and used directly
+    (R-030's fixed case), False when this fell back to the fixed-order
+    guess across text_cols (R-030's residual, unresolvable case, or no
+    resolved_column was available at all)."""
     try:
         idx = int(row_id.split("_")[1])
     except (IndexError, ValueError):
-        return ""
+        return "", False
 
     if idx not in df.index:
-        return ""
+        return "", False
 
     row = df.loc[idx]
+
+    if resolved_column and resolved_column in df.columns:
+        val = row.get(resolved_column)
+        if not pd.isna(val) and str(val).strip():
+            return str(val).strip(), True
+        # Resolved column exists but is empty for this row -- shouldn't
+        # happen (the map is built from records that had qualifying
+        # text), but fall through to the guess rather than return "" and
+        # claim it was exact.
+
     for col in text_cols:
         if col in df.columns:
             val = row.get(col)
             if not pd.isna(val) and str(val).strip():
-                return str(val).strip()
-    return ""
+                return str(val).strip(), False
+    return "", False
 
 
 def _enrich_section_verbatims(
     section_verbatims: dict,
     df: pd.DataFrame,
     text_cols: list,
-) -> dict:
-    """Replace row_id lists with enriched verbatim objects including text + profile."""
+    row_id_column_map: "dict | None" = None,
+) -> "tuple[dict, dict]":
+    """Replace row_id lists with enriched verbatim objects including text +
+    profile. Returns (enriched, resolution_counts) -- resolution_counts is
+    {"exact": int, "fallback": int}, the R-030 observability requirement:
+    how many rendered verbatims had their column resolved with certainty
+    versus fell back to the fixed-order guess."""
+    row_id_column_map = row_id_column_map or {}
     enriched = {}
+    counts = {"exact": 0, "fallback": 0}
     for section, ids in section_verbatims.items():
         enriched[section] = []
         for row_id in ids:
-            text = _lookup_text(row_id, df, text_cols)
+            resolved_column = row_id_column_map.get(row_id)
+            text, was_exact = _lookup_text(row_id, df, text_cols, resolved_column)
+            counts["exact" if was_exact else "fallback"] += 1
             profile = _lookup_profile(row_id, df)
             enriched[section].append({
                 "id": row_id,
                 "text": text,
                 "profile": profile,
             })
-    return enriched
+    return enriched, counts
 
 
 def _enrich_protection_flags(flags: list, df: pd.DataFrame) -> list:
@@ -660,6 +766,7 @@ def parse_and_save(
     meta_extra: dict = None,
     provider: str = "LLM",
     model: str = "unknown",
+    payload: "dict | None" = None,
 ) -> dict:
     """
     Validate, enrich, and assemble final qualitative_results.json.
@@ -678,6 +785,15 @@ def parse_and_save(
                      meta.model field used to be hardcoded "gemini-2.5-pro"
                      regardless of provider, same bug class as the message
                      above.
+        payload:     R-030 (docs/report_spec.md, session-9): the same dict
+                     qualitative.prepare_payload.build_payload() returned
+                     for this run -- both real callers (run_qualitative.py,
+                     pipeline_runner.py) already have it in scope when they
+                     call this. Used to resolve which exact source column
+                     each section_verbatims row_id actually came from,
+                     wherever that's unambiguous; optional and defaults to
+                     None (pre-R-030 fixed-order-guess behaviour
+                     unconditionally) so this stays backward compatible.
 
     Returns:
         Final qualitative results dict (also written to disk)
@@ -720,9 +836,30 @@ def parse_and_save(
 
     theme_counts = _count_themes(raw_gemini["nps_tags"])
 
-    enriched_verbatims = _enrich_section_verbatims(
-        raw_gemini["section_verbatims"], df, text_cols
+    # R-030: resolve section_verbatims' source column exactly wherever the
+    # payload makes that unambiguous; the residual (a row_id with text in
+    # more than one column) falls back to _lookup_text()'s original
+    # fixed-order guess, unchanged -- see this module's R-030 header
+    # comment above _lookup_text() for the full reasoning and why the
+    # remaining ambiguous case isn't fixed here.
+    row_id_column_map = build_row_id_column_map(payload)
+    enriched_verbatims, verbatim_resolution = _enrich_section_verbatims(
+        raw_gemini["section_verbatims"], df, text_cols, row_id_column_map
     )
+    if verbatim_resolution["fallback"]:
+        log.warning(
+            f"R-030: {verbatim_resolution['fallback']} of "
+            f"{verbatim_resolution['exact'] + verbatim_resolution['fallback']} rendered "
+            "verbatim(s) could not be resolved to a single source column (the "
+            "respondent has qualifying text in more than one column) and fell "
+            "back to the fixed-order guess -- the displayed quote may not be "
+            "the text that was actually selected. See docs/report_spec.md's R-030."
+        )
+    else:
+        log.info(
+            f"R-030: all {verbatim_resolution['exact']} rendered verbatim(s) resolved "
+            "to their exact source column."
+        )
 
     enriched_flags = _enrich_protection_flags(
         raw_gemini.get("protection_flags", []), df
@@ -741,6 +878,11 @@ def parse_and_save(
             "model": model,
             "run_id": run_id,
             "generated_at": datetime.now(timezone.utc).isoformat(),
+            # R-030 (docs/report_spec.md, session-9): observable, not
+            # inferred -- how many rendered verbatims had their source
+            # column resolved with certainty vs fell back to the
+            # fixed-order guess this run.
+            "verbatim_column_resolution": verbatim_resolution,
             **(meta_extra or {}),
         },
         "theme_counts": theme_counts,

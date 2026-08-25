@@ -15,11 +15,14 @@ from qualitative.parse_results import (
     REQUIRED_TOP_KEYS,
     _count_themes,
     _dedupe_protection_flags_by_client,
+    _enrich_section_verbatims,
     _humanize_top_drivers,
     _load_theme_section_map,
     _lookup_profile,
+    _lookup_text,
     _normalise_reason,
     _validate,
+    build_row_id_column_map,
     compute_part7_sentiment_splits,
     compute_stage1_sentiment_splits,
     compute_stage2_sentiment_splits,
@@ -110,6 +113,129 @@ class TestLookupProfile:
     def test_unresolvable_row_id_returns_empty_profile(self):
         profile = _lookup_profile("row_9999", self._df())
         assert profile == {}
+
+
+# ---------------------------------------------------------------------------
+# R-030 (docs/report_spec.md, session-9): section_verbatims' rendered text
+# resolved to its exact source column wherever the full payload makes that
+# unambiguous (a row_id present under exactly one column); the residual
+# case -- a row_id present under more than one column, the same collision
+# R-018/R-029 are about -- falls back to the original fixed-order guess,
+# unchanged, not silently claimed to be fixed. Fallback is observable via
+# the (exact, fallback) counts _enrich_section_verbatims() now returns.
+# ---------------------------------------------------------------------------
+
+class TestBuildRowIdColumnMap:
+    def test_single_column_record_resolves(self):
+        payload = {
+            "nps_promoters": [{"id": "row_0001", "nps_group": "promoter"}],
+        }
+        # Raw dataframe column, not the payload group name -- see
+        # _raw_column_for_record()'s docstring for why these differ.
+        assert build_row_id_column_map(payload) == {"row_0001": "q_nps_promoter_followup"}
+
+    def test_row_id_in_two_columns_is_excluded_as_ambiguous(self):
+        payload = {
+            "nps_detractors": [{"id": "row_1015", "nps_group": "detractor"}],
+            "claim_challenges_other_support": [
+                {"id": "row_1015", "source_column": "q_claim_challenges__other_text"},
+            ],
+        }
+        result = build_row_id_column_map(payload)
+        assert "row_1015" not in result
+
+    def test_row_id_in_two_columns_does_not_silently_pick_one(self):
+        # Guards against a regression that picks a column anyway (e.g. by
+        # iteration order) instead of leaving genuinely ambiguous ids out.
+        payload = {
+            "sparse_other": [
+                {"id": "row_0841", "source_column": "q_vf_services_received__other_text"},
+            ],
+            "nps_promoters": [{"id": "row_0841", "nps_group": "promoter"}],
+        }
+        assert "row_0841" not in build_row_id_column_map(payload)
+
+    def test_none_payload_returns_empty_map(self):
+        assert build_row_id_column_map(None) == {}
+
+    def test_empty_payload_returns_empty_map(self):
+        assert build_row_id_column_map({}) == {}
+
+    def test_record_with_no_id_is_skipped_not_crashed_on(self):
+        payload = {"sparse_other": [{"source_column": "q_income_sources__other_text"}]}
+        assert build_row_id_column_map(payload) == {}
+
+
+class TestLookupTextColumnResolution:
+    def _df(self):
+        return pd.DataFrame({
+            "q_nps_detractor_followup": ["could never use the insurance"],
+            "q_claim_challenges__other_text": ["claim was not valid for both themself and their daughter"],
+        }, index=[1015])
+
+    _text_cols = ["q_nps_detractor_followup", "q_claim_challenges__other_text"]
+
+    def test_resolved_column_is_used_exactly(self):
+        text, was_exact = _lookup_text(
+            "row_1015", self._df(), self._text_cols,
+            resolved_column="q_claim_challenges__other_text",
+        )
+        assert text == "claim was not valid for both themself and their daughter"
+        assert was_exact is True
+
+    def test_no_resolved_column_falls_back_to_fixed_order_guess(self):
+        # This IS the R-030 residual case: without a resolved column, the
+        # first-match-in-text_cols guess wins -- here that's the NPS
+        # column, even though (in the real row_1015 case) the claims-other
+        # text might be the one that actually justified selection.
+        text, was_exact = _lookup_text("row_1015", self._df(), self._text_cols, resolved_column=None)
+        assert text == "could never use the insurance"
+        assert was_exact is False
+
+    def test_resolved_column_not_in_dataframe_falls_back(self):
+        text, was_exact = _lookup_text(
+            "row_1015", self._df(), self._text_cols, resolved_column="q_does_not_exist",
+        )
+        assert was_exact is False
+        assert text == "could never use the insurance"  # fixed-order guess still finds something
+
+    def test_resolved_column_empty_for_this_row_falls_back(self):
+        df = self._df()
+        df.loc[1015, "q_claim_challenges__other_text"] = None
+        text, was_exact = _lookup_text(
+            "row_1015", df, self._text_cols, resolved_column="q_claim_challenges__other_text",
+        )
+        assert was_exact is False
+        assert text == "could never use the insurance"
+
+
+class TestEnrichSectionVerbatimsResolutionCounts:
+    def _df(self):
+        return pd.DataFrame({
+            "q_nps_detractor_followup": ["could never use the insurance", None],
+            "q_claim_challenges__other_text": ["claim was not valid for both themself and their daughter", None],
+            "q_no_claim_reason__other_text": [None, "never had the occasion to file"],
+        }, index=[1015, 2000])
+
+    _text_cols = ["q_nps_detractor_followup", "q_claim_challenges__other_text", "q_no_claim_reason__other_text"]
+
+    def test_resolvable_and_ambiguous_ids_counted_separately(self):
+        section_verbatims = {"part2": ["row_1015", "row_2000"]}
+        row_id_column_map = {"row_2000": "q_no_claim_reason__other_text"}  # row_1015 deliberately absent (ambiguous)
+        enriched, counts = _enrich_section_verbatims(
+            section_verbatims, self._df(), self._text_cols, row_id_column_map,
+        )
+        assert counts == {"exact": 1, "fallback": 1}
+        assert enriched["part2"][1]["text"] == "never had the occasion to file"  # row_2000, resolved exactly
+
+    def test_no_column_map_is_all_fallback(self):
+        section_verbatims = {"part2": ["row_1015"]}
+        enriched, counts = _enrich_section_verbatims(section_verbatims, self._df(), self._text_cols, None)
+        assert counts == {"exact": 0, "fallback": 1}
+
+    def test_empty_section_verbatims_gives_zero_counts(self):
+        enriched, counts = _enrich_section_verbatims({}, self._df(), self._text_cols, {})
+        assert counts == {"exact": 0, "fallback": 0}
 
 
 # ---------------------------------------------------------------------------
@@ -633,6 +759,65 @@ class TestParseAndSaveStage1And2Wiring:
         assert part7["sentiment_split"]["male"]["negative"] == 1
         assert part7["theme_summary"] == "model's own summary"
         assert "base_n" not in part7["sentiment_split"]
+
+
+class TestParseAndSaveVerbatimColumnResolutionWiring:
+    """R-030 (docs/report_spec.md, session-9): confirms parse_and_save()
+    actually threads payload through to _enrich_section_verbatims() and
+    records the resolution counts in meta -- observable, not inferred."""
+
+    def _df(self):
+        return pd.DataFrame({
+            "flag_child_wellbeing_denominator": [False],
+            "q_claim_submitted": [False],
+            "q_sex": ["Female"],
+            "q_nps_detractor_followup": ["could never use the insurance"],
+            "q_claim_challenges__other_text": ["claim was not valid for both themself and their daughter"],
+        }, index=[1015])
+
+    def test_resolvable_verbatim_is_counted_exact_and_uses_correct_text(self, tmp_path, monkeypatch):
+        monkeypatch.chdir(tmp_path)
+        payload = {
+            "claim_challenges_other_support": [
+                {"id": "row_1015", "source_column": "q_claim_challenges__other_text"},
+            ],
+        }
+        raw = _base_raw(section_verbatims={
+            "part1": ["row_1015"], "part2": ["row_1015"], "part3": ["row_1015"], "part4": ["row_1015"],
+            "part5": ["row_1015"], "part6": ["row_1015"], "part7": ["row_1015"],
+        })
+        result = parse_and_save(raw, self._df(), run_id="test_run", payload=payload)
+
+        assert result["meta"]["verbatim_column_resolution"] == {"exact": 7, "fallback": 0}
+        assert result["section_verbatims"]["part2"][0]["text"] == \
+            "claim was not valid for both themself and their daughter"
+
+    def test_ambiguous_verbatim_falls_back_and_is_counted(self, tmp_path, monkeypatch):
+        monkeypatch.chdir(tmp_path)
+        # row_1015 present under BOTH columns -- genuinely ambiguous.
+        payload = {
+            "nps_detractors": [{"id": "row_1015", "nps_group": "detractor"}],
+            "claim_challenges_other_support": [
+                {"id": "row_1015", "source_column": "q_claim_challenges__other_text"},
+            ],
+        }
+        raw = _base_raw(section_verbatims={
+            "part1": ["row_1015"], "part2": ["row_1015"], "part3": ["row_1015"], "part4": ["row_1015"],
+            "part5": ["row_1015"], "part6": ["row_1015"], "part7": ["row_1015"],
+        })
+        result = parse_and_save(raw, self._df(), run_id="test_run", payload=payload)
+
+        assert result["meta"]["verbatim_column_resolution"] == {"exact": 0, "fallback": 7}
+
+    def test_no_payload_is_backward_compatible_all_fallback(self, tmp_path, monkeypatch):
+        monkeypatch.chdir(tmp_path)
+        raw = _base_raw(section_verbatims={
+            "part1": ["row_1015"], "part2": ["row_1015"], "part3": ["row_1015"], "part4": ["row_1015"],
+            "part5": ["row_1015"], "part6": ["row_1015"], "part7": ["row_1015"],
+        })
+        result = parse_and_save(raw, self._df(), run_id="test_run")  # no payload=
+
+        assert result["meta"]["verbatim_column_resolution"] == {"exact": 0, "fallback": 7}
 
 
 class TestHumanizeTopDrivers:

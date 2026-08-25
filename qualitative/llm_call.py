@@ -76,6 +76,65 @@ NPS_GROUP_TO_COLUMN = {
     "detractor": "nps_detractors",
 }
 
+
+# A non-NPS payload record's own "source_column" (prepare_payload.py) is
+# the RAW survey column name (e.g. "q_claim_challenges__other_text") --
+# NOT the payload GROUP name ("claim_challenges_other_support") a
+# protection flag's "column" field actually uses (confirmed directly
+# against this run's real synthesis output: {"id": "row_1015", "column":
+# "claim_challenges_other_support", ...}). _record_column() needs the
+# GROUP-name vocabulary to match flags, so raw source_column values are
+# translated here. Mirrors prepare_payload.py's build_payload() group
+# routing exactly (the "claims_other" group splits into two payload
+# groups depending on which of these two columns; every other non-NPS
+# column is "sparse_other") -- if a column is ever added or moved there,
+# update this too.
+_SOURCE_COLUMN_TO_GROUP = {
+    "q_claim_challenges__other_text": "claim_challenges_other_support",
+    "q_claim_challenges__support_text": "claim_challenges_other_support",
+    "q_no_claim_reason__other_text": "claim_no_reason_other",
+    "q_coping_mechanisms__other_text": "sparse_other",
+    "q_income_sources__other_text": "sparse_other",
+    "q_comm_channel_effective__other_text": "sparse_other",
+    "q_claim_channel_preferred__other_text": "sparse_other",
+    "q_vf_services_received__other_text": "sparse_other",
+    "q_child_improvements__other_text": "sparse_other",
+    "q_quality_of_life_text": "sparse_other",
+    "q_claim_experience_rating__other_text": "sparse_other",
+    "q_financial_security_belief__other_text": "sparse_other",
+}
+
+
+def _record_column(rec: dict) -> "str | None":
+    """The payload GROUP a record belongs to, in the SAME vocabulary
+    protection-flag "column" fields use (payload's own top-level keys:
+    nps_promoters/nps_passives/nps_detractors/claim_no_reason_other/
+    claim_challenges_other_support/sparse_other) -- both batch-origin
+    flags (via NPS_GROUP_TO_COLUMN, added by call_gemini()) and
+    synthesis-origin flags (the model already fills this in; the OUTPUT
+    SCHEMA asks for it) already use this vocabulary, so this is what
+    R-018's dedup key and R-029's found_by_id lookup need for a SCANNED
+    RECORD to be compared against a flag correctly.
+
+    NOT the same thing as the raw dataframe column a record's text came
+    from (see parse_results.py's separate _raw_column_for_record(),
+    which R-030's verbatim lookup needs instead -- deliberately two
+    different helpers in two different vocabularies, not one shared
+    function, since conflating them was a real bug caught before this
+    shipped: "claim_challenges_other_support" is not a real dataframe
+    column, and "q_claim_challenges__other_text" is not what a
+    protection flag's "column" field ever contains.)
+
+    row_id alone is one-per-RESPONDENT (prepare_payload.py's row_id =
+    f"row_{idx:04d}"), not one-per-(respondent, column), so a respondent
+    with text in two columns produces two records sharing an id; this is
+    what actually tells them apart.
+    """
+    source_column = rec.get("source_column")
+    if source_column:
+        return _SOURCE_COLUMN_TO_GROUP.get(source_column, source_column)
+    return NPS_GROUP_TO_COLUMN.get(rec.get("nps_group"))
+
 # ---------------------------------------------------------------------------
 # Shared taxonomy / section blocks -- identical text reused by both the
 # batch and synthesis prompts so tagging never drifts depending on which
@@ -621,7 +680,7 @@ _SEVERITY_RANK = {"high": 3, "medium": 2, "low": 1}
 
 
 def _dedupe_protection_flags(flags: list) -> list:
-    """Collapse duplicate protection flags on the same (id, flag_type).
+    """Collapse duplicate protection flags on the same (id, column, flag_type).
 
     The synthesis call is handed nps_protection_flags_found (flags the batch
     phase already scanned out of the NPS records) as context for its own
@@ -631,15 +690,34 @@ def _dedupe_protection_flags(flags: list) -> list:
     same client counted twice in the report's totals (once per source list),
     occasionally in two different severity tiers for the same underlying
     complaint. A genuinely distinct second concern about the same respondent
-    (a different flag_type) is kept -- only the same (id, flag_type) pair is
+    (a different flag_type, OR the same flag_type from a different source
+    column) is kept -- only the same (id, column, flag_type) triple is
     collapsed, keeping the higher-severity copy (ties keep whichever was
     seen first, which is the batch-phase copy since it's concatenated
     first).
+
+    R-018 (docs/report_spec.md, session-9): "column" joined the key
+    because "id" alone is one-per-RESPONDENT, not one-per-(respondent,
+    column) -- prepare_payload.py's row_id = f"row_{idx:04d}" depends
+    only on the respondent's dataframe index, so a respondent who answers
+    two different open-ended questions produces two records sharing one
+    id. Keying on (id, flag_type) alone silently collapsed two genuinely
+    different concerns raised by the same respondent in two different
+    source columns whenever they happened to share a flag_type -- found
+    on real data (row_1015: an NPS-phase "could never use the insurance"
+    complaint and a claims-other-phase complaint specifically naming a
+    second affected person, the client's daughter, both unfair_claim_
+    denial, collapsing to one and losing the daughter detail). Every flag
+    dict reaching this function already carries "column" -- batch-phase
+    flags get it from call_gemini() via NPS_GROUP_TO_COLUMN before this
+    runs; synthesis-phase flags carry it directly, since the synthesis
+    OUTPUT SCHEMA already asks for it and the model already complies --
+    so this needed no prompt change.
     """
     best: dict[tuple, dict] = {}
     order: list[tuple] = []
     for flag in flags:
-        key = (flag.get("id"), flag.get("flag_type"))
+        key = (flag.get("id"), flag.get("column"), flag.get("flag_type"))
         existing = best.get(key)
         if existing is None:
             best[key] = flag
@@ -708,18 +786,34 @@ def _apply_protection_flag_cache(scanned_records: list, found_flags: list, cache
     found_flags: the flag dicts this pass's LLM call actually produced.
     Returns the flag list to use for this run, with any previously-cached
     record's flag decision (flagged or not) substituted for this run's
-    fresh one."""
-    found_by_id = {f["id"]: f for f in found_flags if f.get("id")}
+    fresh one.
+
+    R-029 (docs/report_spec.md, session-9): found_by_id used to key on
+    "id" alone -- weaker than R-018's (id, column, flag_type) dedup key
+    it sits downstream of, and row_id is one-per-RESPONDENT, not
+    one-per-(respondent, column) (see _record_column()'s docstring). A
+    respondent with a record in two scanned groups (e.g. an NPS response
+    and a claims-other response) appears twice in scanned_records; an
+    id-only lookup handed BOTH instances the same flag object regardless
+    of which one it actually came from, so a single real flag got
+    appended to `out` twice. Observed live in this run's own saved
+    output before this fix: row_0841 and row_1015 each appeared twice,
+    byte-identical. Keyed by (id, column) now, using each scanned
+    record's own resolved column, so only the record that actually
+    matches a found flag's column claims it.
+    """
+    found_by_id = {(f["id"], f.get("column")): f for f in found_flags if f.get("id")}
     out = []
     for rec in scanned_records:
         record_id = rec.get("id")
+        rec_column = _record_column(rec)
         text = rec.get("text", "")
         cached = tag_cache.get(cache, "flag", record_id, text)
         if cached is not None:
             if cached != _NO_FLAG:
                 out.append(cached)
             continue
-        fresh = found_by_id.get(record_id)
+        fresh = found_by_id.get((record_id, rec_column))
         tag_cache.put(cache, "flag", record_id, text, fresh if fresh else _NO_FLAG)
         if fresh:
             out.append(fresh)

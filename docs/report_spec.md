@@ -52,7 +52,9 @@ This file is the single source of truth for the next pipeline iteration. Every r
 | R-015 | self | code | Post generation validation gate | 3 |
 | R-016 | HO2R1 | prompt | NPS framed as one module among several | 4 |
 | R-017 | self | code | Severity counts computed once from a canonical list | 3 |
-| R-018 | self | code | Protection flag dedup must not collapse across source columns | 3 |
+| R-018 | self | code | Protection flag dedup must not collapse across source columns -- IMPLEMENTED | 3 |
+| R-029 | self | code | found_by_id cache lookup keys on id alone -- IMPLEMENTED | 3 |
+| R-030 | self | code | Rendered verbatims can be attributed to the wrong source column -- PARTIALLY IMPLEMENTED | 3 |
 | R-019 | self | code | Check suite gaps: C-013 window, C-009 detail specificity | 3 |
 | R-020 | self | code | CLI output filename diverges from dashboard path | 3 |
 | R-021 | self | code | Period label formatting duplicated across title and heading | 3 |
@@ -1663,9 +1665,9 @@ a docx round-trip through `docs/report_checks.py`.
 **Source:** self identified
 **Layer:** `code`
 **Priority:** high
-**Status:** Not started -- logged only, no fix yet
+**Status:** Implemented (session-9, 2026-08-2X)
 
-**Current behaviour**
+**Current behaviour (before fix)**
 `prepare_payload.build_payload()` loops columns then rows: for each
 configured source column, it iterates every respondent and, where that
 column has qualifying text, emits a record with `row_id = f"row_{idx:04d}"`
@@ -1686,16 +1688,57 @@ This is more serious than R-003: R-003 inflated a count by rendering the
 same concern twice. This silently drops a concern the client protection
 team would otherwise have seen at all.
 
-**Intended behaviour**
-Either the dedup key distinguishes source column (e.g.
-`(id, source_column, flag_type)`), or `row_id` is made unique per record
-at payload construction (e.g. `f"row_{idx:04d}_{source_column}"`) so two
-records for the same respondent never collide on `id` in the first place.
+**Orientation (session-9), before implementing:** traced
+`_dedupe_protection_flags` and `_dedupe_protection_flags_by_client` in
+full and quantified against `runs/lacro_final_check/`'s real pre-dedup
+pool (reconstructed from the saved per-batch/synthesis debug files, not
+guessed):
+- Confirmed at the line level: `row_id` is genuinely one-per-respondent
+  (`prepare_payload.py:127`), not one-per-(respondent, column).
+- `_lookup_text()` (`parse_results.py`) is a SEPARATE, real defect with
+  the same root cause -- see R-030 below, fixed alongside this.
+- R-003's client-level pass (`(client_id, flag_type, normalised reason)`)
+  does not independently reproduce this collapse -- its reason-text
+  component already distinguishes genuinely different concerns, and it
+  runs on whatever survives `_dedupe_protection_flags` regardless, so it
+  cannot recover what this function already dropped. R-018 is confined
+  to `llm_call.py`.
+- Quantified: exactly 1 real pair in this run's data shares `(id,
+  flag_type)` with different reasons -- `row_1015`, `unfair_claim_denial`,
+  an NPS-phase complaint ("could never use the insurance...") and a
+  claims-other-phase complaint specifically naming a second affected
+  person, the client's daughter. Of 2 synthesis-phase-flagged
+  respondents, 1 was also independently flagged by the batch phase (the
+  narrowed overlap that actually matters, distinct from the general
+  96% row_id overlap between the NPS and claims-other pools).
+- Caught live, not hypothetical: found a second, related bug this same
+  investigation -- see R-029.
+
+**Fix**
+Key changed to `(id, column, flag_type)`. No prompt change needed:
+every flag dict reaching this function already carries `"column"` --
+batch-phase flags get it from `call_gemini()` via `NPS_GROUP_TO_COLUMN`
+before this runs; synthesis-phase flags carry it directly, since the
+synthesis OUTPUT SCHEMA already asks for it and the model already
+complies (confirmed against this run's real, if R-027-trapped,
+synthesis output). `row_id`'s own shape is unchanged -- it remains
+one-per-respondent, since it's load-bearing elsewhere (the theme-tag
+cache, `_lookup_profile()`) and reshaping it would have reached beyond
+this fix.
 
 **Verification**
 - A fixture with one respondent raising the same `flag_type` from two
-  different `source_column` values must retain both entries through
-  `_dedupe_protection_flags`.
+  different `source_column`/`column` values retains both entries
+  through `_dedupe_protection_flags` (`tests/test_llm_call.py::
+  TestDedupeProtectionFlags::test_same_id_and_flag_type_different_column_both_kept`).
+- Confirmed against real data: reconstructing this run's true pre-dedup
+  pool (30 batch-phase + the 2 R-027-trapped synthesis-phase flags,
+  recovered by hand for this demonstration) and running it through the
+  fixed function retains both `row_1015` entries, daughter detail
+  intact. **A live rerun today cannot yet reproduce this** -- the
+  synthesis-phase flag is still trapped by R-027 (separately scoped,
+  sequenced after this fix) and never reaches `call_gemini()`'s own
+  reconciliation step in a real run until that's also fixed.
 
 **Note**
 Found during R-003 implementation (2026-08-20), while confirming that
@@ -1703,9 +1746,152 @@ duplicated-reason-text entries reflected genuinely different survey rows
 rather than an id-mapping defect between the batch scan and the synthesis
 call (they did -- see the R-003 implementation note). This sits upstream
 of R-003's client-level dedup pass, in `llm_call.py` rather than
-`parse_results.py`: R-003 dedups what survives `_dedupe_protection_flags`,
-so it neither masks nor fixes a concern this bug already dropped before
-R-003's pass ever sees it. Not fixed in this session.
+`parse_results.py`.
+
+---
+
+## R-029 `_apply_protection_flag_cache`'s found_by_id keys on id alone
+
+**Source:** self identified, R-018 orientation (session-9)
+**Layer:** `code`
+**Priority:** high
+**Status:** Implemented (session-9, 2026-08-2X)
+
+**Current behaviour (before fix)**
+`_apply_protection_flag_cache` (`llm_call.py`) builds `found_by_id =
+{f["id"]: f for f in found_flags if f.get("id")}` -- keyed on `id`
+alone, weaker than R-018's `(id, column, flag_type)` dedup key it sits
+downstream of. A respondent with a record in two scanned groups (the
+same row_id collision R-018 is about) appears twice in
+`scanned_records = all_nps + other_group_records`; the id-only lookup
+handed BOTH instances the same flag object regardless of which one it
+actually came from.
+
+**This was not hypothetical -- caught live in this run's own saved
+output before the fix**: `row_0841` and `row_1015` each appeared TWICE,
+byte-identical, in the final `gemini_raw_response.json`'s
+`protection_flags` list. Both respondents have a record in two payload
+groups (row_0841: `nps_promoters` + `sparse_other`; row_1015:
+`nps_detractors` + `claim_challenges_other_support`).
+
+**Fix**
+`found_by_id` re-keyed to `(id, column)`, using each scanned record's
+own resolved column (`_record_column()`, new shared helper -- also used
+by R-018's batch-phase flag enrichment). A genuine subtlety caught
+before this shipped: a protection flag's `"column"` field uses the
+payload GROUP name vocabulary (`"claim_challenges_other_support"`,
+matching `payload`'s own top-level keys and what the model is shown),
+which is NOT the same string as a record's own `source_column`
+(`prepare_payload.py`'s raw survey column name, e.g.
+`"q_claim_challenges__other_text"`). `_record_column()` translates raw
+`source_column` values to the group-name vocabulary via
+`_SOURCE_COLUMN_TO_GROUP` (mirrors `prepare_payload.py`'s own
+column-to-group routing; update both if a column is ever added or
+moved) before comparing.
+
+**On the tag_cache key itself** (`tag_cache.get/put(cache, "flag",
+record_id, text)`, which already hashes `text`): left unchanged, per
+instruction. Text already disambiguates in every real case observed --
+two different columns produce two different answers, hence two
+different hashes -- and `_cache_key()` is shared with theme-tag
+caching, where "column" doesn't map onto the same idea. `found_by_id`
+had zero disambiguation before this fix, not weak disambiguation; that
+is the mechanism that was actually broken.
+
+**Verification**
+- `tests/test_llm_call.py::TestApplyProtectionFlagCache` -- a shared id
+  across two columns with one real flag is attributed to the correct
+  record and appended exactly once, not twice; two distinct flags for
+  the same id across two columns are both attributed correctly.
+- Confirmed against real data (same reconstruction as R-018's
+  verification, above): `row_0841` and `row_1015` no longer appear
+  twice in the fixed pipeline's output.
+
+---
+
+## R-030 Rendered verbatims can be attributed to the wrong source column
+
+**Source:** self identified, R-018 orientation (session-9)
+**Layer:** `code`
+**Priority:** medium
+**Status:** Partially implemented (session-9, 2026-08-2X) -- resolvable
+majority fixed; residual ambiguous case deliberately left on the
+original fallback, not attempted, since closing it needs a prompt
+change (out of scope, separately authorised)
+
+**This is a reader-facing correctness defect, not an internal one.** A
+quote attributed to a client in the rendered report may be a different
+answer from the same client than the one that actually justified its
+selection -- not a miscount or a dropped internal record, but a wrong
+quotation presented as that person's words.
+
+**Current behaviour (before fix)**
+`_lookup_text()` (`parse_results.py`) re-derives the respondent's
+dataframe index from `row_id` and walks a *fixed-order* `text_cols`
+list (NPS columns first, then claims-other, then sparse-other),
+returning the first non-null match -- correct only because most
+respondents have text in exactly one column. The synthesis call's Task
+4A explicitly allows picking a `section_verbatims` row ID "from EITHER
+source... OR your own direct reading of `claim_no_reason_other`/
+`claim_challenges_other_support`/`sparse_other`." For a respondent with
+text in two columns (the same row_id collision R-018/R-029 are about),
+the model may select a row_id specifically because of its claims-other
+text, and `_lookup_text()` would silently render that respondent's NPS
+text instead, simply because NPS columns sort first.
+
+**Fix, scoped deliberately (per instruction: fix the resolvable
+majority, leave the ambiguous minority on today's behaviour, make the
+fallback observable, do not touch the generation prompt)**
+
+`parse_and_save()` now accepts `payload` (both real callers,
+`run_qualitative.py` and `dashboard/api/pipeline_runner.py`, already
+have it in scope). `build_row_id_column_map(payload)` maps every
+`row_id` that appears under EXACTLY ONE raw dataframe column across the
+full payload to that column, with certainty, no prompt change needed --
+a row_id under 2+ distinct columns is deliberately left OUT of the map
+rather than guessed at. `_enrich_section_verbatims()` uses the resolved
+column directly when available; when not (the genuinely ambiguous
+case), it falls back to the original fixed-order guess, unchanged
+behaviour, not silently claimed to be fixed.
+
+Why the ambiguous case isn't closed here: Python has no way to know
+which of a respondent's several answers the model actually read and
+selected -- only the model's own selection step knows that, and Task
+4A is not currently asked to say. Fully resolving it would need the
+synthesis prompt to return column alongside each picked row_id, a
+prompt change, explicitly out of scope and not attempted.
+
+**Observability (per instruction: the fallback must be seen, not
+inferred)**: `_enrich_section_verbatims()` returns `(enriched,
+resolution_counts)`, `resolution_counts = {"exact": int, "fallback":
+int}`. `parse_and_save()` logs a warning naming the fallback count when
+it's non-zero, and writes `resolution_counts` into
+`qualitative_results.json`'s `meta.verbatim_column_resolution`
+unconditionally, every run.
+
+**Confirmed against real data**: re-parsing `runs/lacro_final_check/`'s
+real `section_verbatims` (21 total, 3 per section) against the real
+payload: **15 of 21 resolved exactly; 6 fell back**. The fallback count
+is non-zero on a real run, as expected, and is now visible in
+`meta.verbatim_column_resolution` rather than requiring inference.
+
+**Verification**
+- `tests/test_parse_results.py::TestBuildRowIdColumnMap`,
+  `TestLookupTextColumnResolution`,
+  `TestEnrichSectionVerbatimsResolutionCounts`,
+  `TestParseAndSaveVerbatimColumnResolutionWiring` -- single-column
+  row_ids resolve exactly; multi-column row_ids are excluded from the
+  map (never silently guessed at) and fall back; resolution counts are
+  threaded through to `parse_and_save()`'s saved `meta` correctly; no
+  `payload` given is fully backward compatible (all-fallback, matching
+  pre-R-030 behaviour).
+
+**Open question for a future session**
+Whether to pursue the prompt change that would close the residual
+ambiguous case (Task 4A returning column alongside each picked row_id),
+and whether the same treatment should extend to protection flags'
+`id` resolution for verbatim-adjacent reader-facing surfaces, if any
+exist. Not evaluated this session.
 
 ---
 

@@ -166,6 +166,141 @@ class TestDedupeProtectionFlags:
         result = llm_call._dedupe_protection_flags(flags)
         assert [f["id"] for f in result] == ["row_0003", "row_0001"]
 
+    def test_same_id_and_flag_type_different_column_both_kept(self):
+        # R-018 (docs/report_spec.md, session-9): row_id is one-per-
+        # RESPONDENT, not one-per-(respondent, column) -- a respondent
+        # with a concern in two different source columns, tagged with the
+        # SAME flag_type, must not collapse to one. Modelled on the real
+        # row_1015 case: an NPS-phase complaint and a claims-other-phase
+        # complaint naming a second affected person (the client's
+        # daughter), both unfair_claim_denial.
+        flags = [
+            {"id": "row_1015", "column": "nps_detractors", "flag_type": "unfair_claim_denial",
+             "severity": "high", "reason": "could never use the insurance"},
+            {"id": "row_1015", "column": "claim_challenges_other_support", "flag_type": "unfair_claim_denial",
+             "severity": "high", "reason": "claim was not valid for both themself and their daughter"},
+        ]
+        result = llm_call._dedupe_protection_flags(flags)
+        assert len(result) == 2
+        reasons = {f["reason"] for f in result}
+        assert "claim was not valid for both themself and their daughter" in reasons
+
+    def test_same_id_column_and_flag_type_still_collapses(self):
+        # The genuine duplicate case (same case, same column, re-emitted)
+        # must still collapse -- column joining the key narrows what
+        # counts as "the same case", it doesn't turn off dedup entirely.
+        flags = [
+            {"id": "row_0012", "column": "nps_promoters", "flag_type": "staff_misconduct",
+             "severity": "medium", "reason": "batch phase"},
+            {"id": "row_0012", "column": "nps_promoters", "flag_type": "staff_misconduct",
+             "severity": "medium", "reason": "synthesis"},
+        ]
+        result = llm_call._dedupe_protection_flags(flags)
+        assert len(result) == 1
+        assert result[0]["reason"] == "batch phase"
+
+
+class TestRecordColumn:
+    """_record_column() resolves the payload GROUP name (the vocabulary
+    protection flags' own "column" field uses -- confirmed against real
+    model output: {"column": "claim_challenges_other_support"}), NOT the
+    raw dataframe column a record's source_column carries. Conflating the
+    two was a real bug caught before this shipped -- see the function's
+    own docstring."""
+
+    def test_nps_record_resolves_via_nps_group(self):
+        assert llm_call._record_column({"nps_group": "detractor"}) == "nps_detractors"
+        assert llm_call._record_column({"nps_group": "promoter"}) == "nps_promoters"
+
+    def test_non_nps_record_translates_raw_source_column_to_group_name(self):
+        # "q_no_claim_reason__other_text" is the RAW dataframe column
+        # (prepare_payload.py's own source_column value) -- must resolve
+        # to the payload GROUP name a protection flag's "column" field
+        # actually contains, not pass the raw column through unchanged.
+        rec = {"source_column": "q_no_claim_reason__other_text"}
+        assert llm_call._record_column(rec) == "claim_no_reason_other"
+
+    def test_both_claim_challenges_columns_map_to_the_same_group(self):
+        # q_claim_challenges__other_text and q_claim_challenges__support_text
+        # both feed the single claim_challenges_other_support payload group
+        # (prepare_payload.py's build_payload()) -- must agree here too.
+        assert llm_call._record_column({"source_column": "q_claim_challenges__other_text"}) \
+            == "claim_challenges_other_support"
+        assert llm_call._record_column({"source_column": "q_claim_challenges__support_text"}) \
+            == "claim_challenges_other_support"
+
+    def test_sparse_other_column_resolves_to_sparse_other_group(self):
+        rec = {"source_column": "q_income_sources__other_text"}
+        assert llm_call._record_column(rec) == "sparse_other"
+
+    def test_unmapped_source_column_falls_back_to_itself_not_a_crash(self):
+        # Defensive only -- every real column is in _SOURCE_COLUMN_TO_GROUP;
+        # an unmapped one (e.g. a future column added to config.yaml but
+        # not here yet) should degrade to "fails to match", not raise.
+        rec = {"source_column": "q_some_future_column__other_text"}
+        assert llm_call._record_column(rec) == "q_some_future_column__other_text"
+
+    def test_source_column_takes_precedence_when_both_present(self):
+        # Shouldn't happen in real data (a record is either NPS or not),
+        # but source_column is the more specific signal if both are set.
+        rec = {"source_column": "q_income_sources__other_text", "nps_group": "promoter"}
+        assert llm_call._record_column(rec) == "sparse_other"
+
+    def test_neither_present_returns_none(self):
+        assert llm_call._record_column({}) is None
+        assert llm_call._record_column({"nps_group": "unknown_value"}) is None
+
+
+class TestApplyProtectionFlagCache:
+    def test_same_id_two_columns_one_flag_attributed_once_not_twice(self):
+        # R-029 (docs/report_spec.md, session-9): a respondent can appear
+        # twice in scanned_records (once per column with qualifying text)
+        # sharing one id -- found_by_id used to key on id alone, handing
+        # BOTH instances the same flag regardless of which one it came
+        # from. Modelled on the real row_0841/row_1015 duplicates observed
+        # in this run's own saved output before this fix.
+        cache = {}
+        scanned_records = [
+            {"id": "row_0841", "nps_group": "promoter", "text": "nps text"},
+            {"id": "row_0841", "source_column": "q_vf_services_received__other_text", "text": "sparse text"},
+        ]
+        found_flags = [
+            {"id": "row_0841", "column": "nps_promoters", "flag_type": "staff_misconduct",
+             "severity": "medium", "reason": "unresponsive after two months"},
+        ]
+        result = llm_call._apply_protection_flag_cache(scanned_records, found_flags, cache)
+        assert len(result) == 1
+        assert result[0]["reason"] == "unresponsive after two months"
+
+    def test_two_columns_two_distinct_flags_both_attributed_correctly(self):
+        cache = {}
+        scanned_records = [
+            {"id": "row_1015", "nps_group": "detractor", "text": "nps text"},
+            {"id": "row_1015", "source_column": "q_claim_challenges__other_text", "text": "claims text"},
+        ]
+        found_flags = [
+            {"id": "row_1015", "column": "nps_detractors", "flag_type": "unfair_claim_denial",
+             "severity": "high", "reason": "could never use the insurance"},
+            # "claim_challenges_other_support" -- the payload GROUP name,
+            # matching what the model actually puts in "column" (confirmed
+            # against real output), not the raw "q_claim_challenges__other_text".
+            {"id": "row_1015", "column": "claim_challenges_other_support", "flag_type": "unfair_claim_denial",
+             "severity": "high", "reason": "claim was not valid for both themself and their daughter"},
+        ]
+        result = llm_call._apply_protection_flag_cache(scanned_records, found_flags, cache)
+        assert len(result) == 2
+        reasons = {f["reason"] for f in result}
+        assert reasons == {
+            "could never use the insurance",
+            "claim was not valid for both themself and their daughter",
+        }
+
+    def test_unflagged_scanned_record_stays_unflagged(self):
+        cache = {}
+        scanned_records = [{"id": "row_0001", "nps_group": "passive", "text": "nothing wrong here"}]
+        result = llm_call._apply_protection_flag_cache(scanned_records, [], cache)
+        assert result == []
+
 
 # ---------------------------------------------------------------------------
 # Prompt variants
@@ -426,7 +561,12 @@ class TestCallGeminiOrchestration:
         # llm_call.py's synthesis_input) and can re-emit the same case in its
         # own protection_flags output, sometimes at a different severity --
         # the merged result must collapse that to one entry, not double-count
-        # the same client.
+        # the same client. R-018 (session-9): this is only the SAME case if
+        # it also carries the same "column" -- the model is shown each
+        # context flag's own column and re-flagging genuinely the same case
+        # would carry it forward, so the fake synthesis response sets it
+        # here too (matching the batch phase's "nps_detractors", the same
+        # column _nps_record(2, "detractor") resolves to).
         captured = []
 
         def fake_call_llm(**kwargs):
@@ -436,8 +576,8 @@ class TestCallGeminiOrchestration:
                 return _fake_batch_response(body["nps_responses"])
             synth = json.loads(_fake_synthesis_response())
             synth["protection_flags"] = [
-                {"id": "row_0002", "flag_type": "staff_misconduct", "severity": "high",
-                 "reason": "escalated on full-payload review"},
+                {"id": "row_0002", "column": "nps_detractors", "flag_type": "staff_misconduct",
+                 "severity": "high", "reason": "escalated on full-payload review"},
             ]
             return json.dumps(synth)
 

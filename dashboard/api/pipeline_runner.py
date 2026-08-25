@@ -368,7 +368,7 @@ def _run_stage3(state, run_dir: Path, llm: LlmConfig, dry_run: bool) -> None:
             excluded_countries=excluded_countries,
         )
         parse_and_save(raw_gemini=raw_result, df=df, run_id=state.run_id,
-                        provider=llm.provider, model=model)
+                        provider=llm.provider, model=model, payload=payload)
         state.stage3 = {"status": "succeeded"}
         state.log("Stage 3/4 complete.")
     except Exception as exc:

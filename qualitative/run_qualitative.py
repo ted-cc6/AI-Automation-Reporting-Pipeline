@@ -73,6 +73,11 @@ def main():
             sys.exit(1)
         log.info(f"Loading raw response from {raw_response_path}...")
         raw_gemini = json.loads(raw_response_path.read_text(encoding="utf-8"))
+        # R-030 (docs/report_spec.md, session-9): parse_and_save() needs
+        # payload to resolve section_verbatims' source column -- cheap,
+        # pure-Python, no API call, so build it here too rather than only
+        # in the non-parse-only branch below.
+        payload = build_payload(df, config)
 
     else:
         # Phase 1 — Build payload
@@ -116,6 +121,7 @@ def main():
         run_id=run_id,
         provider="gemini",
         model=config["model"],
+        payload=payload,
     )
 
     # Print summary
