@@ -230,6 +230,63 @@ class TestPromptVariants:
         assert "em dash" in batch and "en dash" in batch
         assert "em dash" in synthesis and "en dash" in synthesis
 
+    def test_batch_prompt_task1_requires_sentiment_not_derived_from_nps_group(self):
+        # R-006a Stage 1 (docs/report_spec.md): sentiment must be judged
+        # from the response text, not shortcut from promoter/passive/
+        # detractor -- otherwise it just reproduces the NPS score band and
+        # adds no signal.
+        prompt = _build_batch_prompt(is_single_country=False)
+        assert '"positive", "negative", or "neutral"' in prompt
+        assert "NOT a shortcut from" in prompt
+        assert '["row_id", ["theme1", "theme2"], "sentiment"]' in prompt
+
+
+# ---------------------------------------------------------------------------
+# _apply_theme_tag_cache
+# ---------------------------------------------------------------------------
+
+class TestApplyThemeTagCache:
+    def test_fresh_entry_is_cached_and_returned_unchanged(self):
+        cache = {}
+        by_id = {"row_0001": {"text": "hello"}}
+        entries = [["row_0001", ["staff_service"], "positive"]]
+        out = llm_call._apply_theme_tag_cache(entries, by_id, cache)
+        assert out == [["row_0001", ["staff_service"], "positive"]]
+        assert len(cache) == 1
+
+    def test_cached_entry_overrides_fresh_themes_and_sentiment(self):
+        cache = {}
+        by_id = {"row_0001": {"text": "hello"}}
+        llm_call._apply_theme_tag_cache(
+            [["row_0001", ["staff_service"], "negative"]], by_id, cache
+        )
+        # Same id/text, different fresh output -- cached decision wins on both fields.
+        out = llm_call._apply_theme_tag_cache(
+            [["row_0001", ["product_value"], "positive"]], by_id, cache
+        )
+        assert out == [["row_0001", ["staff_service"], "negative"]]
+
+    def test_two_element_entry_passes_through_unchanged_and_uncached(self):
+        # No sentiment to cache or restore -- see the function's own docstring.
+        cache = {}
+        by_id = {"row_0001": {"text": "hello"}}
+        entries = [["row_0001", ["staff_service"]]]
+        out = llm_call._apply_theme_tag_cache(entries, by_id, cache)
+        assert out == [["row_0001", ["staff_service"]]]
+        assert cache == {}
+
+    def test_different_text_is_a_fresh_cache_miss(self):
+        cache = {}
+        llm_call._apply_theme_tag_cache(
+            [["row_0001", ["staff_service"], "negative"]],
+            {"row_0001": {"text": "original text"}}, cache,
+        )
+        out = llm_call._apply_theme_tag_cache(
+            [["row_0001", ["product_value"], "positive"]],
+            {"row_0001": {"text": "a different response entirely"}}, cache,
+        )
+        assert out == [["row_0001", ["product_value"], "positive"]]
+
 
 # ---------------------------------------------------------------------------
 # call_gemini orchestration
@@ -240,7 +297,7 @@ def _fake_batch_response(batch_records: list) -> str:
     tags = {"promoters": [], "passives": [], "detractors": []}
     for rec in batch_records:
         grp = rec["nps_group"] + "s"
-        tags[grp].append([rec["id"], ["staff_service"]])
+        tags[grp].append([rec["id"], ["staff_service"], "positive"])
     candidates = {f"part{i}": [] for i in range(1, 8)}
     if batch_records:
         candidates["part4"] = [{"id": batch_records[0]["id"], "note": "good quote"}]
@@ -537,7 +594,7 @@ class TestQualitativeTagCacheStability:
             # run's result is the cache's value, not this fresh one.
             theme = "product_value" if calls["n"] == 1 else "staff_service"
             return json.dumps({
-                "nps_tags": {"promoters": [], "passives": [], "detractors": [["row_0001", [theme]]]},
+                "nps_tags": {"promoters": [], "passives": [], "detractors": [["row_0001", [theme], "negative"]]},
                 "protection_flags": [], "verbatim_candidates": {f"part{i}": [] for i in range(1, 8)},
                 "not_worth_it_candidates": [],
             })
@@ -548,10 +605,40 @@ class TestQualitativeTagCacheStability:
         first = call_gemini(payload, tmp_path / "raw1.json", provider="gemini", api_key="fake-key")
         second = call_gemini(payload, tmp_path / "raw2.json", provider="gemini", api_key="fake-key")
 
-        assert first["nps_tags"]["detractors"] == [["row_0001", ["product_value"]]]
+        assert first["nps_tags"]["detractors"] == [["row_0001", ["product_value"], "negative"]]
         # Same result on rerun -- NOT ["staff_service"], which is what this
         # run's own fresh mock call actually returned.
-        assert second["nps_tags"]["detractors"] == [["row_0001", ["product_value"]]]
+        assert second["nps_tags"]["detractors"] == [["row_0001", ["product_value"], "negative"]]
+
+    def test_sentiment_stable_across_two_runs_with_different_fresh_output(self, tmp_path, monkeypatch):
+        calls = {"n": 0}
+
+        def fake_call_llm(**kwargs):
+            body = json.loads(kwargs["user_content"])
+            if "nps_responses" not in body:
+                return _fake_synthesis_response()
+            calls["n"] += 1
+            # Same theme both calls, deliberately different SENTIMENT --
+            # proves sentiment is cached/restored the same way themes are,
+            # not just passed through as an untracked extra element.
+            sentiment = "negative" if calls["n"] == 1 else "positive"
+            return json.dumps({
+                "nps_tags": {"promoters": [], "passives": [],
+                             "detractors": [["row_0001", ["staff_service"], sentiment]]},
+                "protection_flags": [], "verbatim_candidates": {f"part{i}": [] for i in range(1, 8)},
+                "not_worth_it_candidates": [],
+            })
+
+        monkeypatch.setattr(llm_call, "call_llm", fake_call_llm)
+        payload = self._payload([_nps_record(1, "detractor")])
+
+        first = call_gemini(payload, tmp_path / "raw1.json", provider="gemini", api_key="fake-key")
+        second = call_gemini(payload, tmp_path / "raw2.json", provider="gemini", api_key="fake-key")
+
+        assert first["nps_tags"]["detractors"][0][2] == "negative"
+        # Same result on rerun -- NOT "positive", which is what this run's
+        # own fresh mock call actually returned.
+        assert second["nps_tags"]["detractors"][0][2] == "negative"
 
     def test_protection_flag_severity_stable_across_two_runs(self, tmp_path, monkeypatch):
         calls = {"n": 0}

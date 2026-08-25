@@ -72,12 +72,19 @@ COL_PRODUCT_UNDERSTANDING = "q_product_understanding_combined"
 COL_COUNTRY = "country"
 
 _ALTERNATIVE_ACCESS_DIFFICULT = ["Very difficult", "Slightly difficult"]
-# Judgment call, pending survey-team confirmation (see
-# data_loader_larco/column_mapping.csv's notes on raw col 33): "good
-# understanding" is defined as the single most positive option only, not a
-# top-2-box -- the remaining 5 options don't have an unambiguous ordering
-# agreed with the survey team yet, so a top-2-box would be arbitrary.
-_PRODUCT_UNDERSTANDING_GOOD = ["I know everything"]
+# Top-2-box per Lorenz's confirmed ordering of the six response options
+# (docs/report_spec.md's R-004, session-6 scoring correction): rank 1 "I
+# know everything", rank 2 "Partially, I know the benefits process only" /
+# "Partially, I know the claims process only" (equal rank) both count as
+# positive -- 559/1355 = 41.3% against runs/lacro_2025_pooled/, replacing
+# the previous single-option-only 190/1355 = 14.0%. Kept in sync with
+# analysis_engine/sections/part_1.py's own copy of this same list -- update
+# both together, they must never disagree.
+_PRODUCT_UNDERSTANDING_GOOD = [
+    "I know everything",
+    "Partially, I know the benefits process only",
+    "Partially, I know the claims process only",
+]
 
 _INDICATORS = [
     # (key, label, requires_child_wellbeing_base)

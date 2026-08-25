@@ -19,6 +19,8 @@ from qualitative.parse_results import (
     _lookup_profile,
     _normalise_reason,
     _validate,
+    compute_stage1_sentiment_splits,
+    parse_and_save,
 )
 
 
@@ -73,9 +75,20 @@ class TestLookupProfile:
             "q_client_age": [34],
             "branch": ["Branch A"],
             "country": ["Bolivia"],
+            "q_claim_submitted": [True],
             "flag_paid_claimant": [False],
             "flag_child_wellbeing_denominator": [True],
         }, index=[42])
+
+    def test_is_claimant_uses_canonical_q_claim_submitted_not_flag_paid_claimant(self):
+        # R-006a Stage 1 (docs/report_spec.md): flag_paid_claimant is
+        # narrower (claim approved AND paid) than the canonical "claimant"
+        # segment (q_claim_submitted) used everywhere else in the report
+        # (analysis_engine/segments.py, Part 6's own scorecard). This
+        # respondent submitted a claim that was not (yet) paid -- must
+        # still count as a claimant here, not silently excluded.
+        profile = _lookup_profile("row_0042", self._df())
+        assert profile["is_claimant"] is True
 
     def test_profile_carries_client_id_for_traceable_appendix_refs(self):
         # generation/assembler.py's _protection_flag_ref() needs client_id
@@ -129,6 +142,124 @@ class TestCountThemes:
     def test_empty_tags_produce_empty_counts(self):
         counts = _count_themes({"promoters": [], "passives": [], "detractors": []})
         assert counts == {"promoters": {}, "passives": {}, "detractors": {}}
+
+
+# ---------------------------------------------------------------------------
+# R-006a Stage 1: deterministic sentiment_split for part5 (caregivers) and
+# part6 (claimants). Part 7 (Gender) is intentionally NOT computed here --
+# it needs two splits (female, male), a schema change pending approval;
+# see compute_stage1_sentiment_splits's module-level docstring.
+# ---------------------------------------------------------------------------
+
+class TestComputeStage1SentimentSplits:
+    def _df(self):
+        # index 0..5; caregivers = {0, 1, 4}; claimants (q_claim_submitted) = {0, 2}
+        return pd.DataFrame({
+            "flag_child_wellbeing_denominator": [True, True, False, False, True, False],
+            "q_claim_submitted": [True, False, True, False, False, False],
+        }, index=range(6))
+
+    def _tags(self, entries):
+        return {"promoters": entries, "passives": [], "detractors": []}
+
+    def test_only_parts_5_and_6_are_returned(self):
+        # Part 7 is deliberately excluded pending the two-split schema
+        # decision -- a single portfolio-wide split for Gender would tell a
+        # reader nothing about gender.
+        result = compute_stage1_sentiment_splits(self._tags([]), self._df())
+        assert set(result.keys()) == {"part5", "part6"}
+
+    def test_part5_base_and_source_pool_from_caregiver_flag(self):
+        tags = self._tags([
+            ["row_0000", ["staff_service"], "positive"],
+            ["row_0004", ["staff_service"], "negative"],
+            ["row_0002", ["staff_service"], "neutral"],  # not a caregiver -- excluded
+        ])
+        part5 = compute_stage1_sentiment_splits(tags, self._df())["part5"]
+        assert part5["source_pool_n"] == 3  # caregivers: rows 0, 1, 4
+        assert part5["base_n"] == 2
+        assert part5["positive"] == 1
+        assert part5["negative"] == 1
+        assert part5["neutral"] == 0
+        # Describes the derivation (min_text_length), not "left a response"
+        # -- the NPS follow-up is filled by every respondent; the gap is
+        # the text-length threshold, not missing responses.
+        assert "excluding responses under 10 characters" in part5["selection_rule"]
+        assert "2 of 3 caregivers qualify" in part5["selection_rule"]
+
+    def test_part6_uses_q_claim_submitted_not_flag_paid_claimant(self):
+        tags = self._tags([
+            ["row_0000", ["claims_process"], "positive"],
+            ["row_0002", ["claims_process"], "negative"],
+        ])
+        part6 = compute_stage1_sentiment_splits(tags, self._df())["part6"]
+        assert part6["source_pool_n"] == 2  # claimants: rows 0, 2
+        assert part6["base_n"] == 2
+        assert "excluding responses under 10 characters" in part6["selection_rule"]
+        assert "2 of 2 claimants qualify" in part6["selection_rule"]
+
+    def test_counts_always_sum_to_base_n(self):
+        tags = self._tags([
+            ["row_0000", ["staff_service"], "positive"],
+            ["row_0004", ["staff_service"], "negative"],
+        ])
+        result = compute_stage1_sentiment_splits(tags, self._df())
+        for section in ("part5", "part6"):
+            entry = result[section]
+            assert entry["positive"] + entry["negative"] + entry["neutral"] == entry["base_n"]
+
+    def test_two_element_entry_without_sentiment_is_not_counted(self):
+        tags = self._tags([["row_0000", ["staff_service"]]])  # no sentiment
+        part5 = compute_stage1_sentiment_splits(tags, self._df())["part5"]
+        assert part5["base_n"] == 0
+
+    def test_untagged_in_segment_respondent_widens_the_gap_visibly(self):
+        # A caregiver never tagged (e.g. a failed batch) shows up as
+        # source_pool_n > base_n, not silently absorbed into either number.
+        tags = self._tags([["row_0000", ["staff_service"], "positive"]])  # rows 1, 4 untagged
+        part5 = compute_stage1_sentiment_splits(tags, self._df())["part5"]
+        assert part5["source_pool_n"] == 3
+        assert part5["base_n"] == 1
+        assert part5["source_pool_n"] > part5["base_n"]
+
+
+class TestStage1SyntheticSplitGuard:
+    """R-006a's hard guard (per explicit instruction): a synthetic or
+    placeholder sentiment split (e.g. a round-robin demo) must never
+    silently reach a rendered report -- an exact 3-way tie at a base_n
+    where that is not a plausible real coincidence raises instead."""
+
+    def _df(self, n):
+        return pd.DataFrame({
+            "flag_child_wellbeing_denominator": [True] * n,
+            "q_claim_submitted": [False] * n,
+        }, index=range(n))
+
+    def _tags(self, n, sentiments):
+        return {
+            "promoters": [[f"row_{i:04d}", ["staff_service"], sentiments[i]] for i in range(n)],
+            "passives": [], "detractors": [],
+        }
+
+    def test_exact_tie_at_or_above_threshold_raises(self):
+        # base_n=15, 5/5/5 -- exactly the round-robin signature.
+        n = 15
+        sentiments = (["positive", "negative", "neutral"] * (n // 3))
+        with pytest.raises(ValueError, match="synthetic or placeholder"):
+            compute_stage1_sentiment_splits(self._tags(n, sentiments), self._df(n))
+
+    def test_exact_tie_below_threshold_does_not_raise(self):
+        # base_n=9, 3/3/3 -- small enough that a genuine tie is plausible.
+        n = 9
+        sentiments = (["positive", "negative", "neutral"] * (n // 3))
+        result = compute_stage1_sentiment_splits(self._tags(n, sentiments), self._df(n))
+        assert result["part5"]["base_n"] == 9
+
+    def test_uneven_real_looking_distribution_does_not_raise(self):
+        n = 30
+        sentiments = (["positive"] * 12) + (["negative"] * 11) + (["neutral"] * 7)
+        result = compute_stage1_sentiment_splits(self._tags(n, sentiments), self._df(n))
+        assert result["part5"]["base_n"] == 30
 
 
 def _flag(client_id, flag_type, severity, reason, id_="row_0001", branch="Branch A"):
@@ -221,6 +352,56 @@ class TestDedupeProtectionFlagsByClient:
         ]
         deduped, _ = _dedupe_protection_flags_by_client(flags)
         assert len(deduped) == 2
+
+
+class TestParseAndSaveStage1Wiring:
+    """Confirms compute_stage1_sentiment_splits() is actually wired into
+    parse_and_save(), not just correct in isolation."""
+
+    def _df(self):
+        return pd.DataFrame({
+            "flag_child_wellbeing_denominator": [True, False],
+            "q_claim_submitted": [False, False],
+        }, index=[0, 1])
+
+    def test_part5_sentiment_split_is_overridden_with_deterministic_values(self, tmp_path, monkeypatch):
+        monkeypatch.chdir(tmp_path)
+        raw = _base_raw(
+            nps_tags={
+                "promoters": [["row_0000", ["child_family"], "positive"]],
+                "passives": [], "detractors": [],
+            },
+            section_insights={
+                "part5": {"theme_summary": "model's own summary", "top_drivers": ["staff_service"],
+                          "sentiment_split": {"positive": 3, "negative": 10, "neutral": 3}},
+            },
+        )
+        result = parse_and_save(raw, self._df(), run_id="test_run")
+
+        part5 = result["section_insights"]["part5"]
+        # Deterministic split replaces the model's estimate...
+        assert part5["sentiment_split"]["base_n"] == 1
+        assert part5["sentiment_split"]["positive"] == 1
+        assert "selection_rule" in part5["sentiment_split"]
+        # ...but theme_summary/top_drivers (still the model's own) are untouched.
+        assert part5["theme_summary"] == "model's own summary"
+
+    def test_part1_sentiment_split_is_left_untouched_stage2_not_implemented(self, tmp_path, monkeypatch):
+        monkeypatch.chdir(tmp_path)
+        raw = _base_raw(
+            nps_tags={"promoters": [], "passives": [], "detractors": []},
+            section_insights={
+                "part1": {"theme_summary": "x", "top_drivers": [],
+                          "sentiment_split": {"positive": 1, "negative": 2, "neutral": 3}},
+            },
+        )
+        result = parse_and_save(raw, self._df(), run_id="test_run")
+
+        # Untouched: still the model's raw estimate, no base_n/source_pool_n/
+        # selection_rule -- Parts 1-4 need Stage 2's theme-to-section mapping first.
+        part1 = result["section_insights"]["part1"]
+        assert part1["sentiment_split"] == {"positive": 1, "negative": 2, "neutral": 3}
+        assert "base_n" not in part1["sentiment_split"]
 
 
 class TestHumanizeTopDrivers:

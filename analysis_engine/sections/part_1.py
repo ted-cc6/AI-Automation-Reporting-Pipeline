@@ -19,8 +19,18 @@ COL_RENEWAL_INTENT              = "q_renewal_intent"
 # Also feeds analysis_engine/sections/part_10.py's wave-over-wave trend snapshot;
 # both sections read the same column with the same "I know everything" positivity
 # definition so the two numbers never disagree.
+# Top-2-box per Lorenz's confirmed ordering of the six response options
+# (docs/report_spec.md's R-004, session-6 scoring correction): rank 1 "I
+# know everything", rank 2 "Partially, I know the benefits process only" /
+# "Partially, I know the claims process only" (equal rank) both count as
+# positive. Kept in sync with analysis_engine/sections/part_10.py's own
+# copy of this same list -- update both together, they must never disagree.
 COL_PRODUCT_UNDERSTANDING_COMBINED = "q_product_understanding_combined"
-_PRODUCT_UNDERSTANDING_GOOD = ["I know everything"]
+_PRODUCT_UNDERSTANDING_GOOD = [
+    "I know everything",
+    "Partially, I know the benefits process only",
+    "Partially, I know the claims process only",
+]
 # "Which channel do you PREFER for submitting a claim?" -- asked of every
 # respondent regardless of claim history (it sits with the other client
 # understanding/preference questions in the survey, right after Claim Process

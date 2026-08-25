@@ -278,10 +278,17 @@ All responses are already in English.
 
 ## YOUR TASKS (for every record in this batch)
 
-### TASK 1: NPS Theme Tagging
-For each response assign 1-3 theme codes from the THEME TAXONOMY below.
-Return compact arrays: ["row_id", ["theme1", "theme2"]], bucketed by each
-record's own nps_group into "promoters"/"passives"/"detractors".
+### TASK 1: NPS Theme Tagging and Sentiment
+For each response assign 1-3 theme codes from the THEME TAXONOMY below,
+AND an overall sentiment: "positive", "negative", or "neutral". This is
+the respondent's sentiment about VisionFund's insurance product or
+service, judged from what they actually wrote -- NOT a shortcut from
+their nps_group. A detractor's response can still be neutral or even
+positive in tone (e.g. a specific, non-hostile suggestion); a promoter's
+can carry a real complaint alongside the praise. Read the text.
+Return compact arrays: ["row_id", ["theme1", "theme2"], "sentiment"],
+bucketed by each record's own nps_group into
+"promoters"/"passives"/"detractors".
 
 ### TASK 2: Protection Flag Scan
 Scan every response in this batch for the PROTECTION FLAG TAXONOMY below.
@@ -326,9 +333,9 @@ Return ONLY valid JSON. No markdown, no explanation, no extra keys.
 
 {{
   "nps_tags": {{
-    "promoters": [["row_0042", ["staff_service", "general_satisfaction"]], ...],
-    "passives":  [["row_0105", ["financial_relief"]], ...],
-    "detractors":[["row_0201", ["claims_process", "staff_service"]], ...]
+    "promoters": [["row_0042", ["staff_service", "general_satisfaction"], "positive"], ...],
+    "passives":  [["row_0105", ["financial_relief"], "neutral"], ...],
+    "detractors":[["row_0201", ["claims_process", "staff_service"], "negative"], ...]
   }},
   "protection_flags": [
     {{"id": "row_...", "flag_type": "staff_misconduct", "severity": "medium", "reason": "one sentence"}}
@@ -664,23 +671,31 @@ _NO_FLAG = {"_no_flag": True}
 
 
 def _apply_theme_tag_cache(entries: list, by_id: dict, cache: dict) -> list:
-    """entries: a batch's (or the merged) [row_id, [theme, ...]] pairs.
-    Returns the same shape with any previously-cached record's themes
-    substituted in place of this run's fresh tags, and populates the
-    cache for records seen for the first time."""
+    """entries: a batch's (or the merged) [row_id, [theme, ...], sentiment]
+    triples. Returns the same shape with any previously-cached record's
+    themes AND sentiment substituted in place of this run's fresh tags
+    (both are cached together under one entry, since they come from the
+    same Task 1 judgment call and should drift -- or not -- together), and
+    populates the cache for records seen for the first time.
+
+    A 2-element entry (no sentiment -- malformed model output, or a raw
+    response saved before this field existed) is passed through
+    unchanged, uncached: there is no sentiment value to cache or restore
+    for it, and guessing one would defeat the point of a real base_n
+    (R-006a, docs/report_spec.md)."""
     out = []
     for entry in entries:
-        if not (isinstance(entry, list) and len(entry) == 2):
+        if not (isinstance(entry, list) and len(entry) == 3):
             out.append(entry)
             continue
-        row_id, themes = entry
+        row_id, themes, sentiment = entry
         text = (by_id.get(row_id) or {}).get("text", "")
         cached = tag_cache.get(cache, "theme", row_id, text)
         if cached is not None:
-            out.append([row_id, cached])
+            out.append([row_id, cached["themes"], cached["sentiment"]])
         else:
-            tag_cache.put(cache, "theme", row_id, text, themes)
-            out.append([row_id, themes])
+            tag_cache.put(cache, "theme", row_id, text, {"themes": themes, "sentiment": sentiment})
+            out.append([row_id, themes, sentiment])
     return out
 
 
@@ -873,7 +888,7 @@ def call_gemini(
     for grp in ("promoters", "passives", "detractors"):
         counter = Counter()
         for entry in merged_nps_tags[grp]:
-            if isinstance(entry, list) and len(entry) == 2 and isinstance(entry[1], list):
+            if isinstance(entry, list) and len(entry) in (2, 3) and isinstance(entry[1], list):
                 counter.update(entry[1])
         nps_theme_counts[grp] = dict(counter.most_common())
 

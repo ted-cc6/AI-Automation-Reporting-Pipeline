@@ -13,6 +13,7 @@ from pathlib import Path
 import pandas as pd
 
 from qualitative.llm_call import _SEVERITY_RANK, humanize_theme_label
+from qualitative.prepare_payload import load_config
 
 log = logging.getLogger(__name__)
 
@@ -92,7 +93,7 @@ def _count_themes(nps_tags: dict) -> dict:
     for grp in NPS_GROUPS:
         counter = Counter()
         for entry in nps_tags.get(grp, []):
-            if isinstance(entry, list) and len(entry) == 2:
+            if isinstance(entry, list) and len(entry) in (2, 3):
                 themes = entry[1]
                 if isinstance(themes, list):
                     counter.update(themes)
@@ -124,6 +125,161 @@ def _humanize_top_drivers(section_insights: dict) -> dict:
     return out
 
 
+# ---------------------------------------------------------------------------
+# R-006a Stage 1 (docs/report_spec.md): deterministic sentiment_split for
+# report sections whose population is a flag already computed per-record,
+# independent of any topic-matching judgment -- Part 5 (caregivers) and
+# Part 6 (claimants). Computed here in Python, over every NPS record
+# Task 1 actually tagged, instead of the synthesis call's own
+# "best-judgment approximate counts... among the material you reviewed"
+# estimate over a roughly 6-candidate shortlist.
+#
+# Part 7 (Gender) is NOT active here. A single split over the whole
+# respondent pool is the portfolio-wide split restated and tells a reader
+# nothing about gender -- Part 7 needs two splits (female, male), which the
+# current section_insights.sentiment_split shape (one flat dict per
+# section, consumed as such by generation/writer.py's
+# _fmt_insight_summary() and generation/validate_output.py's sentiment-base
+# checks) does not support. That is a schema change pending approval, not
+# implemented here -- see docs/report_spec.md's R-006a Part 7 note.
+#
+# Parts 1-4 are topic-defined (no such flag exists) and are untouched --
+# Stage 2, pending a theme-to-section mapping design.
+#
+# Pinned definition (docs/report_spec.md's R-006a; state it once so it
+# cannot drift between sections): source_pool_n is the section's ELIGIBLE
+# population (e.g. every claimant in df, regardless of whether they left
+# any text) -- the eligible population changes based on the section, but
+# it does not depend on min_text_length at all. base_n is the subset of
+# that population whose response ALSO passed min_text_length and was
+# therefore actually tagged; positive + negative + neutral == base_n by
+# construction.
+# ---------------------------------------------------------------------------
+
+_SENTIMENT_VALUES = ("positive", "negative", "neutral")
+
+_STAGE1_SECTIONS = (
+    ("part5", "caregivers"),
+    ("part6", "claimants"),
+)
+
+# A real, three-way classification landing on an EXACT tie at this base_n
+# or larger is vanishingly unlikely -- this is the specific signature a
+# round-robin/placeholder generator produces (see the R-006a mechanism
+# demo this guards against). Chosen well clear of small bases where a
+# genuine tie is plausible by chance (e.g. base_n=3, 1/1/1).
+_SUSPICIOUSLY_UNIFORM_MIN_BASE = 15
+
+
+def _flatten_tagged_sentiment(nps_tags: dict) -> dict:
+    """row_id -> sentiment, from every NPS group's tagged entries. A
+    2-element entry (no sentiment -- see llm_call._apply_theme_tag_cache's
+    docstring) is skipped: there is nothing to count it under."""
+    out = {}
+    for grp in NPS_GROUPS:
+        for entry in nps_tags.get(grp, []):
+            if isinstance(entry, list) and len(entry) == 3:
+                row_id, _themes, sentiment = entry
+                if sentiment in _SENTIMENT_VALUES:
+                    out[row_id] = sentiment
+    return out
+
+
+def _stage1_segment_mask(section_key: str, df: pd.DataFrame) -> "pd.Series | None":
+    """Boolean mask over df's full index defining a Stage-1 section's
+    eligible population (independent of min_text_length -- see this
+    module's Stage 1 header comment), or None if section_key isn't a
+    Stage-1 section."""
+    if section_key == "part5":
+        col = "flag_child_wellbeing_denominator"
+        if col not in df.columns:
+            return pd.Series(False, index=df.index)
+        return df[col].fillna(False).astype(bool)
+    if section_key == "part6":
+        # Canonical claimant definition (analysis_engine/segments.py,
+        # matches Part 6's own scorecard and every other "claimant" figure
+        # in this report): q_claim_submitted, NOT flag_paid_claimant --
+        # see prepare_payload.py's _build_response_record() for the same
+        # fix and its rationale (flag_paid_claimant is narrower: claim
+        # approved AND paid, which silently excludes denied/pending
+        # claimants). Logged as R-024.
+        col = "q_claim_submitted"
+        if col not in df.columns:
+            return pd.Series(False, index=df.index)
+        return df[col].fillna(False).astype(bool)
+    return None
+
+
+def _row_id_to_index(row_id: str) -> "int | None":
+    try:
+        return int(row_id.split("_")[1])
+    except (IndexError, ValueError):
+        return None
+
+
+def _looks_synthetic(counts: dict, base_n: int) -> bool:
+    """True if positive/negative/neutral are exactly tied at a base_n
+    large enough that a real classification tying exactly is not a
+    plausible coincidence -- see _SUSPICIOUSLY_UNIFORM_MIN_BASE."""
+    return (
+        base_n >= _SUSPICIOUSLY_UNIFORM_MIN_BASE
+        and counts["positive"] == counts["negative"] == counts["neutral"]
+    )
+
+
+def compute_stage1_sentiment_splits(nps_tags: dict, df: pd.DataFrame) -> dict:
+    """R-006a Stage 1: {section_key: {"positive": int, "negative": int,
+    "neutral": int, "base_n": int, "source_pool_n": int,
+    "selection_rule": str}} for exactly part5 and part6 (see this module's
+    Stage 1 header comment for part7's pending status and the pinned
+    base_n/source_pool_n definitions).
+
+    Raises ValueError if a section's split is exactly tied across all
+    three sentiment values at a base_n where that cannot plausibly be a
+    real coincidence -- see _looks_synthetic(). This is a deliberate,
+    hard guard: a synthetic/placeholder split (e.g. a round-robin demo)
+    must never silently reach a rendered report.
+    """
+    tagged = _flatten_tagged_sentiment(nps_tags)
+    min_text_length = load_config().get("min_text_length", 10)
+
+    results = {}
+    for section_key, population_label in _STAGE1_SECTIONS:
+        mask = _stage1_segment_mask(section_key, df)
+        source_pool_n = int(mask.sum())
+
+        counts = {v: 0 for v in _SENTIMENT_VALUES}
+        for row_id, sentiment in tagged.items():
+            idx = _row_id_to_index(row_id)
+            if idx is None or idx not in mask.index or not mask.loc[idx]:
+                continue
+            counts[sentiment] += 1
+        base_n = sum(counts.values())
+
+        if _looks_synthetic(counts, base_n):
+            raise ValueError(
+                f"{section_key}: sentiment split is exactly tied "
+                f"({counts['positive']}/{counts['negative']}/{counts['neutral']}) "
+                f"at base_n={base_n} -- this is the signature of a synthetic "
+                "or placeholder split (e.g. a round-robin demo), not a real "
+                "classification. Refusing to let it reach a rendered report."
+            )
+
+        selection_rule = (
+            f"NPS follow-up responses from {population_label}, excluding "
+            f"responses under {min_text_length} characters; {base_n} of "
+            f"{source_pool_n} {population_label} qualify."
+        )
+
+        results[section_key] = {
+            **counts,
+            "base_n": base_n,
+            "source_pool_n": source_pool_n,
+            "selection_rule": selection_rule,
+        }
+    return results
+
+
 def _lookup_profile(row_id: str, df: pd.DataFrame) -> dict:
     """Return demographic profile for a row_id string like 'row_0042'."""
     try:
@@ -142,8 +298,11 @@ def _lookup_profile(row_id: str, df: pd.DataFrame) -> dict:
                 else int(row["q_client_age"])),
         "branch": str(row.get("branch", "")) or None,
         "country": str(row.get("country", "")) or None,
-        "is_claimant": (False if pd.isna(row.get("flag_paid_claimant"))
-                        else bool(row["flag_paid_claimant"])),
+        # Canonical claimant definition -- see prepare_payload.py's
+        # _build_response_record() for the same fix and its rationale
+        # (q_claim_submitted, not the narrower flag_paid_claimant).
+        "is_claimant": (False if pd.isna(row.get("q_claim_submitted"))
+                        else bool(row["q_claim_submitted"])),
         # Canonical caregiver definition (matches analysis_engine/segments.py's
         # "caregiver" segment): answered Yes OR No to child wellbeing (i.e. has
         # children to report on) -- NOT "Yes" only, which would wrongly exclude
@@ -310,6 +469,17 @@ def parse_and_save(
     section_insights = raw_gemini.get("section_insights", {})
     _check_section_insights(section_insights)
     section_insights = _humanize_top_drivers(section_insights)
+
+    # R-006a Stage 1: override part5/part6/part7's sentiment_split with the
+    # deterministic, code-computed version -- theme_summary/top_drivers for
+    # these sections are untouched (still the model's own synthesis), and
+    # parts 1-4 are untouched entirely (still model-estimated, pending
+    # Stage 2's theme-to-section mapping design).
+    stage1_splits = compute_stage1_sentiment_splits(raw_gemini.get("nps_tags", {}), df)
+    for section_key, split in stage1_splits.items():
+        existing = section_insights.get(section_key)
+        base = existing if isinstance(existing, dict) else {}
+        section_insights = {**section_insights, section_key: {**base, "sentiment_split": split}}
 
     # All text columns (for verbatim text lookup)
     text_cols = [

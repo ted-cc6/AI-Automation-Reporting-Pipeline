@@ -128,9 +128,11 @@ parts:
           other will be NOT APPLICABLE (that survey never asked the question). Write about
           whichever one is populated; do not mention the other, do not describe its
           absence, and do not treat this as a missing-data problem. product_understanding
-          is defined as the single most positive response option only ("I know everything"),
-          a stricter bar than a typical top-2-box -- do not describe it as "top-2-box" or
-          imply a broader definition if it is the one you are writing about.
+          is a top-2-box: "I know everything" plus "Partially, I know the benefits process
+          only" / "Partially, I know the claims process only" (the survey team's confirmed
+          rank-2 tier). It is fine to describe it as a top-2-box if that phrasing is useful,
+          but do not describe it as "the single most positive response only" -- that was
+          the prior, narrower definition and no longer matches what this figure counts.
 
           The _claimant and _non_claimant figures are restricted to clients who experienced
           an insured event in the past 12 months (claimant = filed, non_claimant = did not

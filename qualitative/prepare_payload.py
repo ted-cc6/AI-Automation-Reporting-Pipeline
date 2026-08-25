@@ -47,8 +47,15 @@ def _build_response_record(row_id: str, text: str, row: pd.Series,
                        else int(row["q_client_age"])),
         "branch": str(row.get("branch", "")) or None,
         "country": str(row.get("country", "")) or None,
-        "is_claimant": (False if pd.isna(row.get("flag_paid_claimant"))
-                        else bool(row["flag_paid_claimant"])),
+        # Canonical claimant definition (matches analysis_engine/segments.py's
+        # "claimant" segment and Part 6's own scorecard): q_claim_submitted,
+        # NOT flag_paid_claimant -- the latter is narrower (claim approved AND
+        # paid out), which silently excluded claimants whose claim was denied
+        # or still pending. Found during R-006a Stage 1 (docs/report_spec.md)
+        # while computing Part 6's sentiment base: this flag disagreed with
+        # the report's own "55 claimants" figure by 6 respondents.
+        "is_claimant": (False if pd.isna(row.get("q_claim_submitted"))
+                        else bool(row["q_claim_submitted"])),
         # Canonical caregiver definition (matches analysis_engine/segments.py's
         # "caregiver" segment): answered Yes OR No to child wellbeing (i.e. has
         # children to report on) -- NOT "Yes" only, which would wrongly exclude

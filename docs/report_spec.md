@@ -3,7 +3,7 @@
 **Baseline artifact:** `LAC_Insurance_Impact_Report_default_2026_Q2_Test9.pdf` (generated 17 August 2026)
 **Reviewers:** Lorenz M (LM1 to LM11), second reviewer HO (HO2R1)
 **Spec owner:** Binjie Wang
-**Status:** draft, pending reviewer confirmation on R-006, R-008, R-014
+**Status:** draft, pending reviewer confirmation on R-006a, R-006b, R-008, R-014
 
 ---
 
@@ -39,7 +39,8 @@ This file is the single source of truth for the next pipeline iteration. Every r
 | R-003 | self | code | Deduplicate client protection appendix | 1 |
 | R-004 | LM3b | data_config | Per indicator comparability declarations | 1 |
 | R-005 | self | data_config | Dominican Republic trend handling is explicit | 1 |
-| R-006 | LM6, LM7 | schema | Sentiment reported as counts with a stated base | 2 |
+| R-006a | LM6, LM7 | schema | Sentiment split computed deterministically, with a real base_n | 2 |
+| R-006b | LM6, LM7 | code | Verbatim shortlist widened for selection quality | 2 |
 | R-007 | LM8 | schema | Every restricted base metric carries a base description | 2 |
 | R-008 | LM5 | schema | Coping metric exposes component breakdown | 2 |
 | R-009 | LM3b | schema | Trend table replaces significance with comparability | 1 (pulled forward from 2, session-4 -- see R-009) |
@@ -56,6 +57,8 @@ This file is the single source of truth for the next pipeline iteration. Every r
 | R-020 | self | code | CLI output filename diverges from dashboard path | 3 |
 | R-021 | self | code | Period label formatting duplicated across title and heading | 3 |
 | R-022 | self | data_config | Stale prior_run_id should fail loudly, not resolve silently | 1 |
+| R-023 | self | code | Sentiment split base is a model estimate, not a validated count -- SUPERSEDED by R-006a | 2 |
+| R-024 | self | code | Qualitative is_claimant used a narrower definition than the report's own "claimant" -- IMPLEMENTED | 2 |
 
 ---
 
@@ -305,6 +308,50 @@ Key fixed from the original draft's `child_wellbeing` to `child_wellbeing_improv
 **Correction (session-5, per Lorenz/LM3, 2026-08-20)**
 The first implementation (session-4) also suppressed BOTH wave values for every non-`"clean"` row, reasoning that "no computation change" meant "no display change either." That conflated the two: the delta/significance-test GATE is unchanged (still `"clean"` only, as designed above), but Lorenz's actual point in raising this in the first place was to STOP suppressing real numbers, not just to relabel why they were suppressed -- `"the whole point [of a Comparability column is] so we can SHOW both numbers and label the quality of the comparison, rather than suppressing one side."` `access_to_alternatives` and `child_wellbeing_improvement` both have real figures on both sides (48.9%/44.5% and 23.5%/36.1% respectively) that the first pass rendered as "NOT COMPARABLE" anyway. Fixed the same session it was caught in (see R-005's own implementation note for the rendering detail, since this crosses into that requirement's territory).
 
+**Scoring correction (session-6, per Lorenz, 2026-08-20)**
+`product_understanding`'s 2025 figure (the only real value this
+indicator ever has -- 2026 has no equivalent question, see above) was
+computed as the single most positive response option only
+(`_PRODUCT_UNDERSTANDING_GOOD = ["I know everything"]`), a judgment call
+`analysis_engine/sections/part_10.py`'s own prior comment flagged as
+"pending survey-team confirmation... the remaining 5 options don't have
+an unambiguous ordering agreed with the survey team yet." Lorenz has now
+confirmed the ordering of the 2025 instrument's six options:
+
+```
+rank 1: I know everything                                      (190)
+rank 2: Partially, I know the benefits process only             (295)
+        Partially, I know the claims process only                (74)   [equal rank]
+rank 3: I know little, but I can contact VFI to help clarify    (202)
+        I know little                                           (445)   [equal rank]
+rank 4: No knowledge                                            (149)
+```
+
+With the ordering settled, the metric moves to a proper top-2-box:
+ranks 1 and 2 count as positive. Verified against
+`runs/lacro_2025_pooled/survey_clean.parquet` directly (the only run
+that still has `q_product_understanding_combined`, since 2026 splits
+the question in two): base is 1,355 (matches the count above exactly:
+190+295+74+202+445+149=1355), positive is 190+295+74=559, giving
+559/1355 = 41.3%, replacing the previous 190/1355 = 14.0%. Both
+`analysis_engine/sections/part_1.py` and
+`analysis_engine/sections/part_10.py` define `_PRODUCT_UNDERSTANDING_GOOD`
+independently (by design, so Part 1 and Part 10 can never disagree only
+if both are updated together) -- both updated to
+`["I know everything", "Partially, I know the benefits process only",
+"Partially, I know the claims process only"]`. `generation/report_spec.yaml`'s
+narrative note for `product_understanding` previously instructed the
+writer to describe this as "the single most positive response option
+only... a stricter bar than a typical top-2-box... do not describe it
+as top-2-box" -- also updated, since that instruction now
+actively contradicts the metric it describes.
+
+Because `runs/lacro_2025_pooled/analysis_results.json` is a persisted
+snapshot from a run predating this change, the new figure only reaches
+a rendered report after that run is regenerated -- changing the
+`_PRODUCT_UNDERSTANDING_GOOD` constant alone does not retroactively
+update already-written prior-wave JSON.
+
 ---
 
 ## R-005 Dominican Republic trend handling is explicit
@@ -395,11 +442,17 @@ C-005's header regex (`indicator\s+20\d\d\s+20\d\d\s+comparability`) assumed pur
 
 These changes make defective output structurally impossible rather than merely discouraged.
 
-## R-006 Sentiment reported as counts with a stated base
+## R-006 Sentiment and verbatim selection (split session-6, 2026-08-20)
 
 **Source:** LM7 ("I am leaning towards the actual counts because it's less prone to misinterpretation"), LM6 ("how is the data being sliced ... making the base too small for percentages?")
-**Layer:** `schema`, with an investigation prerequisite
-**Priority:** high
+
+Originally one requirement. Split this session once the investigation
+below distinguished two independent problems sharing one symptom (bases
+of 3 to 10 per section): **R-006a** fixes the sentiment base.
+**R-006b** fixes the verbatim nomination cap. Neither depends on the
+other and they are implemented separately. This section keeps the
+shared investigation; R-006a and R-006b follow with their own decision
+and rule.
 
 **Current behaviour**
 Sentiment is reported inconsistently across sections: percentages in Part 1 (10 percent, 60 percent, 30 percent on a base of 10), raw counts in Parts 2 through 6, and an explicit apology in Part 3 that the base is too small for percentages.
@@ -416,15 +469,143 @@ The underlying problem is larger than presentation. Observed bases by section:
 | Part 6 | 3 |
 | Part 7 | 3 |
 
-The NPS follow up field is filled by every respondent in the LACRO instrument. A relevance filter that reduces 1,721 free text responses to between 3 and 10 per section is over restrictive, and is the real answer to LM6.
+The NPS follow up field is filled by every respondent in the LACRO instrument, and something discards over 99 percent of the available pool by the time it reaches sentiment reporting.
 
-**Investigation prerequisite (blocking)**
-Before implementing, determine and document:
-1. What pool of free text fields feeds each section's sentiment.
-2. What the relevance selection rule is and what threshold it applies.
-3. Whether the LACRO single always on NPS follow up is being processed with logic written for Africa's three gated columns.
+**Root cause (session-6 investigation, 2026-08-20)**
+There is no relevance filter discarding responses. Every NPS follow-up
+record is theme-tagged at full coverage in the batch call
+(`qualitative/llm_call.py`, Task 1) -- nothing about the LACRO
+instrument's single always-on NPS column causes responses to be dropped
+before tagging.
+
+The actual mechanism is a compounding nomination cap, unrelated to
+relevance or response quality:
+1. `_CANDIDATES_PER_SECTION_PER_BATCH = 2` (`llm_call.py:71`) -- each
+   batch independently shortlists at most 2 verbatim candidates per
+   report section, drawn from its own slice only, with no visibility
+   into what any other batch shortlisted.
+2. LACRO's roughly 1,721 NPS responses split into 3 batches of
+   `_NPS_BATCH_SIZE = 600` (`llm_call.py:65`), so the pooled candidate
+   ceiling per section going into the synthesis call is 3 x 2 = 6,
+   before the synthesis call runs at all.
+3. The synthesis call is then hard-instructed to "Pick exactly 3 row
+   IDs (verbatim quotes)" per section (`llm_call.py:453`) -- a fixed
+   count, not a threshold, which is why every section with any
+   verbatims renders exactly three.
+
+Both (1) and (3) were sized to solve a token-budget problem in the 2026
+two-call redesign (see `llm_call.py`'s module docstring: the original
+single-call design broke past roughly 2,100 respondents), not to
+control per-section sample size, and neither has been revisited against
+respondent volume since.
+
+**Investigation prerequisite (blocking) -- resolved, session-6, 2026-08-20**
+1. Pool: every configured open-ended column in `qualitative/config.yaml`,
+   filtered only by `min_text_length: 10` **characters**
+   (`config.yaml:5`, applied at `prepare_payload.py:109`) -- not a
+   word-count floor, and far below the observed 6-word median LACRO
+   response length. This filter is not the bottleneck.
+2. There is no relevance selection rule with a threshold. The
+   restriction that matters is the nomination cap described above, not
+   a quality bar -- see root cause.
+3. **Corrected (session-6, continued investigation, 2026-08-20):** the
+   previous report's "ruled out" conclusion here was incomplete. It
+   confirmed that `prepare_payload.py:21-36`'s purpose-built `by_score`
+   bucketing for LACRO's single always-on `q_nps_followup` column
+   exists in code, but did not confirm that code path is what the real
+   2026 data actually exercises. It is not: `runs/lacro_final_check/
+   survey_clean.parquet` has no `q_nps_followup` column at all. The
+   2026 unified-schema load instead produces `q_nps_promoter_followup`
+   / `q_nps_passive_followup` / `q_nps_detractor_followup` -- Africa's
+   exact three gated columns, 100 percent collectively filled (1,044 +
+   465 + 212 = 1,721) -- so `qualitative/config.yaml:35-46`'s
+   documented `by_score` architecture is dead code against the dataset
+   every current LACRO report is actually generated from. Only
+   `runs/lacro_2025_pooled/survey_clean.parquet` still has the single
+   always-on `q_nps_followup` column that architecture was built for
+   (1,355/1,355 filled). In outcome this is harmless -- the gated-
+   column split already encodes the score band at load time, so NPS
+   promoter/passive/detractor grouping is still correct and fully
+   deterministic for 2026 data, just via Africa's mechanism rather than
+   LACRO's purpose-built one -- but prerequisite #3, taken literally,
+   is not ruled out for 2026. Whether the now-dead `by_score` path is
+   worth removing is a separate cleanup question, not raised as a
+   requirement here.
+
+**Additional finding, required before R-006a's Rule can be
+implemented:** `base_n`, `source_pool_n`, and `selection_rule` do not
+exist anywhere in the current schema. `section_insights.sentiment_split`
+is an unlabeled `{positive, negative, neutral}` dict with no
+accompanying pool-size field, and the model is never asked how many
+responses it reviewed for a section.
 
 Record findings in this section before writing code.
+
+---
+
+## R-006a Sentiment reported as counts with a stated base
+
+**Layer:** `schema`
+**Priority:** high
+**Depends on:** R-006's investigation above
+
+**Decision (session-6):** compute the sentiment split deterministically
+in Python over the full theme-tagged NPS pool (not the roughly
+6-candidate verbatim shortlist), giving a real `base_n`. This decouples
+sentiment entirely from R-006b's nomination cap and subsumes R-023
+(logged separately; see R-023's own note -- now superseded by this
+decision).
+
+**Feasibility (session-6, read-only, 2026-08-20)**
+Section assignment is NOT a deterministic, code-held mapping for four
+of the seven report sections. Nothing in the codebase maps
+`THEME_TAXONOMY` codes (`llm_call.py`'s `_THEME_TAXONOMY_BLOCK`, 13
+codes) to report section keys. Section membership for Part 1 (Product
+Understanding), Part 2 (Claims Experience), Part 3 (Financial
+Inclusion), and Part 4 (Client Voice) is decided entirely by the
+model's judgement -- both the per-batch shortlist (Task 3) and the
+synthesis final pick (Task 4A) match a response's free text against
+freeform `topic_hint` prose per section (`qualitative/config.yaml:199-229`),
+not against theme codes. A record is asked, by prompt instruction only
+("Do NOT repeat the same row_id across sections", `llm_call.py:297`
+and its synthesis-call equivalent at `llm_call.py:460`), not to appear
+in more than one section -- nothing in code enforces or validates that,
+so it is a soft rule, not a guarantee, and nothing stops a response's
+themes from genuinely relating to more than one section's topic_hint.
+
+Three of the seven sections are different: Part 5 (Child Wellbeing),
+Part 6 (Claimant Outcomes), and Part 7 (Gender) are not topic-matched
+at all. They are driven by `config.yaml`'s `prefer_segment` /
+`require_diversity` keys against `is_caregiver` / `is_claimant` /
+`is_female` flags already computed deterministically per record in
+`prepare_payload.py`'s `_build_response_record()` (`prepare_payload.py:39-58`).
+These three sections' `base_n` is Python-computable today, with no new
+design work.
+
+Implication: the deterministic split is directly achievable now for
+Parts 5, 6, and 7. Parts 1 through 4 need a new, code-held
+theme-code-to-section grouping designed first -- without one, "which of
+the pool's responses belong to Part 2" is not a question code can
+currently answer, only the model's judgement can.
+
+**Order of magnitude (session-6, computed against
+`runs/lacro_final_check/survey_clean.parquet`)**
+1,674 of 1,721 NPS responses pass `min_text_length`. Segment-scoped
+pools, computed directly:
+- Part 5 (is_caregiver): 1,281
+- Part 6 (is_claimant): 47
+- Part 7: 1,196 female / 478 male
+
+Hundreds is the right order of magnitude for most sections, but not
+uniformly: Part 6 is structurally capped near 47 to 55 by how few
+LACRO respondents are claimants at all -- no mapping design changes
+that ceiling, since it reflects a real population size, not an
+artifact of the nomination cap. Parts 1 through 4 have no computed
+number yet (no mapping exists), but a structural estimate -- roughly
+1,674 records, 1 to 3 theme tags each, 13 taxonomy codes, several
+codes plausibly grouped per section -- lands in the low-to-mid hundreds
+per section once a mapping is designed, consistent with the "hundreds"
+expectation for those four sections specifically.
 
 **Intended behaviour**
 Sentiment is always reported as integer counts. The base is always stated. The selection rule is always available to the renderer. Percentages are never emitted for sentiment.
@@ -439,7 +620,18 @@ class SentimentSplit(BaseModel):
     selection_rule: str          # human readable, e.g.
                                  # "NPS follow up responses scored
                                  #  relevant to product understanding"
-    source_pool_n: int           # total free text responses considered
+    source_pool_n: int           # Pinned definition (session-6 Stage 1
+                                 # implementation, superseding the
+                                 # original "total free text responses
+                                 # considered" wording): the section's
+                                 # ELIGIBLE population (e.g. every
+                                 # claimant in the dataset), independent
+                                 # of whether they left any usable text.
+                                 # base_n is the subset of source_pool_n
+                                 # whose response also passed
+                                 # min_text_length and was therefore
+                                 # actually classified. Stated once here
+                                 # so it cannot drift between sections.
 
     @model_validator(mode="after")
     def counts_sum_to_base(self):
@@ -451,10 +643,101 @@ class SentimentSplit(BaseModel):
 No float or percentage field exists on this model, so a ratio cannot be returned.
 
 **Verification**
-- `assert no sentiment string in the rendered report contains "%"`
+- `assert no sentiment string in the rendered report contains "%"` --
+  **not enforceable today (session-6, 2026-08-20).**
+  `generation/writer.py`'s `_fmt_insight_summary()` only forbids
+  percentages when the sentiment split's total is below
+  `_SENTIMENT_SPLIT_MIN_BASE_FOR_PCT = 10` (`writer.py:356`); at or
+  above that threshold there is no prohibition at all. Test9's Part 1
+  sits exactly on that boundary (base 10) and renders percentages as a
+  direct result. This bullet becomes structurally true once
+  `SentimentSplit` has no percentage field at all -- the current
+  renderer has no such ban outside the `< 10` branch.
 - `assert every sentiment block states base_n and source_pool_n`
 - `assert positive + negative + neutral == base_n for all sections`
+- `assert base_n is derived from a Python-computed pool, not a model self-report, for every section where a deterministic mapping exists`
 - Report level check: log the base for every section so over restriction is visible at a glance
+
+**Open question for implementation (not this session)**
+Design the theme-code-to-section grouping for Parts 1 through 4 (or an
+alternative deterministic rule specific to those sections) before
+implementing them.
+
+**Stage 1 implemented (session-6, 2026-08-20)**
+Parts 5 and 6 implemented as designed: `qualitative/parse_results.py`'s
+`compute_stage1_sentiment_splits()` computes `base_n`/`source_pool_n`/
+`selection_rule`/counts in Python from every NPS record Task 1 tagged
+(`qualitative/llm_call.py`'s Task 1 now emits a per-record sentiment
+enum alongside theme codes), wired into `parse_and_save()` to override
+just those two sections' `sentiment_split` (theme_summary/top_drivers
+untouched, still the model's own).
+
+Two corrections made during implementation, before commit:
+- `selection_rule`'s wording originally said "N of M {population} left
+  a response" -- inaccurate, since the NPS follow-up is filled by 100%
+  of respondents. The gap between `base_n` and `source_pool_n` is the
+  `min_text_length` (10-character) filter excluding short responses,
+  not respondents failing to answer. Corrected to: *"NPS follow-up
+  responses from {population}, excluding responses under {N}
+  characters; {base_n} of {source_pool_n} {population} qualify."*
+- A hard guard (`_looks_synthetic()`) now raises `ValueError` if a
+  section's positive/negative/neutral counts are exactly tied at a
+  base_n of 15 or more -- the signature a round-robin or other
+  placeholder generator produces, and not a plausible coincidence for a
+  real classification at that scale. Verified it does not false-positive
+  on a real-looking uneven distribution or on a small, plausibly-tied
+  base (below the threshold). Note: filtering to a segment (as Parts 5/6
+  do) breaks a naive round-robin's periodicity, so this guard is
+  strongest against an unfiltered pool (which is exactly Part 7's
+  shape, see below) -- it is defense in depth for Parts 5/6, not a
+  guarantee against every possible synthetic pattern.
+
+**Part 7 (Gender): paused, not implemented -- schema decision needed**
+A single `sentiment_split` over the full ~1,674-response pool (no
+population filter -- Part 7 is a topic lens over the whole client base,
+not a subset) is the portfolio-wide split restated; it tells a reader
+nothing about gender specifically. Part 7 needs two splits (female,
+male), each with its own `base_n`/`source_pool_n`/`selection_rule`.
+
+This is a schema change, not implementable against the `SentimentSplit`
+Rule above as written: `section_insights.*.sentiment_split` is
+currently one flat dict per section, and two consumers assume that flat
+shape uniformly across every section --
+`generation/writer.py`'s `_fmt_insight_summary()` (`writer.py:370-373`,
+sums `split.values()` and joins `k=v` pairs) and
+`generation/validate_output.py`'s sentiment-base checks (`validate_output.py:410-414`,
+same summation). Restructuring Part 7's `sentiment_split` into two
+sub-splits (e.g. `{"female": {...}, "male": {...}}`) would need both
+updated, and is a real, visible change to the Rule model's shape for at
+least one section -- flagged per instruction rather than built. Pending
+approval on the representation (nested by sex under `sentiment_split`,
+versus a new sibling key, versus something else).
+
+---
+
+## R-006b Verbatim shortlist widened for selection quality
+
+**Layer:** `code`
+**Priority:** medium
+**Depends on:** R-006's investigation above
+
+**Decision (session-6):** three rendered verbatims per section stays.
+The nomination cap is now purely a selection-quality question --
+picking 3 from a pool of only 6 is a weak ratio, and widening the
+shortlist improves which three get chosen without changing how many
+render.
+
+**Intended behaviour**
+Increase `_CANDIDATES_PER_SECTION_PER_BATCH` (`llm_call.py:71`) and/or
+`_NPS_BATCH_SIZE` (`llm_call.py:65`) so the pooled per-section candidate
+count feeding the synthesis call's final pick (still exactly 3,
+`llm_call.py:453`) is meaningfully larger than today's ceiling of 6,
+within the token budget the two-call redesign was built to respect.
+
+**Verification**
+- `assert pooled per-section candidate count exceeds the current 6-per-section ceiling by a stated, deliberate margin`
+- `assert section_verbatims still contains exactly 3 entries per section with any candidates` (unchanged from today)
+- `assert the batch call's own output stays under max_output_tokens with stated headroom` (the original token-budget constraint this cap was sized against)
 
 ---
 
@@ -497,6 +780,108 @@ class MetricWithBase(BaseModel):
 
 **Open question for reviewer**
 Confirm with the data team what genuinely separates the 448 and 519 bases, then write the two definitions plainly.
+
+---
+
+## R-023 Sentiment split base is a model estimate, not a validated count
+
+**Source:** self identified, during R-006 investigation
+**Layer:** `code`
+**Priority:** medium
+**Status:** SUPERSEDED by R-006a (session-6, 2026-08-20). R-006a's
+decision to compute the sentiment split deterministically in Python
+over the full theme-tagged pool, with a real `base_n`, directly
+resolves the concern this requirement raises -- a model self-report
+with no traceable pool size. Kept below for history; do not implement
+separately from R-006a.
+
+**Current behaviour**
+`section_insights.*.sentiment_split` (`llm_call.py`'s synthesis prompt,
+Task 4B) is produced as "your best-judgment approximate counts...
+among the material you reviewed for this section." Nothing validates
+this against `len(section_verbatims)` for the same section, nothing
+cross-checks it against the actual candidate pool size the synthesis
+call was given, and the model is never asked to report how many
+responses it reviewed. The number that becomes a section's stated
+"base" is therefore the model's own unverified claim about its own
+review process, not a quantity computed or checked anywhere in code.
+
+Counts of an unstated, unverified pool are not more trustworthy than
+percentages -- that is the premise of Lorenz's LM7 request for R-006.
+Moving from percentages to raw counts (R-006) does not by itself fix
+this: a reader is asked to trust "3 positive, 0 negative" on the same
+kind of faith they were asked to trust "100%" on, unless the pool that
+produced it is itself real and stated.
+
+**Intended behaviour**
+A section's sentiment base is either a quantity computed deterministi-
+cally in code from a known, countable pool, or -- if it must remain a
+model judgment -- a quantity the model is explicitly asked to report
+and that is validated against the size of whatever pool it was actually
+given (e.g. `sentiment_total <= len(pooled_candidates[section]) +
+len(other-group records considered)`). An unvalidated self-report should
+not reach the renderer as if it were a fact about the data.
+
+**Verification**
+- `assert every rendered sentiment base is traceable to a countable pool the model was actually given, not merely stated by the model`
+- `assert sentiment split total does not exceed the known candidate pool size for that section, where a pool size is computable`
+
+**Note**
+Logged during the R-006 investigation (session-6, 2026-08-20). See the
+read-only question in that session about whether Task 1's per-record
+theme tagging could carry a per-record sentiment value, which would let
+this be computed deterministically over the full NPS pool instead of
+estimated by the model over a 6-candidate shortlist -- pending answer,
+recorded separately.
+
+---
+
+## R-024 Qualitative is_claimant used a narrower definition than the report's own "claimant"
+
+**Source:** self identified, while grounding R-006a's Part 6 base
+**Layer:** `code`
+**Priority:** medium
+**Status:** Implemented this session (session-6, 2026-08-20)
+
+**Current behaviour (before fix)**
+`qualitative/prepare_payload.py`'s `_build_response_record()` and
+`qualitative/parse_results.py`'s `_lookup_profile()` both computed
+`is_claimant` from `flag_paid_claimant` -- "claim was approved AND
+paid" (`data_loader/data_loader_derived.py`'s
+`compute_flag_paid_claimant()`). Every other "claimant" figure in this
+report -- `analysis_engine/segments.py`'s canonical `claimant` segment,
+Part 6's own "Claimant vs Non-Claimant Scorecard", `analysis_engine/
+sections/part_8.py`'s "Claims Experience is restricted to claimants
+(q_claim_submitted == True)" -- uses `q_claim_submitted`: simply
+whether a claim was submitted, regardless of outcome.
+
+`flag_paid_claimant` is a strict subset of `q_claim_submitted`: a
+claimant whose claim was denied or is still pending is a claimant by
+every definition used elsewhere in the report, but was silently
+excluded from the qualitative pipeline's own notion of "claimant" --
+affecting which verbatims got labelled/preferred as claimant quotes
+(Part 6's `prefer_segment: is_claimant`) and each verbatim's rendered
+profile, not only the sentiment base. Against
+`runs/lacro_final_check/`: `flag_paid_claimant` counts 49 claimants;
+`q_claim_submitted` counts 55 -- a 6-respondent gap, all claimants with
+a denied or still-pending claim.
+
+Found while computing Part 6's real population for R-006a's sentiment
+base: the qualitative pipeline's own number (49) disagreed with the
+report's own published "claimant" figure (55) for the same LACRO run.
+
+**Fix**
+Both sites changed to `q_claim_submitted`, matching the canonical
+definition. `prepare_payload.py`'s `_build_response_record()` (feeds
+verbatim candidate selection and sentiment population) and
+`parse_results.py`'s `_lookup_profile()` (feeds the rendered verbatim's
+profile metadata) now agree with each other and with every other
+"claimant" figure in the report.
+
+**Verification**
+- `assert qualitative/prepare_payload.py and qualitative/parse_results.py's is_claimant both key off q_claim_submitted, not flag_paid_claimant`
+- `assert a claimant with a denied or pending claim (q_claim_submitted=True, flag_paid_claimant=False) is counted as is_claimant=True`
+- Confirmed against real data: `runs/lacro_final_check/`'s claimant population reads 55 after the fix (`tests/test_parse_results.py::TestLookupProfile::test_is_claimant_uses_canonical_q_claim_submitted_not_flag_paid_claimant`)
 
 ---
 
