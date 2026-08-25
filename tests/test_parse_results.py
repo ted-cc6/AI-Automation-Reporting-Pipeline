@@ -428,6 +428,27 @@ class TestComputeStage2SentimentSplits:
         assert "product_understanding" in result["part1"]["all"]["selection_rule"]
         assert "excluding responses under 10 characters" in result["part1"]["all"]["selection_rule"]
 
+    def test_low_match_rate_gets_an_explicit_not_a_data_problem_clause(self):
+        # R-025 (docs/report_spec.md): a section with few matching themes
+        # relative to the tagged pool must not read as a data restriction.
+        tags = self._tags([
+            ["row_0000", ["product_understanding"], "positive"],  # part1's only match
+        ] + [
+            [f"row_{i:04d}", ["general_satisfaction"], "positive"] for i in range(1, 20)
+        ])  # 19 more tagged records that don't match part1 -> match rate 1/20 = 5%
+        part1 = compute_stage2_sentiment_splits(tags)["part1"]["all"]
+        assert part1["base_n"] == 1
+        assert part1["source_pool_n"] == 20
+        assert "not a data restriction" in part1["selection_rule"]
+
+    def test_high_match_rate_gets_no_extra_clause(self):
+        tags = self._tags([
+            ["row_0000", ["product_understanding"], "positive"],
+            ["row_0001", ["product_understanding"], "negative"],
+        ])  # 2 of 2 tagged records match part1 -> match rate 100%
+        part1 = compute_stage2_sentiment_splits(tags)["part1"]["all"]
+        assert "not a data restriction" not in part1["selection_rule"]
+
     def test_counts_always_sum_to_base_n(self):
         tags = self._tags([
             ["row_0000", ["product_understanding"], "positive"],

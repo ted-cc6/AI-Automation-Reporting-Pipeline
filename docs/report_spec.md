@@ -59,6 +59,10 @@ This file is the single source of truth for the next pipeline iteration. Every r
 | R-022 | self | data_config | Stale prior_run_id should fail loudly, not resolve silently | 1 |
 | R-023 | self | code | Sentiment split base is a model estimate, not a validated count -- SUPERSEDED by R-006a | 2 |
 | R-024 | self | code | Qualitative is_claimant used a narrower definition than the report's own "claimant" -- IMPLEMENTED | 2 |
+| R-025 | self | code | Claims-other pool reaches synthesis with no section routing | 3 |
+| R-026 | self | schema | Sentiment enum cannot express "neutral in tone, negative in substance" -- verified real, not a fix | 3 |
+| R-027 | self | code | Executive summary content silently discarded by a JSON-shape mismatch -- blocks R-013 | 1 |
+| R-028 | self | data_config | report_spec.yaml's model: key names a model this pipeline cannot reach | 3 |
 
 ---
 
@@ -187,6 +191,30 @@ Root cause, confirmed by converting the real Test9.docx to an actual PDF (via Wo
 Reconciled by building `fixtures/test9.txt` from the docx (reliable single-line-per-row table structure, immune to the PDF's word-wrap artifacts) but explicitly reconstructing Word's list numbering: every paragraph with style `"List Number"` gets a running counter prefix (`f"{n}. "`) in extraction order. Confirmed this is unambiguous for this document -- `"List Number"` style is used for exactly these 6 paragraphs and nowhere else, so a single global counter, not a per-numbering-definition one, exactly reproduces what Word renders. Result: **3 passed, 0 skipped, 4 advisory failures, 17 blocking failures** -- matching the user's own PDF-based count exactly, with every check's *reasoning* now correct rather than an artifact of which extraction path happened to preserve which formatting detail. Test9 is a complete, fully-populated report, so nothing skips against it; the 0-skip line is itself a coverage confirmation, the opposite of the session-2 partial-regeneration case above.
 
 This blocking-failure count (17) is the project's baseline progress metric going forward. It is pinned to `fixtures/test9.txt`, not to an ad hoc extraction, specifically so it stops moving for reasons unrelated to the report itself.
+
+**Baseline updated (session-8, 2026-08-2X) -- read this before citing "17 blocking" again.**
+`fixtures/test9.txt` now reports **3 passed, 3 skipped, 3 advisory
+failures, 15 blocking failures** against the current check suite, not
+17. The drop from 17 to 15 blocking (and 4 to 3 advisory) is **not**
+evidence of a defect fixed against Test9 -- Test9 itself has not
+changed, and nothing about the report it represents got better. It is
+entirely explained by C-006/C-007/C-008 becoming structural checks
+that read `qualitative_results.json` directly instead of searching
+rendered prose for the literal phrase "sentiment split" (see their own
+docstrings in `docs/report_checks.py`). Test9 predates R-006a
+entirely and has no `qualitative_results.json` at all, so all three
+now correctly **SKIP** ("no qualitative_results.json provided")
+instead of FAILing on a text-matching heuristic that happened to find
+the phrase in Test9's own (pre-R-006a, genuinely broken) sentiment
+prose. Two of the three were BLOCKING severity, one ADVISORY -- hence
+17->15 blocking, 4->3 advisory, and 0->3 skipped. State this plainly so
+nobody later reads the drop as progress: the 15 real blocking failures
+Test9 still exhibits are exactly the same 15 substantive defects as
+before (R-007, R-008, R-010, R-011, R-013's numbering, R-014's phrase,
+the unrendered visuals, and the rest) -- none of them were touched.
+**15 blocking failures is the baseline progress metric going forward**,
+superseding the 17 above for the same reason 17 itself was pinned: so
+it stops moving for reasons unrelated to the report itself.
 
 ---
 
@@ -1104,6 +1132,273 @@ profile metadata) now agree with each other and with every other
 - `assert qualitative/prepare_payload.py and qualitative/parse_results.py's is_claimant both key off q_claim_submitted, not flag_paid_claimant`
 - `assert a claimant with a denied or pending claim (q_claim_submitted=True, flag_paid_claimant=False) is counted as is_claimant=True`
 - Confirmed against real data: `runs/lacro_final_check/`'s claimant population reads 55 after the fix (`tests/test_parse_results.py::TestLookupProfile::test_is_claimant_uses_canonical_q_claim_submitted_not_flag_paid_claimant`)
+
+---
+
+## R-025 Claims-other pool reaches synthesis with no section routing
+
+**Source:** self identified, while evaluating whether Part 2's small
+R-006a Stage 2 base could be supplemented from `claim_no_reason_other`/
+`claim_challenges_other_support`
+**Layer:** `code`
+**Priority:** low
+**Status:** Decision made (Part 2), not started (sparse_other) -- see below
+
+**Current behaviour**
+The NPS pool is now deterministically routed to sections by segment
+(R-006a Stage 1: Parts 5/6) or theme code (Stage 2: Parts 1-4). The
+`claim_no_reason_other`, `claim_challenges_other_support`, and
+`sparse_other` groups have no equivalent routing at all -- they reach
+the synthesis call as three undifferentiated pools, tagged (where
+tagged at all) without any per-record section assignment, and only
+enter a section's output via the model's own Task 4A verbatim pick or
+Task 4B "material you reviewed" sentiment estimate, exactly the kind of
+model judgment R-006a's Stage 1/2 exists to replace for the NPS pool.
+
+**Decision: Part 2 (claims-specific pool) -- rejected on drift
+grounds, 2026-08-2X**
+Quantified against `runs/lacro_final_check/` (corrects an initial
+`~227` estimate, which wrongly lumped in `sparse_other`'s 144 records --
+coping mechanisms, income sources, and channel preference, none of
+which are claims content): `claim_no_reason_other` = 23,
+`claim_challenges_other_support` = 2 -- **25 claims-specific records
+total**, genuinely on-topic for Part 2 by construction. Of those 25,
+**24 (96%) already share a `row_id` with a record in the NPS pool**.
+Adding them to Part 2's base by source group would net **at most +25,
+and likely nearer +1 after deduplication**, against Part 4's roughly
+1,100-record base -- not a meaningful fix at any point on that range.
+Rejected because the cost is real (a second, source-based population
+rule alongside Part 2's existing theme-based one -- exactly the kind of
+per-section definition drift R-024 just found and fixed for
+`is_claimant`) and the benefit is not: **not pursued.**
+
+Part 2 ships at its Stage-2 theme-matched base (~50 projected pre-full-
+run) -- a large improvement on Test9's base of 7, and defensible as
+under-lying reality rather than a pipeline defect: most respondents
+answering "why did you give this score" describe general sentiment,
+not claims specifics, so a small Part 2 base is what the NPS follow-up
+question actually elicits. `compute_stage2_sentiment_splits()`'s
+`selection_rule` now says so explicitly whenever a section's match rate
+falls below 10% (`_STAGE2_LOW_MATCH_RATE_THRESHOLD`,
+`qualitative/parse_results.py`), so a small base is never read as a
+data problem without also being told why.
+
+**The larger, still-open gap: `sparse_other` (144 records, no tagging
+at all)**
+Six columns, all currently invisible to sentiment/theme routing:
+coping mechanisms, income sources, communication-channel preference,
+claim-channel preference, VF services received, child improvements.
+Unlike `claim_no_reason_other`/`claim_challenges_other_support`, these
+get **no theme codes and no sentiment anywhere in the pipeline** --
+synthesis Task 1 ("Claims Other Tagging") only reads the two
+claims-other groups; `sparse_other` is read directly by Task 4A
+(verbatim pick) and folded into Task 6's executive summary, but never
+classified. Several of these columns map naturally to sections that
+currently report no qualitative content of their own (income sources
+and coping mechanisms both relate to Part 3's financial-resilience
+territory; channel preference and services received don't map cleanly
+to any of the seven sections at all). Not for now, but flagged so it
+stays visible rather than being rediscovered from scratch.
+
+**Intended behaviour**
+Not decided for `sparse_other`. Options include: leave as is (stays
+model-judgment only, same as every section before R-006a existed);
+extend Stage 2-style theme tagging to `sparse_other` so it can
+participate in the same deterministic routing the NPS pool now has;
+or accept that its columns are too small and heterogeneous individually
+to warrant it. Whatever is decided, the asymmetry (NPS pool
+deterministic, `sparse_other` not) should be a stated design choice,
+not an unexamined gap.
+
+**Verification**
+- Part 2: `assert selection_rule states the low-match-rate context whenever match_rate < 0.10` (implemented, session-8)
+- `sparse_other`: not applicable until a direction is chosen
+
+---
+
+## R-026 The sentiment enum cannot express "neutral in tone, negative in substance"
+
+**Source:** self identified, investigating Part 1's real-tag sentiment distribution against `runs/lacro_final_check/`
+**Layer:** `schema`
+**Priority:** medium
+**Status:** Verified as a real finding, not a tagging artifact -- do not fix this session
+
+**Current behaviour**
+Part 1 (Product Understanding) is 90% neutral in its real, deterministic
+sentiment split: 421 of 467 records (25 positive, 21 negative, 421
+neutral) -- starkly different from every other section, which runs
+60-90% positive. This reads as contradicting the executive summary,
+which names product understanding as the largest driver of
+dissatisfaction: a section reporting near-total neutrality on exactly
+the topic the summary calls out as a dissatisfaction driver will
+confuse a reader left to reconcile the two unaided.
+
+**Verified as real (2026-08-2X), four independent checks, all
+converging:**
+1. Reading 20 random `product_understanding` + neutral records: the
+   large majority are flat statements of non-use or non-knowledge
+   ("no lo he usado," "no sé como funciona," "no tengo la informacion")
+   -- factually neutral in tone even though the substance is a real
+   information gap.
+2. Cross-tabulated against `nps_group`: neutral spreads across
+   promoters (81.8%, 81 of 99), passives (93.9%, 200 of 213), and
+   detractors (90.3%, 140 of 155) -- not concentrated in one group, which
+   rules out "detractors default to neutral" or "one group's terse
+   style skews the average" as the explanation. A promoter who scores
+   VisionFund 9-10 overall can still flatly report not knowing how the
+   coverage works.
+3. Word-count distribution: Part 1's neutral records run shorter than
+   Part 1's own positive records (median 7 vs 10 words) -- but the
+   direction **inverts** in Part 4 (neutral median 9, positive median
+   5 -- short responses skew POSITIVE there, e.g. "beneficios," "muy
+   bueno"). A generic "short response defaults to neutral" pipeline
+   artifact would skew the same direction in both sections; it does
+   not, so the length correlation is content-driven (blunt non-usage
+   statements are inherently short), not an artifact of the tagging
+   mechanism.
+4. 355 of 467 (76%) carry `product_understanding` as their ONLY theme
+   code -- the neutral signal is not diluted or produced by co-tagged,
+   unrelated content.
+
+**Additional finding: Part 1's base conflates two different things**
+Read qualitatively, roughly half the neutral sample is **non-usage**
+("no lo he ocupado" -- has not used the product, so has no basis to
+describe understanding of it) rather than **non-comprehension** ("no me
+dieron información" -- was given insurance but never had it explained).
+The `product_understanding` theme code absorbs both without
+distinction. Part 1's base is therefore not a pure "how well do clients
+understand the product" measure -- it mixes "never had occasion to find
+out" with "was never told." These likely warrant different narrative
+treatment and possibly different remediation (the first is arguably not
+a gap at all; the second is the dissatisfaction driver Lorenz's summary
+names). Worth splitting into two theme codes or two sub-populations in
+a future round -- not attempted this session.
+
+**Intended behaviour**
+Not decided. The sentiment enum (`positive`/`negative`/`neutral`) is a
+deliberate, simple design (R-006/R-006a) and expanding it (a fourth
+value, or a separate "substance" dimension alongside tone) is a real
+schema change with its own tradeoffs, not undertaken here. At minimum,
+**Part 1's narrative must state its neutral share explicitly and
+explain it** -- not just render the raw counts -- so a reader is not
+left reconciling "90% neutral" against the executive summary unaided.
+
+Requirement recorded here, not yet implemented: this session's run is
+an infrastructure smoke test (per instruction), and Part 1's narrative
+prose is generated by the existing, un-fixed pipeline -- `_build_
+sections_text()`'s `insight` branch (`generation/writer.py:428-440`)
+does not currently read a `note` field at all (it `continue`s before
+reaching the generic note-rendering code at `writer.py:492-495`, which
+only applies to the metric-leaf sections above it), so simply adding a
+`note:` key under Part 1's `insight:` block in `report_spec.yaml` would
+have no effect without a small code change first. Implementation is a
+future step, not this session's.
+
+**Verification**
+Not applicable until a direction is decided for the enum itself. The
+narrative-level mitigation (state and explain the neutral share) is
+verifiable once implemented: `assert Part 1's narrative states its
+neutral share and explains it, not just the raw counts`.
+
+---
+
+## R-027 Executive summary content silently discarded by a JSON-shape mismatch
+
+**Source:** self identified, session-8 full-pipeline smoke test against `runs/lacro_final_check/`
+**Layer:** `code`
+**Priority:** high
+**Status:** Not started -- logged only, no fix yet
+**Blocks:** R-013 -- no point rewiring the executive summary's inputs while its output is being dropped before it ever renders
+
+**Current behaviour**
+The synthesis call's `section_insights` output is only ever meant to
+contain `part1` through `part7`. This run, the model also nested full
+copies of `executive_summary`, `top_findings`, `top_actions`, and 2
+`protection_flags` *inside* `section_insights` -- while the correct
+**top-level** `executive_summary`/`top_findings`/`top_actions` came back
+empty (`""`, `[]`, `[]`). `parse_results.py`'s `_validate()` only checks
+that the required top-level keys are *present*, not that they are
+non-empty, so an empty string and an empty list both satisfy it
+trivially. `_check_section_insights()` sees the misplaced nested keys
+(`protection_flags`, `executive_summary`, `top_findings`, `top_actions`
+inside `section_insights`) and only logs a warning ("is not an
+object") -- it never relocates them.
+
+Result: the model generated genuinely good content --
+*"A critical gap in product understanding is the single largest driver
+of client dissatisfaction and non-use of the insurance..."* was sitting
+in `section_insights.top_findings[0]` -- and it was silently discarded.
+`qualitative_results.json`'s top-level `executive_summary`/
+`top_findings`/`top_actions` are empty; the rendered docx's Executive
+Summary section contains only the metrics table, no narrative, no Top
+Findings heading, no Recommended Actions heading.
+
+**The lost `protection_flags` matter more than the lost prose.** Two
+flags -- a `premium_without_consent` (high severity: *"I didn't know I
+was with the insurance"*) and an `unfair_claim_denial` (high severity)
+-- were generated by the synthesis call's own protection scan (Task 5,
+over `claim_no_reason_other`/`claim_challenges_other_support`/
+`sparse_other`) and lost the same way. This is a silent data-loss path
+into the client protection appendix, not just a missing narrative
+paragraph -- same class of defect as R-018 (a real client protection
+concern generated, then silently never reaching a human).
+
+**Intended behaviour**
+`_validate()` rejects empty required top-level keys (empty string,
+empty list) as a validation failure, not a satisfied presence check.
+Content found nested under `section_insights` at any of the four
+non-section keys (`protection_flags`, `executive_summary`,
+`top_findings`, `top_actions`) is relocated to the top level (merged
+with, not silently overwritten by, whatever the top-level key already
+holds) rather than only logged as a warning.
+
+**Verification**
+- A fixture with real content nested under `section_insights.
+  {protection_flags,executive_summary,top_findings,top_actions}` and
+  the corresponding top-level keys empty must render that content in
+  the correct (top-level) location, not discard it.
+- `assert parse_and_save() raises or fails loudly when a required
+  top-level key is empty, not merely absent`
+
+---
+
+## R-028 report_spec.yaml's model: key names a model this pipeline cannot reach
+
+**Source:** self identified, session-8 full-pipeline smoke test
+**Layer:** `data_config`
+**Priority:** medium
+**Status:** Not started -- logged only, no fix yet (worked around for this session's run only, not fixed in config)
+
+**Current behaviour**
+`generation/report_spec.yaml`'s top-level `model: "Claude Opus 4.8"`
+implies the report is written by Claude. `generation/run_generation.
+py`'s `main()` calls `write_all_parts(packages, run_id,
+model=spec["model"])` without ever passing `provider=`, so
+`write_all_parts()` defaults to `provider="gemini"` and sends the
+literal string `"Claude Opus 4.8"` to the Gemini endpoint as a model
+name -- an immediate `400 INVALID_ARGUMENT` ("unexpected model name
+format"). No `ANTHROPIC_API_KEY` is configured in this environment
+either, so even a corrected provider pairing would not currently run.
+Anyone reading `report_spec.yaml` alone would reasonably believe
+Claude wrote this report; nothing in the config or the CLI's own
+behaviour corrects that assumption before the call fails.
+
+**Which model actually wrote `runs/lacro_final_check/`'s report
+(recorded per instruction):** `gemini-2.5-pro`, substituted for this
+session's run only, outside `report_spec.yaml` (a standalone script
+overrode `model=` and `provider="gemini"` directly when calling
+`write_all_parts()`; the committed config file was not edited).
+
+**Intended behaviour**
+Not decided; not fixed this session. Either `report_spec.yaml` gains a
+`provider:` key that actually drives which endpoint `write_all_parts()`
+calls (so the config is the single source of truth for both), or the
+`model:` key is removed/replaced with something that matches what the
+pipeline can actually reach, so the config never again describes a
+report that was not, in fact, generated the way it says.
+
+**Verification**
+Not applicable until a direction is chosen.
 
 ---
 

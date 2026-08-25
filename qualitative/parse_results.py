@@ -351,6 +351,15 @@ def compute_stage1_sentiment_splits(nps_tags: dict, df: pd.DataFrame) -> dict:
 
 _STAGE2_SECTIONS = ("part1", "part2", "part3", "part4")
 
+# Below this match rate (base_n / source_pool_n), a section's
+# selection_rule gets an explicit "this is what the NPS prompt elicits,
+# not a data restriction" clause -- see its use below. Chosen from the
+# session-8 smoke test's real numbers (Part 2's ~3% match rate; Part 1's
+# ~20% did not read as needing the caveat), not a precisely derived
+# cutoff -- revisit if a future wave's distribution makes it fire (or
+# fail to fire) somewhere that reads wrong.
+_STAGE2_LOW_MATCH_RATE_THRESHOLD = 0.10
+
 
 def _load_theme_section_map() -> dict:
     """{section_key: set(theme_codes)} for every report_sections entry
@@ -402,12 +411,29 @@ def compute_stage2_sentiment_splits(nps_tags: dict) -> dict:
                 counts[sentiment] += 1
 
         codes_str = ", ".join(sorted(section_codes)) if section_codes else "(none configured)"
+        base_n_value = sum(counts.values())
         selection_rule = (
             f"NPS follow-up responses tagged with a theme mapped to this "
             f"section ({codes_str}), excluding responses under "
-            f"{min_text_length} characters; {sum(counts.values())} of "
+            f"{min_text_length} characters; {base_n_value} of "
             f"{source_pool_n} tagged responses qualify."
         )
+        # A low match rate is a fact about what the NPS follow-up prompt
+        # ("why did you give this score?") elicits -- most respondents
+        # default to general sentiment, not this section's specific
+        # topic -- not a sign the pipeline under-tagged or restricted the
+        # data (R-025, docs/report_spec.md: found for Part 2, generalised
+        # here since any Stage-2 section could land here on a future
+        # wave). Stated explicitly so a small base is never misread as a
+        # defect.
+        match_rate = (base_n_value / source_pool_n) if source_pool_n else 0.0
+        if match_rate < _STAGE2_LOW_MATCH_RATE_THRESHOLD:
+            selection_rule += (
+                " Most NPS follow-up responses describe general sentiment "
+                "rather than this section's specific topic; a low base "
+                "here reflects what the question elicits, not a data "
+                "restriction."
+            )
 
         results[section_key] = _wrap_single_group(
             _finalize_split(section_key, counts, source_pool_n, selection_rule)

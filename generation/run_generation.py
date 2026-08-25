@@ -15,6 +15,7 @@ import sys
 from pathlib import Path
 
 import yaml
+from dotenv import load_dotenv
 
 from generation.orchestrator import preflight_check, orchestrate
 from generation.writer import write_all_parts
@@ -29,6 +30,12 @@ logging.basicConfig(
 log = logging.getLogger(__name__)
 
 ROOT = Path(__file__).parent.parent
+
+# Same gap as qualitative/run_qualitative.py and dashboard/api/
+# pipeline_runner.py (fixed session-8): a .env file at the project root
+# was not previously picked up here either -- write_all_parts() falls
+# back to os.environ.get("GEMINI_API_KEY") same as qualitative/llm_call.py.
+load_dotenv(ROOT / ".env")
 
 
 def parse_args():

@@ -38,6 +38,10 @@ Implementation note for the full investigation.
 Usage:
     python report_checks.py fixtures/test9.txt
     python report_checks.py new_run.txt --compare fixtures/test9.txt
+    python report_checks.py new_run.txt --qual-json runs/<run_id>/qualitative_results.json
+        # feeds C-006/C-007/C-008's structural sentiment_split checks
+        # (session-8) a real qualitative_results.json; omitted, those
+        # three SKIP rather than fail -- see their own docstrings.
 
 Severity:
     BLOCKING  a defect a reader would notice. Fails the build.
@@ -71,6 +75,8 @@ Result (three states, not two):
 
 from __future__ import annotations
 
+import inspect
+import json
 import re
 import sys
 from dataclasses import dataclass, field
@@ -106,11 +112,20 @@ class Registry:
             return fn
         return wrap
 
-    def run(self, text: str) -> list[CheckResult]:
+    def run(self, text: str, qual_results: "dict | None" = None) -> list[CheckResult]:
+        """qual_results: parsed qualitative_results.json for the run being
+        checked, if available -- only passed to checks that declare a
+        qual_results parameter (session-8: C-006/C-007/C-008 became
+        structural checks against this JSON rather than rendered prose;
+        see their own docstrings for why). Every other check's signature
+        is untouched and keeps receiving text only."""
         results = []
         for check_id, requirement, severity, fn in self.checks:
             try:
-                ok, detail = fn(text)
+                kwargs = {}
+                if "qual_results" in inspect.signature(fn).parameters:
+                    kwargs["qual_results"] = qual_results
+                ok, detail = fn(text, **kwargs)
             except Exception as exc:  # a check that errors is a failed check
                 ok, detail = False, f"check raised: {exc}"
             status = SKIP if ok is None else (PASS if ok else FAIL)
@@ -425,92 +440,122 @@ def trend_table_declares_comparability(text: str):
 
 # ------------------------------------------------------------ Phase 2: schema
 
-# Shared by C-006 and C-007 (session-8): a sentiment split's stated base
-# is expected to echo whichever population noun its selection_rule used
-# (R-006a's Stage 1/2/Part 7 wording: "caregivers", "claimants",
-# "women"/"men", or the generic "responses") -- not always literally
-# "responses", so this is broadened beyond that one word.
-_SENTIMENT_BASE_PATTERN = re.compile(
-    r"\b(of|from|across)\b.{0,60}\b(responses?|respondents?|caregivers?|claimants?|women|men)\b",
-    re.IGNORECASE,
+# C-006/C-007/C-008 moved from TEXT to STRUCTURAL checks (session-8): they
+# now read qualitative_results.json's section_insights[*].sentiment_split
+# directly (R-006a's uniform nested {group: {positive, negative, neutral,
+# base_n, source_pool_n, selection_rule}} shape, docs/report_spec.md),
+# rather than searching rendered prose for the literal phrase "sentiment
+# split". That phrase is prompt-internal terminology (_fmt_insight_
+# summary()'s own label in generation/writer.py) -- nothing instructs the
+# writer LLM to reproduce it verbatim in its narrative. Against a real
+# full-pipeline run (session-8, runs/lacro_final_check/), the model
+# paraphrased every section differently ("showed mixed sentiment",
+# "sentiment was overwhelmingly positive", "Analysis shows women were more
+# likely...") and never once used the two-word phrase -- so all three
+# checks reported SKIP against content that was, in fact, present,
+# correct, and (for Part 7) demonstrating the cross-group comparison
+# instruction working exactly as designed. A prose-matching heuristic
+# cannot reliably verify a guarantee the PIPELINE is responsible for
+# producing; reading the JSON the pipeline actually writes is the direct
+# check, not an indirect proxy through whatever words the writer LLM
+# happens to choose. All three now return SKIP (None) when no
+# qualitative_results.json is available (fixtures/test9.txt predates
+# R-006a entirely and has none) or when it has no sentiment_split content
+# at all -- nothing to check, not a failure, same SKIP semantics as
+# every other check in this file. Pass a parsed qualitative_results.json
+# via Registry.run(text, qual_results=...) / main()'s --qual-json flag.
+
+def _iter_sentiment_groups(qual_results: "dict | None"):
+    """Yields (section, group_label, group_dict) for every group in every
+    section's sentiment_split -- shared traversal for C-006/C-007/C-008."""
+    if not qual_results:
+        return
+    si = qual_results.get("section_insights") or {}
+    for section, entry in si.items():
+        if not isinstance(entry, dict):
+            continue
+        split = entry.get("sentiment_split")
+        if not isinstance(split, dict):
+            continue
+        for group_label, group in split.items():
+            yield section, group_label, group
+
+
+_SENTIMENT_SPLIT_REQUIRED_KEYS = (
+    "positive", "negative", "neutral", "base_n", "source_pool_n", "selection_rule",
 )
 
 
 @reg.add("C-006", "R-006", BLOCKING)
-def sentiment_percentage_paired_with_count_and_base(text: str):
-    """A sentiment percentage, if stated, is always paired with its count
-    and its stated base.
+def sentiment_split_has_required_fields(text: str, qual_results: "dict | None" = None):
+    """STRUCTURAL (session-8, moved from text -- see module note above).
 
-    Revised session-8, per Lorenz: the original rule ("never emit a
-    percentage for sentiment") answered LM7's actual concern -- an
-    unstated, unverified base dressed up as a percentage -- with a
-    blanket ban that stopped applying once R-006a made the base real,
-    code-computed, and stated. A percentage is now permitted once
-    base_n >= 10 (docs/report_spec.md's R-006a, percentage rule
-    revision); what still must never happen is a bare percentage with no
-    count or base alongside it.
-
-    Grouped sections (R-006a Part 7's female/male, session-8's uniform
-    nested sentiment_split shape) are expected to produce more than one
-    "sentiment split" mention in prose, one per group -- _find_all()
-    already returns every occurrence, so each group's window is checked
-    independently; no shape-specific branching is needed here.
+    Every group in every section's sentiment_split carries all six
+    SentimentSplit fields (docs/report_spec.md's R-006a Rule):
+    positive, negative, neutral, base_n, source_pool_n, selection_rule.
     """
-    hits = _find_all(text, r"sentiment split[^.]{0,200}")
-    if not hits:
-        return None, "no sentiment splits found"
+    groups = list(_iter_sentiment_groups(qual_results))
+    if not groups:
+        return None, "no qualitative_results.json provided, or no sentiment splits found in it"
     bad = []
-    for h in hits:
-        if "%" not in h:
+    for section, group_label, group in groups:
+        if not isinstance(group, dict):
+            bad.append(f"{section}.{group_label}: not an object")
             continue
-        has_paired_count = re.search(r"\d+\s*\(\s*\d{1,3}\s*%\s*\)", h)
-        has_base = _SENTIMENT_BASE_PATTERN.search(h)
-        if not (has_paired_count and has_base):
-            bad.append(h)
+        missing = [k for k in _SENTIMENT_SPLIT_REQUIRED_KEYS if k not in group]
+        if missing:
+            bad.append(f"{section}.{group_label}: missing {missing}")
     if bad:
-        return False, f"{len(bad)} sentiment percentage(s) not paired with both a count and a stated base: {bad[0][:110]}"
+        return False, f"{len(bad)} of {len(groups)} group(s) missing required fields: {bad[0]}"
     return True, ""
 
 
 @reg.add("C-007", "R-006", BLOCKING)
-def sentiment_states_its_base(text: str):
-    """Every sentiment split states the pool it was drawn from.
+def sentiment_split_counts_are_internally_consistent(text: str, qual_results: "dict | None" = None):
+    """STRUCTURAL (session-8, moved from text -- see module note above).
 
-    Guards the Test9 failure mode where a split is reported with no
-    indication of how 1,948 free text responses became 7.
-
-    Grouped sections (session-8, R-006a's uniform nested sentiment_split
-    shape -- Part 7's female/male) are expected to produce multiple
-    "sentiment split" mentions, one per group, each with its OWN base --
-    checked independently per hit, same as before; a grouped section is
-    not a special case here, it just produces more hits.
+    positive + negative + neutral == base_n, and base_n <= source_pool_n,
+    for every group in every section -- the two numeric guarantees the
+    SentimentSplit model (docs/report_spec.md's R-006a) exists to make.
+    Guards the Test9 failure mode (a split reported with no traceable,
+    internally-consistent base) directly at the data level, not by
+    inferring it from prose.
     """
-    hits = _find_all(text, r"sentiment split[^.]{0,200}")
-    if not hits:
-        return None, "no sentiment splits found"
-    missing = [h for h in hits if not _SENTIMENT_BASE_PATTERN.search(h)]
-    if missing:
-        return False, f"{len(missing)} of {len(hits)} splits do not state a base"
+    groups = list(_iter_sentiment_groups(qual_results))
+    if not groups:
+        return None, "no qualitative_results.json provided, or no sentiment splits found in it"
+    bad = []
+    for section, group_label, group in groups:
+        if not isinstance(group, dict) or not all(k in group for k in _SENTIMENT_SPLIT_REQUIRED_KEYS):
+            continue  # structural problem already caught by C-006
+        total = group["positive"] + group["negative"] + group["neutral"]
+        if total != group["base_n"]:
+            bad.append(f"{section}.{group_label}: counts sum to {total}, base_n={group['base_n']}")
+        if group["base_n"] > group["source_pool_n"]:
+            bad.append(f"{section}.{group_label}: base_n={group['base_n']} exceeds source_pool_n={group['source_pool_n']}")
+    if bad:
+        return False, f"{len(bad)} group(s) fail count/base consistency: {bad[0]}"
     return True, ""
 
 
 @reg.add("C-008", "R-006", ADVISORY)
-def sentiment_base_is_not_implausibly_small(text: str, floor: int = 25):
-    """Flag sentiment bases far below the available pool.
+def sentiment_base_is_not_implausibly_small(text: str, qual_results: "dict | None" = None, floor: int = 25):
+    """STRUCTURAL (session-8, moved from text -- see module note above).
 
-    LACRO has 1,948 free text responses. Bases of 3 to 10 indicate a
-    nomination cap or an over restrictive filter, not a small dataset.
+    Flags a group whose base_n is far below what's plausible for LACRO's
+    real pool size. Advisory, not blocking: a genuinely small population
+    (e.g. Part 6's 55 claimants) is expected and already explained by its
+    own selection_rule -- a human reviews a flagged case rather than this
+    check rejecting it outright.
     """
-    counts = []
-    for h in _find_all(text, r"sentiment split[^.]{0,200}"):
-        nums = [int(n) for n in re.findall(r"\b(\d{1,4})\b", h)]
-        if nums:
-            counts.append(sum(n for n in nums if n < 500))
-    if not counts:
-        return None, "no sentiment splits found"
-    tiny = [c for c in counts if c < floor]
+    groups = list(_iter_sentiment_groups(qual_results))
+    if not groups:
+        return None, "no qualitative_results.json provided, or no sentiment splits found in it"
+    tiny = [f"{section}.{group_label}={group['base_n']}"
+            for section, group_label, group in groups
+            if isinstance(group, dict) and "base_n" in group and group["base_n"] < floor]
     if tiny:
-        return False, f"{len(tiny)} of {len(counts)} sentiment bases below {floor}: {sorted(tiny)}"
+        return False, f"{len(tiny)} of {len(groups)} sentiment bases below {floor}: {tiny}"
     return True, ""
 
 
@@ -774,11 +819,26 @@ def editorial_phrase_removed(text: str):
 
 # ------------------------------------------------------ cross cutting guards
 
+# Matches generation/writer.py's VOICE RULES instruction verbatim: "The
+# percentages across all categories you mention must sum to approximately
+# 100% (allow +/-1% for rounding only)." Session-8: this check previously
+# allowed only +/-0.5%, stricter than what the writer is actually told is
+# acceptable -- a correctly-rounded, instruction-compliant distribution
+# (Part 6's real 45/53=84.9% -> 85%, 4/53=7.5% -> 8%, 4/53=7.5% -> 8%,
+# summing to 101%, each figure independently and correctly rounded) failed
+# a check enforcing a tighter tolerance than its own target. Widened to
+# match; still catches a genuine defect outside +/-1% (e.g. the
+# 55/40/8=103 case this check was originally built for).
+_PCT_SUM_TOLERANCE = 1.0
+
+
 @reg.add("C-021", "cross", BLOCKING)
 def percentages_sum_to_about_one_hundred(text: str):
     """Distribution splits sum to 100 within rounding.
 
     Catches the 55/40/8 = 103 defect seen in an earlier iteration.
+    Tolerance matches writer.py's own VOICE RULES instruction (+/-1%,
+    session-8) -- see _PCT_SUM_TOLERANCE.
     """
     bad = []
     found_any = False
@@ -789,7 +849,9 @@ def percentages_sum_to_about_one_hundred(text: str):
         found_any = True
         total = sum(pcts)
         # only a complete distribution should land near 100
-        if 100.5 < total < 108 or 92 < total < 99.5:
+        hi = 100 + _PCT_SUM_TOLERANCE
+        lo = 100 - _PCT_SUM_TOLERANCE
+        if hi < total < 108 or 92 < total < lo:
             bad.append(f"{pcts} sums to {total:.1f}")
     if bad:
         return False, "; ".join(bad[:3])
@@ -834,7 +896,18 @@ def main() -> int:
         print(__doc__)
         return 2
     text = open(sys.argv[1], encoding="utf-8").read()
-    results = reg.run(text)
+
+    # --qual-json PATH: optional, feeds C-006/C-007/C-008's structural
+    # checks (session-8) a real qualitative_results.json. Omitted (or the
+    # text file predates R-006a, e.g. fixtures/test9.txt) -> those three
+    # SKIP rather than fail, same as any other check with nothing to check.
+    qual_results = None
+    if "--qual-json" in sys.argv:
+        idx = sys.argv.index("--qual-json")
+        qual_json_path = sys.argv[idx + 1]
+        qual_results = json.loads(Path(qual_json_path).read_text(encoding="utf-8"))
+
+    results = reg.run(text, qual_results=qual_results)
 
     width = max(len(r.check_id) for r in results)
     print(f"\n{'CHECK':<{width}}  {'REQ':<7} {'SEV':<9} {'RESULT':<7} DETAIL")
