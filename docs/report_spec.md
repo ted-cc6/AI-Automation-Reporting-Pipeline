@@ -1563,30 +1563,124 @@ new LLM call) with the fixed `assembler.py`, re-extracted, re-ran
 
 ---
 
-## R-011 Non filer renamed to non claimant
+## R-011 Non filer / non claimant: state the population, not a single word
 
 **Source:** LM10, "Change non-filer to non-claimants"
 **Layer:** `code`
 **Priority:** low
+**Status:** Implemented (session-10) -- **supersedes the literal LM10 request, with reason**
 
-**Current behaviour**
-The term "non filer" appears in the Part 6 heading, the scorecard column header, the findings prose and the section introduction.
+**Conflict discovered (session-10)**
+R-011 was logged straight from LM10 ("Change non-filer to non-claimants")
+without cross-referencing this codebase's own history with that exact
+rename. "Non-Claimant" was the *original* Part 6 label. It was
+deliberately replaced by "Non-Filer" after a real generated report
+showed the label caused a genuine misreading: the group it names (n=69)
+is clients who experienced an insured event but chose not to file a
+claim, not the ~1,666 clients who never had a claimable event at all --
+`q_claim_submitted` is only ever asked of respondents who already
+reported an insured event (a skip-logic gate), so a plain boolean mask
+can never reach the much larger never-asked population. The real report
+that surfaced this labelled the group "Non-Claimant" and showed its NPS
+(37.7) directly beside the portfolio-wide NPS (48.3) as though the two
+were comparable -- they describe different populations entirely. See
+`docs/maintenance/known-issues-log.md:71-81` and
+`analysis_engine/sections/part_6.py`'s module docstring for the full
+history. Implementing R-011 as originally written would have
+reintroduced exactly this defect.
 
-**Intended behaviour**
-A single label constant supplies the term everywhere. Renaming is a one line change.
+**Intended behaviour (revised)**
+The underlying reviewer concern is real and independent of which single
+word is chosen: "Non-Filer" is opaque to a reader -- it doesn't say what
+population it names, any more than "Non-Claimant" did. The earlier fix
+addressed *scope confusion* by swapping labels; it never addressed that
+neither label states the population. That is the actual fix: keep the
+group distinct from the broad "never had a claimable event" population,
+but make that population self-evident in the header itself, plus an
+explicit note beneath the table, rather than relying on a reader to
+infer it from one word.
 
 **Rule**
 ```python
+# analysis_engine/sections/part_6.py
 LABEL_CLAIMANT = "Claimant"
-LABEL_NON_CLAIMANT = "Non-claimant"   # was "Non-Filer"
-PART6_TITLE = f"{LABEL_CLAIMANT} vs. {LABEL_NON_CLAIMANT} Outcomes"
+QUALIFIER_CLAIMANT = "filed"
+LABEL_NON_FILER = "Did not file"
+# groups: {"claimant": {"label": LABEL_CLAIMANT, "n": n_a, "qualifier": QUALIFIER_CLAIMANT},
+#          "non_claimant": {"label": LABEL_NON_FILER, "n": n_b}}
 ```
+Rendered column headers (`generation/assembler.py`'s `_group_header()`,
+extended with an optional `qualifier` that folds into the same
+parenthetical as `n` -- Parts 5/7 don't set it, so their headers are
+unchanged): `"Claimant (filed, n=55)"` / `"Did not file (n=69)"`. A
+static note renders directly beneath the Part 6 table: *"Both groups
+above are restricted to clients who reported an insured event in the
+past 12 months; neither describes clients who never faced a claimable
+event during that period."* This note is code-level (always rendered,
+not dependent on the model complying), matching R-010's same reasoning
+for why suppression/required content shouldn't be a prompt-only ask.
 
-Do not implement as a find and replace across generated text, since the generator may produce the term in prose it writes itself. Pass the constants into the section prompt as the required terminology.
+The wording ("Claimant (filed)" / "Did not file") is a placeholder
+pending Lorenz's confirmation -- the requirement is that a reader cannot
+mistake the population, not these exact words. If a different phrasing
+is agreed, only the label constants in `part_6.py` change; the
+qualifier-folding mechanism in `_group_header()` and the population note
+in `build_part_6()` do not.
+
+Not implemented as a find-and-replace across generated text: the model
+can still produce this terminology in its own prose (the Part 6
+narrative), so `generation/writer.py`'s `_build_part_prompt()` passes
+the same `LABEL_CLAIMANT`/`QUALIFIER_CLAIMANT`/`LABEL_NON_FILER`
+constants into the prompt's SCORECARD TABLE header, and
+`report_spec.yaml`'s Part 6 narrative note explicitly forbids the model
+from using "Non-Filer" or "Non-Claimant" in its own writing. All
+`report_spec.yaml` population footnotes and Part 2's cross-reference to
+this group were updated to "did-not-file" for the same reason (they
+render into the final text and would otherwise reintroduce the retired
+term).
 
 **Verification**
-- `assert "non-filer" not in report_text.lower()`
-- `assert "non filer" not in report_text.lower()`
+- `tests/test_part_6.py::TestPartSixGroupLabels::test_group_labels_state_the_population` --
+  `calculate()` returns `LABEL_CLAIMANT`/`qualifier="filed"`/`LABEL_NON_FILER`,
+  neither "Non-Claimant" nor "Non-Filer" present.
+- `tests/test_orchestrator.py::TestBuildScorecard6::test_group_labels_state_the_population_not_a_bare_word` --
+  `group_a_label`/`group_b_label` (unread by the renderer, kept only for
+  row-shape parity) match the same constants.
+- `tests/test_assembler.py::TestGroupHeader` (4 cases: qualifier folds
+  into one parenthetical, no-qualifier behaviour unchanged for
+  Parts 5/7, no `n` falls back to a bare label, missing group key uses
+  the fallback label) and `TestBuildPart6` (3 cases: headers state the
+  population inline, the population-scope note renders beneath the
+  table, no retired label appears anywhere in the rendered output).
+- `docs/report_checks.py`'s C-016, rewritten (see below) rather than
+  reused as-is, since its old form asserted the literal outcome R-011
+  originally specified (an outcome now known to be wrong).
+
+**C-016 rewritten**
+Previously: fails if "non filer"/"non-filer" appears anywhere (i.e.
+asserted the LM10 rename to "non-claimant" happened). Now: fails if
+EITHER retired label ("non-filer" or "non-claimant", any spacing/hyphen
+variant) appears anywhere; separately asserts the population-scope note
+text is present whenever a `"did not file"` header is found (SKIPs, not
+passes, when Part 6 isn't present at all -- same "nothing to check
+shouldn't count as a pass" principle as every other structural check in
+this suite).
+
+**Confirmed against real data**
+Re-ran `analysis_engine`'s Part 6 (`run_analysis.py --run-id
+lacro_final_check --prior-run-id lacro_2025_pooled`, the same prior-run
+argument the original run used, confirmed by diffing the full
+before/after `analysis_results.json` -- the ONLY substantive difference
+anywhere in the file is `parts.part_6.groups` gaining the new label/
+qualifier; Part 10's trend comparison and every other section are
+byte-identical). Re-assembled the `.docx` from that plus the existing
+`written_texts.json` (Phase 4 only, no new LLM call), re-extracted,
+re-ran `docs/report_checks.py`: **C-016 flips FAIL -> pass**; blocking
+failures for this extraction: 6 -> 5. Rendered table confirmed by direct
+inspection: `Claimant (filed, n=55) | Did not file (n=69)` header, with
+the population note immediately beneath the table before the `* p <
+0.05` legend. `fixtures/test9.txt` (frozen, not regenerated) is
+unchanged as expected.
 
 ---
 

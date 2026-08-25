@@ -300,12 +300,15 @@ class TestBuildScorecard6:
         assert rows[0]["group_a_value"] == "NOT APPLICABLE"
         assert rows[0]["group_b_value"] == "64.0%"
 
-    def test_group_b_label_is_non_filer_not_non_claimant(self):
+    def test_group_labels_state_the_population_not_a_bare_word(self):
         # _B (JSON key "non_claimant") is clients who experienced an insured
-        # event but did not file, not the full never-claimed population --
+        # event but did not file, not the full never-claimed population.
         # "Non-Claimant" invited exactly that misreading in a real generated
         # report (its NPS read as directly comparable to the whole-portfolio
-        # NPS, a different population). The JSON key stays "non_claimant"
+        # NPS, a different population); "Non-Filer" fixed the scope
+        # confusion but was itself opaque about what population it named
+        # (R-011, session-10) -- both are retired in favour of labels that
+        # state the population directly. The JSON key stays "non_claimant"
         # for path stability; only the display label changed.
         analysis = {"parts": {"part_6": {"metrics": {"worth_premium": {
             "claimant": {"value": 0.58, "suppressed": False, "not_applicable": False},
@@ -313,8 +316,8 @@ class TestBuildScorecard6:
             "significance": {"p_value": 0.02},
         }}}}}
         rows = _build_scorecard_6(analysis, self._SPEC)
-        assert rows[0]["group_a_label"] == "Claimant"
-        assert rows[0]["group_b_label"] == "Non-Filer"
+        assert rows[0]["group_a_label"] == "Claimant (filed)"
+        assert rows[0]["group_b_label"] == "Did not file"
 
     def test_population_is_omitted_for_lacro_scope(self):
         spec = [{**self._SPEC[0], "population": {

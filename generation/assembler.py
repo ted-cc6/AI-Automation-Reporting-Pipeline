@@ -162,11 +162,21 @@ def _add_insight_box(doc, insight_text: str, verbatims: list):
 
 
 def _group_header(groups: dict, key: str, fallback_label: str) -> str:
-    """Column header for a scorecard table group, e.g. 'Claimant (n=1,922)'."""
+    """Column header for a scorecard table group, e.g. 'Claimant (n=1,922)',
+    or 'Claimant (filed, n=55)' when the group dict carries an optional
+    "qualifier" (R-011, docs/report_spec.md, session-10) -- Part 6 uses this
+    to state each group's population inline in the header itself, rather
+    than a single word ("Non-Filer") a reader has to infer meaning from.
+    Parts 5/7 don't set "qualifier", so this is unchanged for them."""
     g = groups.get(key, {})
     label = g.get("label", fallback_label)
     n = g.get("n")
-    return f"{label} (n={n:,})" if isinstance(n, int) else label
+    qualifier = g.get("qualifier")
+    if isinstance(n, int):
+        if qualifier:
+            return f"{label} ({qualifier}, n={n:,})"
+        return f"{label} (n={n:,})"
+    return label
 
 
 def _add_drivers_table(doc, section: dict):
@@ -808,7 +818,7 @@ def build_part_5(doc, package: dict, texts: dict):
 
 
 # ---------------------------------------------------------------------------
-# Part 6 — Claimant vs Non-Claimant
+# Part 6 — Claimant vs Did Not File
 # ---------------------------------------------------------------------------
 
 def build_part_6(doc, package: dict, texts: dict):
@@ -820,8 +830,8 @@ def build_part_6(doc, package: dict, texts: dict):
     if scorecard:
         groups = package.get("groups", {})
         headers = ["Metric",
-                   _group_header(groups, "claimant", "Claimant"),
-                   _group_header(groups, "non_claimant", "Non-Filer"),
+                   _group_header(groups, "claimant", "Claimant (filed)"),
+                   _group_header(groups, "non_claimant", "Did not file"),
                    "Sig.*"]
         rows, footnotes = [], []
         for row in scorecard:
@@ -835,6 +845,17 @@ def build_part_6(doc, package: dict, texts: dict):
                 footnotes.append(f"‡ {row['label']}: {row['sig_test_note']}")
             rows.append([label, row["group_a_value"], row["group_b_value"], sig_mark])
         _add_table(doc, headers, rows)
+        # R-011 (docs/report_spec.md, session-10): "Non-Claimant" and
+        # "Non-Filer" were each tried and found to let a reader infer the
+        # wrong population on their own (see part_6.py's module docstring).
+        # Stating the population directly, rather than trusting the column
+        # header alone to carry it, is the actual fix.
+        _add_paragraph(
+            doc,
+            "Both groups above are restricted to clients who reported an "
+            "insured event in the past 12 months; neither describes "
+            "clients who never faced a claimable event during that period."
+        )
         _add_paragraph(doc, "* p < 0.05 (chi-squared or Fisher's exact test)")
         for fn in footnotes:
             _add_paragraph(doc, fn)

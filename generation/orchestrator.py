@@ -8,6 +8,7 @@ from pathlib import Path
 
 import yaml
 
+from analysis_engine.sections.part_6 import LABEL_CLAIMANT, LABEL_NON_FILER, QUALIFIER_CLAIMANT
 from utils import get_nested, format_value, format_p_value
 
 log = logging.getLogger(__name__)
@@ -333,16 +334,20 @@ def _build_scorecard_6(analysis: dict, scorecard_spec: list) -> list:
         sig   = (p_val is not None and p_val < 0.05)
         rows.append({
             "label":         m["label"],
-            "group_a_label": "Claimant",
+            "group_a_label": f"{LABEL_CLAIMANT} ({QUALIFIER_CLAIMANT})",
             "group_a_value": val_a,
-            # Not "Non-Claimant": this group is clients who experienced an
-            # insured event but chose not to file (n = insured_event_base
-            # minus claimants -- see part_6.py's calculate()), NOT the much
-            # larger population who simply never had a claimable event.
-            # "Non-Claimant" invited exactly that misreading in a real
-            # generated report (its NPS 37.7 read as directly comparable to
-            # the portfolio's own 48.3, which covers everyone).
-            "group_b_label": "Non-Filer",
+            # R-011: not "Non-Claimant" -- this group is clients who
+            # experienced an insured event but chose not to file (n =
+            # insured_event_base minus claimants -- see part_6.py's
+            # calculate()), NOT the much larger population who simply
+            # never had a claimable event. "Non-Claimant" invited exactly
+            # that misreading in a real generated report (its NPS 37.7
+            # read as directly comparable to the portfolio's own 48.3,
+            # which covers everyone). See part_6.py's module docstring for
+            # the full history and generation/writer.py's part_6 prompt
+            # branch and assembler.py's build_part_6() for where this
+            # terminology is actually surfaced to a reader.
+            "group_b_label": LABEL_NON_FILER,
             "group_b_value": val_b,
             "sig_p":         p_val,
             "significant":   sig,

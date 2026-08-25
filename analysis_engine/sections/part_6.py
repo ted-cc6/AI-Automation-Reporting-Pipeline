@@ -1,4 +1,4 @@
-"""analysis_engine/sections/part_6.py — Part 6: Claimant vs Non-Filer Scorecard.
+"""analysis_engine/sections/part_6.py — Part 6: Claimant vs Did-Not-File Scorecard.
 
 _B's population ("non_claimant" internally -- the JSON key is unchanged for
 API/path stability, only its display label changed) is clients who
@@ -13,6 +13,14 @@ silently excluded from this whole comparison, not folded into _B. A real
 generated report labelled _B "Non-Claimant" and showed its NPS (37.7)
 right next to the portfolio-wide NPS (48.3) as if they were directly
 comparable -- they describe different populations entirely.
+
+R-011 (session-10): "Non-Filer" fixed that scope confusion but is itself
+opaque -- a reader still cannot tell what population it names from the
+word alone. LABEL_CLAIMANT/QUALIFIER_CLAIMANT/LABEL_NON_FILER below state
+the population directly in the rendered column header instead ("Claimant
+(filed, n=55)" / "Did not file (n=69)"); generation/assembler.py's
+build_part_6() also renders an explicit note beneath the table stating
+both groups are restricted to clients who reported an insured event.
 """
 import logging
 
@@ -35,6 +43,20 @@ COL_CHILD_WELLBEING             = "q_child_wellbeing"
 
 _A = "claimant"
 _B = "non_claimant"
+
+# R-011 (docs/report_spec.md, session-10): "Non-Claimant" was tried and
+# retracted (see docs/maintenance/known-issues-log.md:71-81 and this
+# module's own docstring) because the label alone let a reader infer the
+# much larger population who never had a claimable event at all.
+# "Non-Filer" fixed the scope confusion but traded it for a label opaque
+# about what the group actually is. Neither single word states the
+# population; stating it directly, rather than trusting a reader to
+# infer it from one word, is the actual fix -- see _group_header() in
+# generation/assembler.py for how QUALIFIER_CLAIMANT folds into the
+# rendered column header ("Claimant (filed, n=55)").
+LABEL_CLAIMANT = "Claimant"
+QUALIFIER_CLAIMANT = "filed"
+LABEL_NON_FILER = "Did not file"
 
 
 def _scorecard_row(scoped_df, col_or_series, stat_fn, segment_masks, label, **stat_kwargs) -> dict:
@@ -112,13 +134,12 @@ def calculate(ds, segment_masks: dict) -> dict:
 
     return {
         "groups": {
-            # Not "Non-Claimant": _B is clients who experienced an insured
-            # event but chose not to file (n = insured_event_base minus
-            # claimants), not the much larger population who simply never
-            # had a claimable event at all -- see generation/orchestrator.py's
-            # _build_scorecard_6() for the same relabeling and full rationale.
-            _A: {"label": "Claimant",  "n": n_a},
-            _B: {"label": "Non-Filer", "n": n_b},
+            # R-011: label + qualifier fold into one column header, e.g.
+            # "Claimant (filed, n=55)" / "Did not file (n=69)" -- see the
+            # module-level LABEL_CLAIMANT/QUALIFIER_CLAIMANT/LABEL_NON_FILER
+            # comment for why neither group is called "Non-Claimant".
+            _A: {"label": LABEL_CLAIMANT, "n": n_a, "qualifier": QUALIFIER_CLAIMANT},
+            _B: {"label": LABEL_NON_FILER, "n": n_b},
         },
         "metrics": metrics,
     }

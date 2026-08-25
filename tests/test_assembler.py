@@ -19,8 +19,10 @@ from generation.assembler import (
     _add_insight_box,
     _add_protection_signals_annex,
     _add_protection_signals_summary,
+    _group_header,
     _load_analysis_meta,
     assemble,
+    build_part_6,
     build_part_7,
     build_part_10,
 )
@@ -55,6 +57,77 @@ class TestLoadAnalysisMeta:
         monkeypatch.setattr(assembler, "ROOT", tmp_path)
         _make_run(tmp_path, "good_run", {"country": "vietnam", "n_total": 154})
         assert _load_analysis_meta("good_run") == {"country": "vietnam", "n_total": 154}
+
+
+# ---------------------------------------------------------------------------
+# _group_header / build_part_6 (R-011)
+# ---------------------------------------------------------------------------
+
+class TestGroupHeader:
+    def test_no_qualifier_matches_prior_behaviour(self):
+        groups = {"female": {"label": "Female", "n": 900}}
+        assert _group_header(groups, "female", "Female") == "Female (n=900)"
+
+    def test_qualifier_folds_into_same_parenthetical(self):
+        groups = {"claimant": {"label": "Claimant", "n": 55, "qualifier": "filed"}}
+        assert _group_header(groups, "claimant", "Claimant") == "Claimant (filed, n=55)"
+
+    def test_no_n_returns_bare_label_even_with_qualifier(self):
+        groups = {"claimant": {"label": "Claimant", "qualifier": "filed"}}
+        assert _group_header(groups, "claimant", "Claimant") == "Claimant"
+
+    def test_missing_key_uses_fallback_label(self):
+        assert _group_header({}, "claimant", "Claimant (filed)") == "Claimant (filed)"
+
+
+class TestBuildPart6:
+    def _package(self, **overrides) -> dict:
+        pkg = {
+            "title": "Claimant vs. Did-Not-File Outcomes",
+            "sections": {"insight": {"verbatims": []}},
+            "visuals": [],
+            "scorecard": [{
+                "label": "Coverage Understanding",
+                "group_a_value": "85.5%",
+                "group_b_value": "70.1%",
+                "significant": True,
+                "population": None,
+                "sig_test_note": None,
+            }],
+            "groups": {
+                "claimant": {"label": "Claimant", "n": 55, "qualifier": "filed"},
+                "non_claimant": {"label": "Did not file", "n": 69},
+            },
+        }
+        pkg.update(overrides)
+        return pkg
+
+    def _paragraph_texts(self, doc) -> list:
+        return [p.text for p in doc.paragraphs]
+
+    def test_headers_state_the_population_inline(self):
+        doc = Document()
+        build_part_6(doc, self._package(), {"narrative": ""})
+        table = doc.tables[0]
+        header_cells = [c.text for c in table.rows[0].cells]
+        assert header_cells == ["Metric", "Claimant (filed, n=55)", "Did not file (n=69)", "Sig.*"]
+
+    def test_population_scope_note_renders_beneath_table(self):
+        doc = Document()
+        build_part_6(doc, self._package(), {"narrative": ""})
+        texts = "\n".join(self._paragraph_texts(doc))
+        assert "restricted to clients who reported an insured event" in texts
+
+    def test_no_retired_labels_anywhere(self):
+        doc = Document()
+        build_part_6(doc, self._package(), {"narrative": ""})
+        texts = "\n".join(self._paragraph_texts(doc)).lower()
+        for cell in doc.tables[0].rows[0].cells:
+            texts += "\n" + cell.text.lower()
+        assert "non-filer" not in texts
+        assert "non filer" not in texts
+        assert "non-claimant" not in texts
+        assert "non claimant" not in texts
 
 
 # ---------------------------------------------------------------------------

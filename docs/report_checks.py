@@ -709,12 +709,32 @@ def qualitative_heading_implies_verbatims(text: str):
 
 
 @reg.add("C-016", "R-011", BLOCKING)
-def non_filer_is_renamed(text: str):
-    """LM10: non filer becomes non claimant everywhere."""
+def non_filer_terminology_states_population(text: str):
+    """R-011 (session-10, supersedes the literal LM10 request): both
+    previously-tried labels are retired. "Non-Claimant" was tried first and
+    retracted because it implies the much larger population who never had a
+    claimable event at all; "Non-Filer" replaced it but is itself opaque
+    about what population it names. The fix states the population directly
+    -- in the column headers ("Claimant (filed, n=...)" / "Did not file
+    (n=...)") and in an explicit note beneath the table -- rather than
+    trusting either single word to carry it. See
+    docs/maintenance/known-issues-log.md:71-81 and part_6.py's module
+    docstring for the retracted-label history.
+    """
     t = _lower(text)
-    hits = t.count("non-filer") + t.count("non filer")
-    if hits:
-        return False, f"'non filer' appears {hits} time(s)"
+    retired_hits = (
+        t.count("non-filer") + t.count("non filer")
+        + t.count("non-claimant") + t.count("non claimant")
+    )
+    if retired_hits:
+        return False, f"retired non-filer/non-claimant terminology appears {retired_hits} time(s)"
+
+    if "did not file" not in t:
+        return None, "no Part 6 'Did not file' scorecard header found"
+
+    if "restricted to clients who reported an insured event" not in t:
+        return False, "Part 6 scorecard is missing its population-scope note"
+
     return True, ""
 
 

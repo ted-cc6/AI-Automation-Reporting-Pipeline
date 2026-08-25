@@ -325,7 +325,7 @@ parts:
           no_claim_reasons_base:
             path: "parts.part_2.no_claim_reasons.n_base"
             fmt: "count"
-            population: "Clients who experienced an insured event in the last 12 months but did not file a claim -- the same base as Part 6's Non-Filer group. Not the full non-claiming population; every client here was eligible to claim and chose or was unable to."
+            population: "Clients who experienced an insured event in the last 12 months but did not file a claim -- the same base as Part 6's 'Did not file' group. Not the full non-claiming population; every client here was eligible to claim and chose or was unable to."
         distribution_path: "parts.part_2.no_claim_reasons.distribution"
         qualitative_keys:
           - "other_subthemes.claim_no_reason_other"
@@ -728,13 +728,13 @@ parts:
         verbatim_section: "part5"
 
   # ───────────────────────────────────────────────────────────────────
-  # PART 6 — Claimant vs Non-Claimant Comparison
+  # PART 6 — Claimant vs Did-Not-File Comparison
   # ───────────────────────────────────────────────────────────────────
   part_6:
-    title: "Claimant vs. Non-Filer Outcomes"
+    title: "Claimant vs. Did-Not-File Outcomes"
     visuals:
       - file: "part6_scorecard.png"
-        caption: "Key Metrics: Claimants vs. Non-Filers"
+        caption: "Key Metrics: Claimants vs. Clients Who Did Not File"
     scorecard_metrics:
       - key: coverage_understanding
         label: "Coverage Understanding"
@@ -762,7 +762,7 @@ parts:
         non_claimant_sup: "parts.part_6.metrics.worth_premium.non_claimant.suppressed"
         # Scope-conditional -- see the identical note on Part 1's worth_premium metric.
         population:
-          default: "Health & credit-life clients only, within each claimant/non-filer group; Vietnam's crop-insurance clients were not asked this question"
+          default: "Health & credit-life clients only, within each claimant/did-not-file group; Vietnam's crop-insurance clients were not asked this question"
           lacro: null
       - key: renewal_intent
         label: "Renewal Intent"
@@ -772,7 +772,7 @@ parts:
         sig_path: "parts.part_6.metrics.renewal_intent.significance.p_value"
         claimant_sup: "parts.part_6.metrics.renewal_intent.claimant.suppressed"
         non_claimant_sup: "parts.part_6.metrics.renewal_intent.non_claimant.suppressed"
-        population: "Vietnam's crop-insurance clients only, within each claimant/non-filer group; not asked of health or credit-life clients in any country"
+        population: "Vietnam's crop-insurance clients only, within each claimant/did-not-file group; not asked of health or credit-life clients in any country"
       - key: negative_coping
         label: "Negative Coping (↓ better)"
         fmt: "pct"
@@ -814,19 +814,22 @@ parts:
         sig_path: "parts.part_6.metrics.child_wellbeing.significance.p_value"
         claimant_sup: "parts.part_6.metrics.child_wellbeing.claimant.suppressed"
         non_claimant_sup: "parts.part_6.metrics.child_wellbeing.non_claimant.suppressed"
-        population: "Clients with children in the household (child wellbeing base), within each claimant/non-filer group; narrower than the full claimant/non-filer sample used by the other rows in this table"
+        population: "Clients with children in the household (child wellbeing base), within each claimant/did-not-file group; narrower than the full claimant/did-not-file sample used by the other rows in this table"
     sections:
       narrative:
         word_limit: 100
         note: >
-          State ONCE, near the start of this section: both "Claimant" and "Non-Filer" in
-          this table are restricted to clients who experienced an insured event in the past
-          12 months -- Claimant is those who filed, Non-Filer is those who did not. This is
+          This table's two groups are "Claimant (filed)" and "Did not file" -- a note stating
+          both are restricted to clients who experienced an insured event in the past 12
+          months already appears beneath the table in the rendered report; do not restate it
+          as your own sentence, but let it govern how you write about the two groups. This is
           NOT a comparison against clients who never had a claimable event at all; do not
-          describe or imply that "Non-Filer" means "never claimed" or contrast its figures
-          against a portfolio-wide or whole-sample number computed over everyone (e.g. the
-          portfolio NPS in the Executive Summary/Part 4) as if they described the same
-          population.
+          describe or imply that "Did not file" means "never claimed", and never contrast its
+          figures against a portfolio-wide or whole-sample number computed over everyone (e.g.
+          the portfolio NPS in the Executive Summary/Part 4) as if they described the same
+          population. Refer to the two groups as "Claimant (filed)" and "Did not file" in your
+          own prose; do not use "Non-Filer" or "Non-Claimant" -- both were tried in earlier
+          reports and retracted for implying the wrong population.
 
           Significance threshold: p < 0.05 = statistically significant, mark with *.
           Any row with its own population note in the scorecard table describes a further
@@ -836,7 +839,7 @@ parts:
           "not significant" using the same p<0.05-chi-squared framing as the % rows; state
           its own p-value/test if mentioning it. Child Wellbeing Improved uses a narrower
           population than the rest of the table (see its population note); do not imply it
-          was asked of every claimant/non-filer.
+          was asked of every claimant / did-not-file respondent.
       insight:
         word_limit: 120
         verbatim_section: "part6"

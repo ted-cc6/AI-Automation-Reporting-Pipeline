@@ -12,6 +12,7 @@ import time
 from pathlib import Path
 
 from analysis_engine.country_config import DEFAULT_COUNTRY
+from analysis_engine.sections.part_6 import LABEL_CLAIMANT, LABEL_NON_FILER, QUALIFIER_CLAIMANT
 from generation.validate_output import _COMPARATIVE_VERBS
 from llm_providers import call_llm
 from report_scopes import LACRO_SHORT_LABEL
@@ -586,7 +587,12 @@ def _build_part_prompt(package: dict, part_key: str, report_title: str, extra_in
         # shape Parts 6/7's segment scorecards use, so it reuses this same
         # prompt formatting unmodified.
         if part_key == "part_6":
-            group_a, group_b = "Claimant", "Non-Claimant"
+            # R-011 (session-10): pass the same terminology the rendered
+            # table uses, not a hardcoded "Non-Claimant" -- that label was
+            # already tried and retracted (see part_6.py's module
+            # docstring) because it implies the much larger population
+            # who never had a claimable event, not this narrower group.
+            group_a, group_b = f"{LABEL_CLAIMANT} ({QUALIFIER_CLAIMANT})", LABEL_NON_FILER
         elif part_key == "part_7":
             group_a, group_b = "Female", "Male"
         else:
