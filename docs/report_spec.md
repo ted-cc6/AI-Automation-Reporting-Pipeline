@@ -1511,6 +1511,7 @@ The current headline is 6.5 percent of 124, which is roughly 8 respondents. Comp
 **Source:** LM4 ("remove this section", Part 10), LM11 ("we can also remove this part", Part 9)
 **Layer:** `code`
 **Priority:** high
+**Status:** Implemented (session-10)
 
 **Current behaviour**
 When no verbatims pass selection, the pipeline still renders the Key Qualitative Insights heading and fills it with a paragraph explaining the absence. Part 10 produces roughly 100 words of this, Part 9 roughly 90. Both reviewers asked for removal.
@@ -1534,6 +1535,31 @@ This is deliberately not a prompt instruction. Asking a generator to reliably su
 - `assert no section contains a "Key Qualitative Insights" heading with zero verbatims`
 - `assert the phrases "not yet available", "not yet been provided", "once ... become available" appear nowhere in the report`
 - Generalised check: `assert no section body describes what the report cannot say`
+
+**Implementation (session-10)**
+`generation/assembler.py`'s `_add_insight_box()` (the single function all
+12 call sites share, one per rendered section) now filters to verbatims
+carrying actual text and returns before rendering anything -- heading
+included -- when that filtered list is empty. This closes both C-014 and
+C-015 with one change, not two: on real data
+(`runs/lacro_final_check/`), the Part 9 Services Used block had zero
+verbatims AND its LLM-written `insight_text` narrated exactly the banned
+absence ("...have not yet been analyzed for this report... cannot be
+provided at this time"). Confirmed as code-level, not prompt-level, per
+instruction -- `insight_text` is not filtered or rewritten, it is simply
+never reached when there is nothing to quote.
+
+**Verified:** `tests/test_assembler.py::TestAddInsightBox` (7 cases:
+no verbatims, verbatims with empty text, heading suppressed, narrated-
+absence text suppressed, one valid verbatim renders correctly, mixed
+valid/empty only renders the valid one, cap still holds at 3).
+
+**Confirmed against real data:** re-assembled `runs/lacro_final_check/`'s
+`.docx` from its already-saved `written_texts.json` (Phase 4 only, no
+new LLM call) with the fixed `assembler.py`, re-extracted, re-ran
+`docs/report_checks.py`. **C-014 and C-015 both flipped FAIL -> pass**
+(blocking failures for this extraction: 8 -> 6); `fixtures/test9.txt`
+(a frozen, not-regenerated fixture) is unchanged as expected.
 
 ---
 

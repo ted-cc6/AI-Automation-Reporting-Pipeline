@@ -133,14 +133,23 @@ def _add_paragraph(doc, text: str, style: str = None):
 
 
 def _add_insight_box(doc, insight_text: str, verbatims: list):
+    # R-010 (docs/report_spec.md, session-10): a section with no verbatim
+    # candidates used to still render the "Key Qualitative Insights"
+    # heading plus insight_text -- and insight_text, written by the same
+    # LLM call that had nothing to quote, would itself narrate that
+    # absence (e.g. "...have not yet been analyzed for this report"),
+    # tripping C-014 (LM4/LM11) on top of C-015. Omitting the whole block
+    # when no verbatim survives selection removes both failure modes at
+    # once: there is nothing left to narrate the absence of.
+    valid_verbatims = [v for v in verbatims[:3] if v.get("text", "")]
+    if not valid_verbatims:
+        return
     _add_heading(doc, "Key Qualitative Insights", level=3)
     if insight_text:
         _add_paragraph(doc, insight_text)
-    for v in verbatims[:3]:
+    for v in valid_verbatims:
         text    = v.get("text", "")
         profile = _format_profile(v.get("profile", {}))
-        if not text:
-            continue
         try:
             p = doc.add_paragraph(f'"{text}"', style="Quote")
         except KeyError:
