@@ -12,7 +12,7 @@ from pathlib import Path
 
 import pandas as pd
 
-from qualitative.llm_call import _SEVERITY_RANK, humanize_theme_label
+from qualitative.llm_call import _SEVERITY_RANK, _dedupe_protection_flags, humanize_theme_label
 from qualitative.prepare_payload import load_config
 
 log = logging.getLogger(__name__)
@@ -33,6 +33,102 @@ SECTION_INSIGHT_FIELDS = {"theme_summary", "top_drivers", "sentiment_split"}
 NPS_GROUPS = ("promoters", "passives", "detractors")
 
 
+def _is_empty_value(v) -> bool:
+    if v is None:
+        return True
+    if isinstance(v, (str, list, dict, tuple, set)):
+        return len(v) == 0
+    return False
+
+
+def _relocate_misplaced_section_insights_keys(raw: dict) -> dict:
+    """R-027 (docs/report_spec.md, session-10): the synthesis call has,
+    at least once (this run), nested top-level keys inside
+    section_insights instead of returning them as siblings, exactly as
+    the OUTPUT SCHEMA specifies. Generalised, not a hardcoded four-key
+    list: ANY key found inside section_insights that isn't one of the 7
+    section keys is a relocation candidate -- confirmed this run to be
+    exactly protection_flags/executive_summary/top_findings/top_actions
+    (everything the schema declares AFTER section_insights), consistent
+    with the model continuing to write inside the last-opened object
+    instead of stepping back out to the top level once Task 4B's
+    per-section loop finished.
+
+    _validate() previously only checked presence, not content, so an
+    empty top-level key and a real, misplaced nested copy both passed
+    silently -- genuinely good content (including a protection flag
+    naming a client's daughter) was generated and discarded. This runs
+    BEFORE _validate(), so relocated/merged content is what gets
+    validated and saved, not the broken shape.
+
+    Does not touch call_gemini() or the raw JSON files it already
+    saved -- this is a parsing-time recovery, not a generation-time fix
+    (determinism of the underlying model behaviour is unestablished; see
+    R-027's own spec note).
+
+    Collision handling:
+    - "protection_flags": ALWAYS merged, never replaces -- both sources
+      can legitimately hold real, distinct flags from different scans.
+      A plain concatenation would reintroduce exactly what R-003 exists
+      to prevent (the same case counted twice), so the merged list is
+      re-deduped through llm_call._dedupe_protection_flags() -- the
+      same (id, column, flag_type) key R-018 already fixed -- before
+      use.
+    - every other key: top-level empty + nested non-empty -> relocate.
+      top-level non-empty + nested empty -> leave alone. Both empty ->
+      leave alone (the new emptiness checks in _validate() catch that
+      honestly, rather than this function guessing). Both non-empty ->
+      KEEP the top-level value, discard the nested copy, log loudly --
+      this needs a human, not a silent guess.
+
+    Returns a new dict; does not mutate the caller's raw_gemini.
+    """
+    section_insights = raw.get("section_insights")
+    if not isinstance(section_insights, dict):
+        return raw
+
+    misplaced_keys = [k for k in section_insights if k not in REQUIRED_SECTION_KEYS]
+    if not misplaced_keys:
+        return raw
+
+    raw = dict(raw)
+    section_insights = dict(section_insights)
+
+    for key in misplaced_keys:
+        nested_value = section_insights.pop(key)
+
+        if key == "protection_flags":
+            nested_list = nested_value if isinstance(nested_value, list) else []
+            top_list = raw.get(key) if isinstance(raw.get(key), list) else []
+            merged = _dedupe_protection_flags(top_list + nested_list)
+            raw[key] = merged
+            log.warning(
+                f"R-027: section_insights['protection_flags'] had {len(nested_list)} "
+                f"misplaced flag(s) -- merged with {len(top_list)} top-level flag(s) "
+                f"and re-deduped to {len(merged)} total."
+            )
+            continue
+
+        top_value = raw.get(key)
+        nested_empty = _is_empty_value(nested_value)
+        top_empty = _is_empty_value(top_value)
+
+        if top_empty and not nested_empty:
+            raw[key] = nested_value
+            size = len(nested_value) if isinstance(nested_value, (str, list, dict)) else "?"
+            log.warning(f"R-027: relocated section_insights['{key}'] to the top level (size={size}).")
+        elif not top_empty and not nested_empty:
+            log.error(
+                f"R-027: section_insights['{key}'] is non-empty AND the top-level "
+                f"'{key}' is also non-empty -- keeping the top-level value, discarding "
+                "the nested copy. This needs human review, not an automatic guess."
+            )
+        # both empty, or top non-empty + nested empty: nothing to do.
+
+    raw["section_insights"] = section_insights
+    return raw
+
+
 def _validate(raw: dict, provider: str = "LLM") -> None:
     missing = REQUIRED_TOP_KEYS - set(raw.keys())
     if missing:
@@ -51,6 +147,22 @@ def _validate(raw: dict, provider: str = "LLM") -> None:
     for section, ids in sv.items():
         if not isinstance(ids, list) or len(ids) == 0:
             raise ValueError(f"section_verbatims[{section}] is empty")
+
+    # R-027 (session-10): Task 6 always runs, so an empty
+    # executive_summary/top_findings/top_actions means real content was
+    # lost somewhere upstream (e.g. the misplacement _relocate_misplaced_
+    # section_insights_keys() now recovers), not that the model had
+    # nothing to say. protection_flags/claims_other_tagged/not_worth_it_
+    # themes/other_subthemes are data-dependent and legitimately CAN be
+    # empty (e.g. no protection concerns found this run) -- deliberately
+    # NOT checked here; see R-032 for the broader presence-not-content
+    # gap those are part of.
+    if not isinstance(raw.get("executive_summary"), str) or not raw["executive_summary"].strip():
+        raise ValueError(f"{provider} response has an empty executive_summary")
+    if not isinstance(raw.get("top_findings"), list) or len(raw["top_findings"]) == 0:
+        raise ValueError(f"{provider} response has an empty top_findings")
+    if not isinstance(raw.get("top_actions"), list) or len(raw["top_actions"]) == 0:
+        raise ValueError(f"{provider} response has an empty top_actions")
 
 
 def _check_section_insights(section_insights: dict) -> None:
@@ -798,6 +910,7 @@ def parse_and_save(
     Returns:
         Final qualitative results dict (also written to disk)
     """
+    raw_gemini = _relocate_misplaced_section_insights_keys(raw_gemini)
     _validate(raw_gemini, provider=provider)
 
     section_insights = raw_gemini.get("section_insights", {})

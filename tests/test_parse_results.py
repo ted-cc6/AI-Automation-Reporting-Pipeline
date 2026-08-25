@@ -17,10 +17,12 @@ from qualitative.parse_results import (
     _dedupe_protection_flags_by_client,
     _enrich_section_verbatims,
     _humanize_top_drivers,
+    _is_empty_value,
     _load_theme_section_map,
     _lookup_profile,
     _lookup_text,
     _normalise_reason,
+    _relocate_misplaced_section_insights_keys,
     _validate,
     build_row_id_column_map,
     compute_part7_sentiment_splits,
@@ -71,6 +73,170 @@ class TestValidate:
         del raw["top_actions"]
         with pytest.raises(ValueError, match="top_actions"):
             _validate(raw)
+
+    def test_empty_executive_summary_raises(self):
+        raw = _base_raw(executive_summary="")
+        with pytest.raises(ValueError, match="executive_summary"):
+            _validate(raw)
+
+    def test_whitespace_only_executive_summary_raises(self):
+        raw = _base_raw(executive_summary="   ")
+        with pytest.raises(ValueError, match="executive_summary"):
+            _validate(raw)
+
+    def test_empty_top_findings_raises(self):
+        raw = _base_raw(top_findings=[])
+        with pytest.raises(ValueError, match="top_findings"):
+            _validate(raw)
+
+    def test_empty_top_actions_raises(self):
+        raw = _base_raw(top_actions=[])
+        with pytest.raises(ValueError, match="top_actions"):
+            _validate(raw)
+
+    def test_empty_protection_flags_does_not_raise(self):
+        # protection_flags is data-dependent -- a real run can legitimately
+        # find zero protection concerns. Deliberately not checked (R-032
+        # covers the broader presence-not-content gap for this key).
+        _validate(_base_raw(protection_flags=[]))  # must not raise
+
+    def test_empty_claims_other_tagged_does_not_raise(self):
+        _validate(_base_raw(claims_other_tagged={}))  # must not raise
+
+
+class TestIsEmptyValue:
+    def test_none_is_empty(self):
+        assert _is_empty_value(None) is True
+
+    def test_empty_string_is_empty(self):
+        assert _is_empty_value("") is True
+
+    def test_whitespace_string_is_not_empty(self):
+        # _is_empty_value is a length check, not a content check; the
+        # executive_summary whitespace-strip lives in _validate() itself.
+        assert _is_empty_value("   ") is False
+
+    def test_empty_list_is_empty(self):
+        assert _is_empty_value([]) is True
+
+    def test_empty_dict_is_empty(self):
+        assert _is_empty_value({}) is True
+
+    def test_nonempty_string_is_not_empty(self):
+        assert _is_empty_value("hello") is False
+
+    def test_nonempty_list_is_not_empty(self):
+        assert _is_empty_value([1]) is False
+
+    def test_zero_is_not_empty(self):
+        assert _is_empty_value(0) is False
+
+
+class TestRelocateMisplacedSectionInsightsKeys:
+    def _raw_with_nested(self, **nested_overrides) -> dict:
+        raw = _base_raw(
+            executive_summary="",
+            top_findings=[],
+            top_actions=[],
+            protection_flags=[],
+        )
+        nested = {
+            "executive_summary": "Recovered summary.",
+            "top_findings": ["Recovered finding"],
+            "top_actions": ["Recovered action"],
+            "protection_flags": [],
+        }
+        nested.update(nested_overrides)
+        raw["section_insights"] = {
+            "part1": {"theme_summary": "x", "top_drivers": [], "sentiment_split": {}},
+            **nested,
+        }
+        return raw
+
+    def test_no_section_insights_key_returns_raw_unchanged(self):
+        raw = _base_raw()
+        result = _relocate_misplaced_section_insights_keys(raw)
+        assert result is raw
+
+    def test_section_insights_with_only_real_sections_returns_raw_unchanged(self):
+        raw = _base_raw()
+        raw["section_insights"] = {
+            "part1": {"theme_summary": "x", "top_drivers": [], "sentiment_split": {}},
+        }
+        result = _relocate_misplaced_section_insights_keys(raw)
+        assert result is raw
+
+    def test_empty_top_and_nonempty_nested_relocates(self):
+        raw = self._raw_with_nested()
+        result = _relocate_misplaced_section_insights_keys(raw)
+        assert result["executive_summary"] == "Recovered summary."
+        assert result["top_findings"] == ["Recovered finding"]
+        assert result["top_actions"] == ["Recovered action"]
+
+    def test_relocation_removes_keys_from_nested_section_insights(self):
+        raw = self._raw_with_nested()
+        result = _relocate_misplaced_section_insights_keys(raw)
+        assert "executive_summary" not in result["section_insights"]
+        assert "top_findings" not in result["section_insights"]
+        assert "top_actions" not in result["section_insights"]
+        # real section keys are untouched
+        assert "part1" in result["section_insights"]
+
+    def test_does_not_mutate_input_dict(self):
+        raw = self._raw_with_nested()
+        original_top_findings = raw["top_findings"]
+        _relocate_misplaced_section_insights_keys(raw)
+        assert raw["top_findings"] is original_top_findings
+        assert "executive_summary" in raw["section_insights"]
+
+    def test_nonempty_top_and_empty_nested_leaves_top_alone(self):
+        raw = self._raw_with_nested(
+            executive_summary="", top_findings=[], top_actions=[],
+        )
+        raw["executive_summary"] = "Already had one."
+        result = _relocate_misplaced_section_insights_keys(raw)
+        assert result["executive_summary"] == "Already had one."
+
+    def test_both_empty_leaves_alone(self):
+        raw = self._raw_with_nested(executive_summary="")
+        result = _relocate_misplaced_section_insights_keys(raw)
+        assert result["executive_summary"] == ""
+
+    def test_both_nonempty_keeps_top_discards_nested(self):
+        raw = self._raw_with_nested()
+        raw["executive_summary"] = "Top-level summary wins."
+        result = _relocate_misplaced_section_insights_keys(raw)
+        assert result["executive_summary"] == "Top-level summary wins."
+
+    def test_protection_flags_merges_top_and_nested(self):
+        top_flag = {
+            "id": "row_0001", "column": "nps_promoters", "flag_type": "safety",
+            "reason": "top",
+        }
+        nested_flag = {
+            "id": "row_1015", "column": "claim_challenges_other_support",
+            "flag_type": "daughter_detail", "reason": "nested",
+        }
+        raw = self._raw_with_nested(protection_flags=[nested_flag])
+        raw["protection_flags"] = [top_flag]
+        result = _relocate_misplaced_section_insights_keys(raw)
+        ids = {f["id"] for f in result["protection_flags"]}
+        assert ids == {"row_0001", "row_1015"}
+
+    def test_protection_flags_merge_deduplicates(self):
+        flag = {
+            "id": "row_0001", "column": "nps_promoters", "flag_type": "safety",
+            "reason": "dup",
+        }
+        raw = self._raw_with_nested(protection_flags=[dict(flag)])
+        raw["protection_flags"] = [dict(flag)]
+        result = _relocate_misplaced_section_insights_keys(raw)
+        assert len(result["protection_flags"]) == 1
+
+    def test_relocated_payload_passes_validate(self):
+        raw = self._raw_with_nested()
+        result = _relocate_misplaced_section_insights_keys(raw)
+        _validate(result)  # must not raise
 
 
 class TestLookupProfile:

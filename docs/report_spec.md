@@ -55,6 +55,7 @@ This file is the single source of truth for the next pipeline iteration. Every r
 | R-018 | self | code | Protection flag dedup must not collapse across source columns -- IMPLEMENTED | 3 |
 | R-029 | self | code | found_by_id cache lookup keys on id alone -- IMPLEMENTED | 3 |
 | R-030 | self | code | Rendered verbatims can be attributed to the wrong source column -- PARTIALLY IMPLEMENTED | 3 |
+| R-031 | self | code | Report per-section verbatim source-pool counts | 3 |
 | R-019 | self | code | Check suite gaps: C-013 window, C-009 detail specificity | 3 |
 | R-020 | self | code | CLI output filename diverges from dashboard path | 3 |
 | R-021 | self | code | Period label formatting duplicated across title and heading | 3 |
@@ -63,8 +64,9 @@ This file is the single source of truth for the next pipeline iteration. Every r
 | R-024 | self | code | Qualitative is_claimant used a narrower definition than the report's own "claimant" -- IMPLEMENTED | 2 |
 | R-025 | self | code | Claims-other pool reaches synthesis with no section routing | 3 |
 | R-026 | self | schema | Sentiment enum cannot express "neutral in tone, negative in substance" -- verified real, not a fix | 3 |
-| R-027 | self | code | Executive summary content silently discarded by a JSON-shape mismatch -- blocks R-013 | 1 |
+| R-027 | self | code | Executive summary content silently discarded by a JSON-shape mismatch -- IMPLEMENTED | 1 |
 | R-028 | self | data_config | report_spec.yaml's model: key names a model this pipeline cannot reach | 3 |
+| R-032 | self | code | Required top-level keys are checked for presence, not content, beyond R-027's four | 3 |
 
 ---
 
@@ -1309,8 +1311,8 @@ neutral share and explains it, not just the raw counts`.
 **Source:** self identified, session-8 full-pipeline smoke test against `runs/lacro_final_check/`
 **Layer:** `code`
 **Priority:** high
-**Status:** Not started -- logged only, no fix yet
-**Blocks:** R-013 -- no point rewiring the executive summary's inputs while its output is being dropped before it ever renders
+**Status:** Implemented (session-10)
+**Blocks:** R-013 -- no longer blocked; the executive summary's inputs now reliably reach the top level before R-013's own rewiring work begins
 
 **Current behaviour**
 The synthesis call's `section_insights` output is only ever meant to
@@ -1361,6 +1363,71 @@ holds) rather than only logged as a warning.
   the correct (top-level) location, not discard it.
 - `assert parse_and_save() raises or fails loudly when a required
   top-level key is empty, not merely absent`
+
+**Implementation (session-10)**
+`parse_results.py` gained `_relocate_misplaced_section_insights_keys()`,
+run as the first statement inside `parse_and_save()`, before
+`_validate()`. Generalised, not a hardcoded four-key list: any key
+found nested inside `section_insights` that isn't one of the 7 section
+keys is a relocation candidate (confirmed on real data to be exactly
+the four this entry names -- everything the synthesis OUTPUT SCHEMA
+declares *after* `section_insights` -- consistent with the model
+continuing to write inside the last-opened JSON object instead of
+stepping back out to the top level once Task 4B's per-section loop
+finished, though see the determinism note below).
+
+Collision handling: `protection_flags` is always **merged**, never
+replaces -- both the top-level list and any nested copy can hold real,
+distinct flags from different scans. A plain concatenation would
+reintroduce exactly what R-018/R-003 exist to prevent (the same case
+counted twice), so the merged list is re-deduped through
+`llm_call._dedupe_protection_flags()` -- the same `(id, column,
+flag_type)` key R-018 fixed -- before use. Every other key: empty top
++ non-empty nested -> relocate; non-empty top + empty nested -> leave
+alone; both empty -> leave alone (the new `_validate()` checks below
+catch that honestly, rather than this function guessing); both
+non-empty -> **keep the top-level value, discard the nested copy, log
+loudly** -- a genuine content collision needs a human, not a silent
+guess. Every relocation or merge is logged (key name + size).
+
+`_validate()` gained three emptiness checks: `executive_summary` must
+be a non-empty (post-strip) string, `top_findings` and `top_actions`
+must be non-empty lists. Deliberately **not** extended to
+`protection_flags`/`claims_other_tagged`/`not_worth_it_themes`/
+`other_subthemes` -- those are legitimately data-dependent and can be
+empty on a real run with nothing to report (a run with zero protection
+concerns is a valid outcome, not a bug); see R-032 for the broader
+presence-not-content gap those four are part of.
+
+**Real-data demonstration (session-10, `runs/lacro_final_check/`)**
+Reconstructed the fully-correct `raw_gemini` for this run without
+re-calling the API: the real batch-phase pre-dedup protection flags (30,
+saved from the session-9 live run) run through the already-fixed
+`_dedupe_protection_flags()`/`_apply_protection_flag_cache()` for the
+top-level `protection_flags`, combined with the real synthesis output's
+own still-misplaced `section_insights` (unchanged, exactly as Gemini
+produced it) for the nested side. Fed through the newly-fixed
+`parse_and_save()`:
+- `executive_summary`, all 3 `top_findings`, and all 3 `top_actions`
+  were recovered verbatim at the top level (previously `""`/`[]`/`[]`).
+- `protection_flags` went from 30 (top-level only) to 32 (merged,
+  post-dedup) -- both of row_1015's entries now survive in the final
+  list: the NPS-phase `unfair_claim_denial` (column `nps_detractors`)
+  and the claims-other-phase entry naming the client's daughter (column
+  `claim_challenges_other_support`), previously trapped in
+  `section_insights` and lost.
+- `docs/report_checks.py` re-run against `fixtures/test9.txt` (unaffected,
+  as expected -- it is a frozen extraction predating this run) and
+  against the `lacro_final_check` docx extraction with
+  `--qual-json runs/lacro_final_check/qualitative_results.json`: no
+  check regressed; full test suite (688 tests) passes.
+
+**Determinism is unestablished.** This was observed on exactly one live
+synthesis call. Whether the model reliably makes this same mistake, or
+whether it is a one-off, is not known -- no repeated-call evidence
+either way. The fix is a parsing-time recovery, not a generation-time
+guarantee: it makes the pipeline resilient to the misplacement
+recurring, but does not confirm or rule out that it will.
 
 ---
 
@@ -1892,6 +1959,100 @@ ambiguous case (Task 4A returning column alongside each picked row_id),
 and whether the same treatment should extend to protection flags'
 `id` resolution for verbatim-adjacent reader-facing surfaces, if any
 exist. Not evaluated this session.
+
+---
+
+## R-031 Report per-section verbatim source-pool counts
+
+**Source:** self identified, in answer to a read-only question about
+R-030's payload wiring (session-9)
+**Layer:** `code`
+**Priority:** low
+**Status:** Not started -- logged only, no fix yet
+
+**Current behaviour**
+`build_row_id_column_map()` (R-030, `parse_results.py`) already walks
+every payload group once and computes, per `row_id`, the full set of
+columns it appears under -- it discards everything except the singleton
+case before returning, since R-030 only needed the unambiguous subset.
+There is currently no visibility into which POOL (NPS vs
+`claim_no_reason_other` vs `claim_challenges_other_support` vs
+`sparse_other`) a section's rendered verbatims actually came from, or
+whether the claims-other pool contributes to verbatim selection at all
+versus the model effectively only ever reading NPS.
+
+Current inference (not a count): of the 25 real claims-specific records
+this run (R-025), 24 already overlap the NPS pool, so most claims-other
+row_ids that could be picked are also NPS-resolvable and would land in
+R-030's "ambiguous" fallback bucket rather than a clean claims-other
+attribution -- suggesting close to zero non-ambiguous claims-other-only
+verbatim picks, but this has never been counted directly.
+
+**Intended behaviour**
+Extend the row_id -> column mapping (a sibling of
+`build_row_id_column_map()`, returning the full `{row_id: {group_names}}`
+set rather than collapsing to the unambiguous singleton) into a
+per-section tally: `{section: {"nps": N,
+"claim_no_reason_other": N, "claim_challenges_other_support": N,
+"sparse_other": N, "ambiguous": N}}`, written into
+`qualitative_results.json`'s `meta` alongside
+`verbatim_column_resolution`.
+
+No new data collection and no prompt change -- this is a reporting
+pass over data the R-030 wiring already walks, reusing
+`_raw_column_for_record()`'s per-record group resolution.
+
+**Verification**
+- A fixture with verbatims drawn from each of the four pools, plus one
+  ambiguous (multi-pool) row_id, produces the correct per-section
+  counts and they sum to that section's verbatim count.
+- Confirmed against a real run: the counts either confirm or replace
+  the "close to zero non-ambiguous claims-other picks" inference above
+  with an actual number.
+
+---
+
+## R-032 Required top-level keys are checked for presence, not content, beyond R-027's four
+
+**Source:** self identified, during R-027 implementation (session-10)
+**Layer:** `code`
+**Priority:** medium
+**Status:** Not started -- logged only, no fix yet
+
+**Current behaviour**
+R-027 added emptiness checks to `_validate()` for exactly the three
+keys the misplacement bug was observed to affect
+(`executive_summary`/`top_findings`/`top_actions`; `protection_flags`
+is deliberately excluded, see below). `REQUIRED_TOP_KEYS` has five
+other members --  `nps_tags`, `claims_other_tagged`,
+`not_worth_it_themes`, `other_subthemes`, `section_verbatims` -- that
+`_validate()` still only checks for *presence*, the same shape of gap
+R-027 exists to close for the other four. `section_verbatims` already
+has its own non-empty-per-section check (unrelated to R-027), but
+`claims_other_tagged: {}`, `not_worth_it_themes: []`, and
+`other_subthemes: {}` currently satisfy validation even if the model
+generated real content for them and something upstream (a future
+JSON-shape mismatch, not necessarily this exact one) discarded it
+before it reached the top level.
+
+`protection_flags` is different in kind from these, not just degree:
+zero protection concerns found is a legitimate, common, desirable
+outcome on a real run -- an emptiness check on it would be a false
+alarm, not a safety net. It stays deliberately unchecked.
+
+**Intended behaviour**
+Not decided. An emptiness check alone would be wrong for
+`claims_other_tagged`/`not_worth_it_themes`/`other_subthemes` too, for
+the same reason as `protection_flags` -- a run with no claims-other
+records, no "not worth it" respondents, or no "other" subthemes this
+wave is plausible, not a bug. Closing this gap needs a way to
+distinguish "genuinely nothing to report" from "content was generated
+and lost," which presence/absence alone cannot do -- unlike R-027,
+where the misplaced content and the empty top-level key existed in the
+same payload at the same time and made the loss provable.
+
+**Verification**
+Not written -- no fix decided yet.
 
 ---
 
