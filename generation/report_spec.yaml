@@ -606,7 +606,13 @@ parts:
         sig_path: "parts.part_5.caregiver_comparison.metrics.healthcare_access.significance.p_value"
         caregiver_sup: "parts.part_5.caregiver_comparison.metrics.healthcare_access.caregiver.suppressed"
         non_caregiver_sup: "parts.part_5.caregiver_comparison.metrics.healthcare_access.non_caregiver.suppressed"
-        population: "Health-insurance clients who needed care (same base as Part 4's healthcare access metric)"
+        # R-007 (docs/report_spec.md, session-10): this used to say "same base
+        # as Part 4's healthcare access metric" -- wrong, since healthcare
+        # access is reported in THIS part (Part 5), not Part 4. State the
+        # population directly instead of a cross-part reference a reader
+        # can't actually follow (Part 4, "Client Voice", never mentions
+        # healthcare access at all).
+        population: "Health-insurance clients who needed care; excludes clients who said they had not needed medical care, the same restricted base as the Healthcare Access figure earlier in this section"
     sections:
       s5_1:
         label: "Child Wellbeing Drivers"

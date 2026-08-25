@@ -47,8 +47,13 @@ HEALTHCARE_ACCESS_POSITIVE_VALUES = ["Yes", "Yes, a lot", "Yes, somewhat"]
 # 152/448=33.9% (of clients who actually needed care) to a wrong
 # 152/1721=8.8% before this fix -- self-contradictory alongside the
 # "among clients who needed care" phrasing that (correctly) described the
-# intended narrower base all along.
-_HEALTHCARE_ACCESS_NA = "Not applicable (I/my family have not needed medical care)"
+# intended narrower base all along. Public (no leading underscore): R-007
+# (docs/report_spec.md, session-10) found the identical defect in Part 5's
+# caregiver-vs-non-caregiver healthcare_access row (part_5.py's
+# _build_caregiver_comparison() used ds.health directly, unfiltered) --
+# shared here rather than re-declaring the same literal in two places,
+# which is exactly how they drifted apart the first time.
+HEALTHCARE_ACCESS_NA = "Not applicable (I/my family have not needed medical care)"
 
 # Medical cost change — string values treated as "improved" (lower costs)
 _MEDICAL_COST_IMPROVED = frozenset(["Much lower", "Slightly lower"])
@@ -125,7 +130,7 @@ def calculate(ds, segment_masks: dict) -> dict:
         # exclude "did not need care" before checking for positive values or
         # computing the share, the same way medical_cost_change's own
         # sibling NA value is excluded just below.
-        ha_needed_care = ha_series[ha_series != _HEALTHCARE_ACCESS_NA]
+        ha_needed_care = ha_series[ha_series != HEALTHCARE_ACCESS_NA]
         valid_str = set(
             ha_needed_care[ha_needed_care.notna() & (ha_needed_care != SCOPE_SENTINEL)].astype(str)
         )

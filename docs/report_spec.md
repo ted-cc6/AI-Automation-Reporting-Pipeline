@@ -1000,6 +1000,8 @@ within the token budget the two-call redesign was built to respect.
 **Source:** LM8, "what is the difference of these 2 groups described?"
 **Layer:** `schema`
 **Priority:** high
+**Status:** Implemented (session-10) -- the two concrete defects this entry
+names are fixed; the general schema (`MetricWithBase`) below is not built
 
 **Current behaviour**
 Part 5 reports healthcare access improved at 33.9 percent (n=448) for "clients who needed care" and medical costs decreased at 39.1 percent (n=519) for "health insurance clients who needed medical care". The two descriptions are near identical in prose but the bases differ by 71 respondents, so the reader cannot tell what distinguishes them.
@@ -1034,6 +1036,75 @@ class MetricWithBase(BaseModel):
 
 **Open question for reviewer**
 Confirm with the data team what genuinely separates the 448 and 519 bases, then write the two definitions plainly.
+
+**Implementation (session-10)**
+Confirmed the root cause: `analysis_engine/sections/part_5.py`'s
+`_build_caregiver_comparison()` computed the `healthcare_access` row over
+`ds.health` directly (all health-insurance clients, n=1,313
+caregiver/408 non-caregiver) instead of narrowing to clients who actually
+needed care first -- the same "did not need care" exclusion Part 4's own
+headline `healthcare_access` figure already applies (see
+`analysis_engine/sections/part_4.py`'s `HEALTHCARE_ACCESS_NA`, made
+public and imported into `part_5.py` rather than re-declaring the same
+literal, which is exactly how the two drifted apart the first time).
+Fixed by filtering to `needed_care = ds.health[ds.health[COL] !=
+HEALTHCARE_ACCESS_NA]` before calling `scorecard_row()`. On real data
+this moves the row from a diluted false null (8.9% caregiver / 8.6%
+non-caregiver, p=0.836, "not significant") to the real, correctly-based
+result: **31.4% caregiver vs 46.7% non-caregiver, n=373/75, p=0.011,
+significant** -- a real finding the bug was erasing, not a null result.
+
+The footnote cross-reference (`generation/report_spec.yaml`'s Part 5
+`healthcare_access` scorecard row) said "same base as Part 4's
+healthcare access metric" -- true only at the analysis-JSON layer
+(`analysis_engine`'s own "part_4" bucket happens to compute both Part 4
+and Part 5's report content), false from a reader's perspective, since
+the rendered report shows "Healthcare Access" inside Part 5 ("Child
+Wellbeing"); Part 4 ("Client Voice") never mentions it. Reworded to
+state the population directly instead of a cross-reference a reader
+can't follow: *"Health-insurance clients who needed care; excludes
+clients who said they had not needed medical care, the same restricted
+base as the Healthcare Access figure earlier in this section."*
+
+Financial stress (`financial_stress_high`) was NOT touched -- it has no
+skip logic and correctly uses the full sample as its base already (see
+`_CAREGIVER_COMPARISON_NOTE` in `part_5.py`); only `healthcare_access`
+had the bug.
+
+**Verified:** `tests/test_part_5.py::TestCaregiverHealthcareAccessBase`
+(3 cases: needed-care exclusion changes the base and value, real
+production numbers reproduce 31.4%/46.7% and p<0.05, financial_stress_high
+is confirmed unaffected); `tests/test_part_4.py` updated for
+`HEALTHCARE_ACCESS_NA`'s rename (public, no functional change).
+
+**Confirmed against real data:** re-ran `analysis_engine` (`run_analysis.py
+--run-id lacro_final_check --prior-run-id lacro_2025_pooled`) and diffed
+the full `analysis_results.json` before/after -- every changed field sits
+under `parts.part_5.caregiver_comparison.metrics.healthcare_access`;
+nothing else in the file moved. Re-assembled the `.docx`, re-ran
+`docs/report_checks.py`: **C-010 flips FAIL -> pass** (the cross-reference
+is gone); blocking failures for this extraction: 5 -> 4.
+`fixtures/test9.txt` (frozen, not regenerated) is unchanged as expected.
+
+**C-009 still fails -- a pre-existing check false positive, not a new
+defect.** C-009 scans a ±90-character window around each occurrence of a
+tracked label and fails if more than 2 distinct percentages appear in
+that window. In the rendered table, "Healthcare Access Improved"
+immediately follows "High Financial Stress" as the prior row (`"High
+Financial Stress † | 1.8% | 1.2% | \nHealthcare Access Improved † |
+31.4% | 46.7% | *"`) -- within 90 characters of each other, so the
+window for "healthcare access improved" also catches the unrelated
+financial-stress row's two values, reading as 4 "conflicting" values
+for one metric when only 2 (31.4%/46.7%, correctly two different
+segments of the same metric) actually belong to it. This exact
+false-positive pattern predates this fix (the same check reported `[1.2,
+1.8, 8.6, 8.9]` before R-007's code change, with the same row-adjacency
+cause) -- fixing the underlying metric did not, and could not, fix a
+check that can't distinguish "two segments of one metric" or "an
+adjacent row's unrelated values" from a genuine same-metric
+contradiction. Not fixed here (out of R-007's scope, a check-design
+issue rather than a report-content defect); left for a future check
+revision.
 
 ---
 

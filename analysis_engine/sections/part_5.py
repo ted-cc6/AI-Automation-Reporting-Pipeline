@@ -3,6 +3,7 @@ import logging
 
 import pandas as pd
 
+from analysis_engine.sections.part_4 import HEALTHCARE_ACCESS_NA
 from analysis_engine.stats import spearman_correlation, logistic_regression, top_two_box, share_selecting, scorecard_row
 
 log = logging.getLogger("analysis_engine.sections.part_5")
@@ -123,8 +124,17 @@ def _build_caregiver_comparison(ds, segment_masks: dict) -> dict:
         log.warning(f"Part 5: column '{COL_FINANCIAL_STRESS}' missing — skipping caregiver comparison row 'financial_stress_high'")
 
     if COL_HEALTHCARE_ACCESS in ds.health.columns:
+        # R-007 (docs/report_spec.md, session-10): this row's true base is
+        # health clients who actually needed care, not every health client
+        # -- the same "did not need care" exclusion Part 4's own headline
+        # healthcare_access figure already applies (see HEALTHCARE_ACCESS_NA's
+        # docstring in part_4.py). Passing ds.health directly here computed
+        # share_selecting() over the wrong, ~4x-too-large base, diluting a
+        # real, significant gap (31.4% caregiver vs 46.7% non-caregiver,
+        # p<0.05) down to a false null (8.9% vs 8.6%).
+        needed_care = ds.health[ds.health[COL_HEALTHCARE_ACCESS] != HEALTHCARE_ACCESS_NA]
         metrics["healthcare_access"] = scorecard_row(
-            ds.health, COL_HEALTHCARE_ACCESS, share_selecting, segment_masks,
+            needed_care, COL_HEALTHCARE_ACCESS, share_selecting, segment_masks,
             "Healthcare Access Improved", "caregiver", "non_caregiver",
             values=HEALTHCARE_ACCESS_POSITIVE_VALUES,
         )

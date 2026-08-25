@@ -14,7 +14,7 @@ from __future__ import annotations
 import pandas as pd
 import pytest
 
-from analysis_engine.sections.part_4 import _HEALTHCARE_ACCESS_NA, calculate
+from analysis_engine.sections.part_4 import HEALTHCARE_ACCESS_NA, calculate
 
 
 class _FakeDataset:
@@ -28,7 +28,7 @@ def _health_df(n_yes: int, n_no: int, n_not_applicable: int) -> pd.DataFrame:
     values = (
         ["Yes"] * n_yes
         + ["No"] * n_no
-        + [_HEALTHCARE_ACCESS_NA] * n_not_applicable
+        + [HEALTHCARE_ACCESS_NA] * n_not_applicable
     )
     return pd.DataFrame({"q_healthcare_access": values})
 
@@ -52,7 +52,7 @@ class TestHealthcareAccessBase:
         ds = _FakeDataset(_health_df(n_yes=15, n_no=25, n_not_applicable=100))
         result = calculate(ds, segment_masks={})
         dist_values = {row["value"] for row in result["healthcare_access"]["distribution"]}
-        assert _HEALTHCARE_ACCESS_NA in dist_values
+        assert HEALTHCARE_ACCESS_NA in dist_values
 
     def test_no_not_applicable_values_behaves_like_before(self):
         ds = _FakeDataset(_health_df(n_yes=20, n_no=20, n_not_applicable=0))
