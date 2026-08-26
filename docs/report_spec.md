@@ -1,7 +1,13 @@
 # LACRO Insurance Impact Report: Change Specification
 
 **Baseline artifact:** `LAC_Insurance_Impact_Report_default_2026_Q2_Test9.pdf` (generated 17 August 2026)
-**Reviewers:** Lorenz M (LM1 to LM11), second reviewer HO (HO2R1)
+**Reviewers:** Lorenz M (LM1, LM3-LM11 -- ten comments, not eleven), second
+reviewer HO (HO2R1). Correction (session-10): there is no LM2. The reply
+thread's second reviewer comment (HO2R1) consumed the number 2 in the
+original numbering sequence, so it runs LM1, HO2R1, LM3, LM4, ... LM11 --
+eleven review comments total (ten from Lorenz, one from HO), not eleven
+from Lorenz alone. Recorded explicitly so the gap at LM2 is never read as
+a dropped or unaccounted-for requirement.
 **Spec owner:** Binjie Wang
 **Status:** draft, pending reviewer confirmation on R-006a, R-006b, R-008, R-014
 
@@ -67,6 +73,7 @@ This file is the single source of truth for the next pipeline iteration. Every r
 | R-027 | self | code | Executive summary content silently discarded by a JSON-shape mismatch -- IMPLEMENTED | 1 |
 | R-028 | self | data_config | report_spec.yaml's model: key names a model this pipeline cannot reach | 3 |
 | R-032 | self | code | Required top-level keys are checked for presence, not content, beyond R-027's four | 3 |
+| R-033 | self | code | Protection-flag tag_cache entries written under pre-fix code silently poison correct future flags | 1 |
 
 ---
 
@@ -240,6 +247,32 @@ touch report-checks.py's check logic itself (R-007/R-010/R-011 are
 verified separately, against a live regeneration of
 `runs/lacro_final_check/`, documented in each requirement's own entry
 above).
+
+**The "3 blocking failures" figure reported mid-session-10 against
+`runs/lacro_final_check/` is NOT a valid measurement -- do not cite it.**
+That run was regenerated incrementally: each fix's own re-run touched
+only what that specific fix needed (analysis re-run for R-007/R-008's
+data, one targeted `write_part()` call for Part 3's narrative for R-008),
+to verify each fix without re-spending an LLM call on parts nothing
+changed. Two consequences invalidate that count as a report-quality
+measurement:
+- Part 5's own narrative text was never regenerated after R-007's data
+  fix, so it still reads the pre-fix figures ("nearly identical...
+  8.9%... 8.6%") while its OWN table (rebuilt from the fixed analysis
+  data) correctly shows 31.4%/46.7%, p=0.011, significant -- a table/
+  narrative contradiction that exists ONLY because of how this
+  incremental verification was sequenced, not a defect in R-007 itself.
+- C-020 (R-014) showed "pass" on that run, but not because R-014 was
+  implemented -- R-014 was still open at that point. Part 5's s5_3
+  narrative simply was never regenerated this session at all, so the
+  banned phrase had no opportunity to reappear; the same LLM call that
+  would have carried R-014's fix (had one existed yet) is the one that
+  never ran.
+
+The only valid measurement is a full, clean, end-to-end regeneration
+with nothing reused -- see this requirement's own end-to-end run entry
+(if this note is read before that run exists, no current number should
+be cited for `runs/lacro_final_check/` at all).
 
 ---
 
@@ -1521,6 +1554,19 @@ either way. The fix is a parsing-time recovery, not a generation-time
 guarantee: it makes the pipeline resilient to the misplacement
 recurring, but does not confirm or rule out that it will.
 
+**Second data point (session-10, first clean end-to-end run):** the
+misplacement did NOT recur -- this run's synthesis call correctly
+returned `protection_flags`/`executive_summary`/`top_findings`/
+`top_actions` at the top level, with `section_insights` holding only the
+7 real section keys. Consistent with "a one-off, not a reliable
+mistake," though a second data point either way is still not enough to
+conclude that. The relocation logic remains in place and dormant --
+correct behaviour when there is nothing to relocate. **However, this
+same clean run surfaced a DIFFERENT, real defect purely as a side effect
+of the earlier (pre-fix) run that WAS trapped: two protection flags this
+run correctly generated were silently lost anyway, because a stale cache
+decision from that earlier, buggy run is now cached forever. See R-033.**
+
 ---
 
 ## R-028 report_spec.yaml's model: key names a model this pipeline cannot reach
@@ -2362,6 +2408,82 @@ same payload at the same time and made the loss provable.
 
 **Verification**
 Not written -- no fix decided yet.
+
+---
+
+## R-033 Protection-flag tag_cache entries written under pre-fix code silently poison correct future flags
+
+**Source:** self identified, first clean end-to-end run against
+`runs/lacro_final_check/` (session-10), verifying R-027/R-018/R-029/R-030
+together
+**Layer:** `code`
+**Priority:** high
+**Status:** Not started -- logged only, no fix yet
+
+**Current behaviour**
+`qualitative/tag_cache.py` exists precisely so a respondent's protection-
+flag decision is stable across regenerations -- once cached, `_apply_
+protection_flag_cache()` (`llm_call.py`) always prefers the cached
+decision over a fresh one, including a cached "no flag" decision, for
+the life of the cache file. Nothing in that lookup is aware of WHEN a
+cache entry was written or under what code version -- a decision cached
+while a real bug was silently discarding or misattributing flags (R-018,
+R-027, R-029) is trusted exactly as much as one cached after the fix,
+forever, with no expiry and no versioning.
+
+Confirmed on this session's first genuinely clean end-to-end run: the
+fresh synthesis call correctly produced two real protection flags at the
+top level (not misplaced this time -- R-027's bug is non-deterministic,
+see that requirement's own note) -- `row_1313` (`premium_without_
+consent`, "Client states they were unaware they had the insurance...")
+and `row_1015`'s claims-other-phase entry (`unfair_claim_denial`,
+naming the client's daughter). **Neither survived into the final
+`qualitative_results.json`.** Traced to `qualitative/cache/tag_cache.json`:
+
+- `row_1313`'s cache entry (`flag:row_1313:868f8b09127aaef9`, keyed on
+  its own claims-other text) holds `{"_no_flag": true}` -- written on an
+  earlier run, before R-027 was fixed, when this exact flag was trapped
+  inside `section_insights` and therefore invisible to `_apply_
+  protection_flag_cache()`'s `found_by_id` lookup at cache-write time.
+  It has cached "nothing here" ever since.
+- `row_1015`'s claims-other cache entry (`flag:row_1015:e2f9869b2e128daa`)
+  holds a flag dict, but the WRONG one -- the NPS-phase flag's own data
+  (`"column": "nps_detractors"`, reason about "could never use the
+  insurance"), not this record's own claims-other content. This is
+  R-029's bug, pre-fix, caught in the act: before `found_by_id` was keyed
+  on `(id, column)`, an id-only lookup handed the NPS flag to BOTH of
+  row_1015's scanned records (its NPS record and its claims-other
+  record) and cached that same wrong value under both records' distinct
+  cache keys. R-029 fixed the LOOKUP; it did nothing about entries the
+  broken lookup had already written to disk.
+
+The pipeline logic verified as CORRECT this session (relocation, dedup,
+column-aware caching) is not the problem -- the problem is that stability
+was purchased before correctness existed, and the cache has no way to
+tell the two apart. Every future run will keep reproducing this exact
+loss for these two specific respondents, and potentially others cached
+during the same pre-fix window, until the cache is corrected.
+
+**Intended behaviour**
+Not decided. Candidates, not yet evaluated against each other:
+- A one-time manual correction of the specific poisoned keys identified
+  here (fast, but doesn't find other silently-poisoned entries from the
+  same pre-fix window, and there is no way to enumerate them after the
+  fact -- the cache does not record which code version wrote each entry).
+- A cache format version stamped per-entry (or per-file) at write time,
+  bumped whenever `_apply_protection_flag_cache()`/`_dedupe_protection_
+  flags()`'s logic changes, with entries older than the current version
+  either re-verified or dropped rather than trusted. This is the only
+  option that also protects against a FUTURE fix having the same silent
+  side effect.
+- Accept the ephemeral-filesystem escape hatch `tag_cache.py`'s own
+  docstring already notes (a HF Spaces redeploy resets the cache) and
+  treat this as self-healing in production, while still leaving local/
+  long-lived dev environments exposed indefinitely.
+
+**Verification**
+Not written -- no fix decided yet. Any fix should be checked against
+exactly these two real poisoned keys before being considered resolved.
 
 ---
 
