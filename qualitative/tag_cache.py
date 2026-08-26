@@ -40,6 +40,26 @@ log = logging.getLogger(__name__)
 
 DEFAULT_CACHE_PATH = Path(__file__).resolve().parent / "cache" / "tag_cache.json"
 
+# R-033 (docs/report_spec.md, session-10): a cache entry used to be trusted
+# forever regardless of when it was written or what code wrote it -- a
+# decision cached while a real bug was silently discarding or misattributing
+# results (R-018, R-027, R-029) was indistinguishable from one cached after
+# the fix, and get() had no way to tell them apart. Confirmed on real data:
+# a stale entry written before R-027 was fixed suppressed a real protection
+# flag every run afterward; a stale entry written before R-029 was fixed
+# served one respondent's flag under a DIFFERENT record's own cache key.
+#
+# Bump this whenever logic that DECIDES what gets cached under "theme" or
+# "flag" changes in a way that could change a past decision -- not for
+# unrelated code changes elsewhere in the file. get() ignores (treats as a
+# cache miss) any entry stamped with an older version than this, so a fix
+# to that logic automatically invalidates exactly the entries it could have
+# affected, the next time each one is looked up -- no manual cache surgery
+# needed per fix.
+#   1 -- initial version stamp (session-10). Every entry written before
+#        this had no stamp at all and is unconditionally treated as a miss.
+CACHE_LOGIC_VERSION = 1
+
 
 def _cache_key(kind: str, record_id: str, text: str) -> str:
     """kind namespaces the key (e.g. "theme", "flag") -- the same
@@ -80,13 +100,30 @@ def save(cache: dict, cache_path: "Path | None" = None) -> None:
 
 def get(cache: dict, kind: str, record_id: str, text: str):
     """Returns the cached value, or None if this exact (kind, id, text)
-    combination hasn't been classified before."""
-    return cache.get(_cache_key(kind, record_id, text))
+    combination hasn't been classified before -- OR if it was, but under
+    an older CACHE_LOGIC_VERSION than the one this code was built against
+    (R-033): a version mismatch is treated identically to "never cached,"
+    a plain miss, so the caller re-classifies fresh and re-caches under
+    the current version. An entry with no version stamp at all (written
+    before this existed) is always a mismatch."""
+    entry = cache.get(_cache_key(kind, record_id, text))
+    if not isinstance(entry, dict) or "_cache_version" not in entry:
+        return None
+    if entry["_cache_version"] < CACHE_LOGIC_VERSION:
+        return None
+    return entry["value"]
 
 
 def put(cache: dict, kind: str, record_id: str, text: str, value) -> None:
     """Content-hash-keyed: if the underlying response text for this id
     ever changes (a data correction, a re-export), the old cache entry is
     simply never looked up again rather than serving a stale result --
-    the new (kind, id, text) combination is a fresh cache miss."""
-    cache[_cache_key(kind, record_id, text)] = value
+    the new (kind, id, text) combination is a fresh cache miss.
+
+    Stamps CACHE_LOGIC_VERSION (R-033) alongside the value so a future
+    get() can tell whether this decision was made under the caching
+    logic current at read time."""
+    cache[_cache_key(kind, record_id, text)] = {
+        "_cache_version": CACHE_LOGIC_VERSION,
+        "value": value,
+    }

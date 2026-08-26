@@ -87,3 +87,42 @@ class TestGetPut:
         cache = {}
         tag_cache.put(cache, "theme", "row_0001", None, ["x"])
         assert tag_cache.get(cache, "theme", "row_0001", None) == ["x"]
+
+
+class TestCacheVersioning:
+    """R-033 (docs/report_spec.md, session-10): a cache entry written under
+    older caching logic must not be trusted forever just because it exists
+    -- confirmed on real data that this silently served a stale "no flag"
+    decision cached before R-027 was fixed, and separately served one
+    respondent's flag under a different record's own cache key, a residue
+    of R-029's pre-fix id-only lookup bug."""
+
+    def test_put_stamps_current_version(self):
+        cache = {}
+        tag_cache.put(cache, "flag", "row_0001", "text", {"flag_type": "x"})
+        key = tag_cache._cache_key("flag", "row_0001", "text")
+        assert cache[key]["_cache_version"] == tag_cache.CACHE_LOGIC_VERSION
+
+    def test_entry_at_current_version_is_trusted(self):
+        cache = {}
+        tag_cache.put(cache, "flag", "row_0001", "text", {"flag_type": "x"})
+        assert tag_cache.get(cache, "flag", "row_0001", "text") == {"flag_type": "x"}
+
+    def test_entry_below_current_version_is_a_miss(self):
+        key = tag_cache._cache_key("flag", "row_0001", "text")
+        cache = {key: {"_cache_version": tag_cache.CACHE_LOGIC_VERSION - 1, "value": {"flag_type": "stale"}}}
+        assert tag_cache.get(cache, "flag", "row_0001", "text") is None
+
+    def test_unversioned_legacy_entry_is_a_miss(self):
+        # Every entry written before CACHE_LOGIC_VERSION existed has no
+        # "_cache_version" key at all -- the exact real-data shape this
+        # fix must invalidate (see R-033's two confirmed poisoned entries).
+        key = tag_cache._cache_key("flag", "row_0001", "text")
+        cache = {key: {"flag_type": "pre_versioning_raw_value"}}
+        assert tag_cache.get(cache, "flag", "row_0001", "text") is None
+
+    def test_stale_entry_is_overwritten_on_next_put(self):
+        key = tag_cache._cache_key("flag", "row_0001", "text")
+        cache = {key: {"_cache_version": tag_cache.CACHE_LOGIC_VERSION - 1, "value": {"flag_type": "stale"}}}
+        tag_cache.put(cache, "flag", "row_0001", "text", {"flag_type": "fresh"})
+        assert tag_cache.get(cache, "flag", "row_0001", "text") == {"flag_type": "fresh"}
