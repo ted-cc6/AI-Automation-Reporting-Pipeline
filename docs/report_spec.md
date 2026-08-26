@@ -73,7 +73,8 @@ This file is the single source of truth for the next pipeline iteration. Every r
 | R-027 | self | code | Executive summary content silently discarded by a JSON-shape mismatch -- IMPLEMENTED | 1 |
 | R-028 | self | data_config | report_spec.yaml's model: key names a model this pipeline cannot reach | 3 |
 | R-032 | self | code | Required top-level keys are checked for presence, not content, beyond R-027's four | 3 |
-| R-033 | self | code | Protection-flag tag_cache entries written under pre-fix code silently poison correct future flags | 1 |
+| R-033 | self | code | Protection-flag tag_cache entries written under pre-fix code silently poison correct future flags -- IMPLEMENTED | 1 |
+| R-034 | self | code | validate_output.py's unverified_quote check has no translation/whitespace/ellipsis tolerance -- investigated, LOW severity, all 11 real rejects trace to genuine pooled verbatims | 3 |
 
 ---
 
@@ -1968,22 +1969,42 @@ summary_inputs = [section.digest() for section in all_sections]
 
 Prompt component, applied only after the input fix: instruct that findings must span modules and that no more than one of three findings may derive from NPS.
 
-**Secondary defect in the same section**
+**Secondary defect in the same section -- IMPLEMENTED (session-10, C-018)**
 Top Findings are numbered 1 to 3 and Recommended Actions continue as 4 to 6. List numbering must reset.
+
+Root cause: both lists used the same Word paragraph style ("List
+Number"), which is one shared numbering instance -- Recommended Actions
+inherited Top Findings' running count instead of starting its own.
+Fixed in `generation/assembler.py`'s `_add_executive_summary()`: Top
+Actions now renders with style "List Number 2", a distinct built-in
+Word style with its own independent numbering (confirmed: python-docx's
+default template gives `ListNumber`/`ListNumber2` numId 5/6
+respectively), restarting cleanly with no raw-XML numbering surgery.
+Confirmed against real data: re-extracting the freshly-regenerated
+`runs/lacro_final_check/` docx (the numbering fix required updating the
+extraction script's own list-counter logic too, from a single global
+counter to one counter per distinct "List Number*" style, to correctly
+reflect what Word actually renders) shows Recommended Actions restarting
+at 1; **C-018 flips FAIL -> pass**.
 
 **Verification**
 - `assert summary_inputs covers every rendered part`
 - `assert findings reference at least 4 distinct section IDs`
 - `assert at most 1 finding is sourced from the NPS module`
-- `assert recommended actions are numbered from 1`
+- `assert recommended actions are numbered from 1` -- verified via
+  `tests/test_assembler.py::TestAddExecutiveSummary::
+  test_recommended_actions_use_a_distinct_numbering_style` and the real
+  end-to-end regeneration above. (This requirement's primary defect --
+  exec summary coverage across modules, C-019 -- remains open.)
 
 ---
 
 ## R-014 Remove editorial phrase in Part 5
 
 **Source:** LM9, "can this phrase be removed? 'unrelated to child wellbeing itself'"
-**Layer:** `code` if templated, `prompt` if generated
+**Layer:** `prompt` (one line)
 **Priority:** low
+**Status:** Implemented (session-10)
 
 **Current behaviour**
 The caregiver comparison narrative opens with "Comparing caregivers against non-caregivers on two measures unrelated to child wellbeing itself ...". The qualifier is editorial and reads as the pipeline apologising for its own table.
@@ -1994,8 +2015,31 @@ The phrase is removed. The sentence states what is compared without justifying t
 **Implementation note**
 Grep for the phrase before deciding the layer. If it is a hardcoded template string this is a one line template fix, which is cheaper and more reliable than a prompt change. Only treat it as a prompt requirement if the generator produced it freely.
 
+**Located and implemented (session-10)**
+No hardcoded template string anywhere in Python source -- the phrase
+lived in `generation/report_spec.yaml`'s Part 5 `sections.s5_3.note`
+(the prompt instruction for the Caregivers-vs-Non-Caregivers
+subsection), and the writer model was echoing it near-verbatim into
+reader-facing prose (confirmed in `fixtures/test9.txt:177`). Per
+explicit one-line authorisation: removed only the offending clause --
+`"-- two metrics unrelated to child wellbeing itself, since child
+wellbeing cannot be measured for non-caregivers"` -- leaving the rest of
+the note (population cross-reference, significance threshold) unchanged.
+
+**Confirmed against real data:** regenerated Part 5's narrative with one
+real `write_part()` call against the updated prompt: *"A comparison
+between caregivers and non-caregivers reveals no meaningful difference
+in their reported levels of high financial stress (1.8% and 1.2%
+respectively). However, among health-insurance clients who needed care,
+non-caregivers were significantly more likely to report improved
+healthcare access (46.7%) than caregivers were (31.4%)..."* -- no trace
+of the removed phrase, and the prose is not degraded by the removal.
+
 **Verification**
 - `assert "unrelated to child wellbeing" not in report_text`
+- `tests/test_assembler.py` unaffected (this is a prompt-only change, no
+  code path to unit test); verified via the real regeneration above and
+  C-020 passing on the resulting extraction.
 
 ---
 
@@ -2417,8 +2461,7 @@ Not written -- no fix decided yet.
 `runs/lacro_final_check/` (session-10), verifying R-027/R-018/R-029/R-030
 together
 **Layer:** `code`
-**Priority:** high
-**Status:** Not started -- logged only, no fix yet
+**Priority:** high -- **promoted, then implemented (session-10)**
 
 **Current behaviour**
 `qualitative/tag_cache.py` exists precisely so a respondent's protection-
@@ -2464,26 +2507,144 @@ tell the two apart. Every future run will keep reproducing this exact
 loss for these two specific respondents, and potentially others cached
 during the same pre-fix window, until the cache is corrected.
 
-**Intended behaviour**
-Not decided. Candidates, not yet evaluated against each other:
-- A one-time manual correction of the specific poisoned keys identified
-  here (fast, but doesn't find other silently-poisoned entries from the
-  same pre-fix window, and there is no way to enumerate them after the
-  fact -- the cache does not record which code version wrote each entry).
-- A cache format version stamped per-entry (or per-file) at write time,
-  bumped whenever `_apply_protection_flag_cache()`/`_dedupe_protection_
-  flags()`'s logic changes, with entries older than the current version
-  either re-verified or dropped rather than trusted. This is the only
-  option that also protects against a FUTURE fix having the same silent
-  side effect.
-- Accept the ephemeral-filesystem escape hatch `tag_cache.py`'s own
-  docstring already notes (a HF Spaces redeploy resets the cache) and
-  treat this as self-healing in production, while still leaving local/
-  long-lived dev environments exposed indefinitely.
+**Implemented (session-10): cache format versioning, with authorisation
+to clear the poisoned cache once as the only way to test whether
+R-018/R-027/R-029 actually work end to end.**
+
+`qualitative/tag_cache.py` gained `CACHE_LOGIC_VERSION` (currently `1`).
+`put()` now stores `{"_cache_version": CACHE_LOGIC_VERSION, "value":
+value}` instead of the bare value; `get()` unwraps it and returns a
+cache miss (`None`) if the stored version is missing entirely (every
+entry written before this existed) or below the current version --
+identical treatment, since both mean "not written under logic this code
+currently trusts." Entirely transparent to both call sites in
+`llm_call.py` (`_apply_theme_tag_cache()`, `_apply_protection_flag_
+cache()`) -- neither needed to change. Bump `CACHE_LOGIC_VERSION`
+whenever logic that DECIDES what gets cached under "theme" or "flag"
+changes in a way that could change a past decision; a fix from here on
+automatically invalidates exactly the entries it could have affected,
+the next time each is looked up -- no manual cache surgery needed per
+future fix, closing the class of bug this entry describes, not just
+the two instances found.
+
+`qualitative/cache/tag_cache.json` was cleared once (authorised) and
+Stage 3 re-run in full against `runs/lacro_final_check/` on the
+now-versioned cache. **Confirmed: both flags now reach
+`qualitative_results.json`.** `row_1015` now carries 2 entries (NPS-
+phase, column `nps_detractors`; claims-other-phase, column
+`claim_challenges_other_support`, correctly naming the daughter), both
+marked `same_client_multiple_concerns: true`. `row_1313` carries its
+`premium_without_consent` entry, column `claim_no_reason_other`. Total
+`protection_flags`: 30 -> 32. `_apply_protection_flag_cache()`'s cache
+log confirms a full re-classification, not a partial hit: `0 entries
+before this run, 3516 after (3516 new)`.
+
+**A side effect surfaced by this exact fix, not yet corrected:** with
+`row_1015` now genuinely a two-concern client for the first time, its
+appendix entries both carry the (correct) `"; same client, multiple
+concerns"` suffix inside the same parenthetical as the client
+reference -- long enough that `docs/report_checks.py`'s C-004 regex
+(`[^)]{2,40}` after the id) no longer matches either one, undercounting
+the appendix by exactly 2 (`"states 32 concerns, lists 30 entries"`).
+Both entries render correctly; this is a check character-limit blind
+spot the `same_client_multiple_concerns` feature (itself already
+shipped, unrelated to this session) had never previously triggered on
+real data, because no client had ever had 2 concerns survive to the
+appendix at once before this fix. Not fixed here -- flagged for a
+decision the same way R-034 was, rather than silently patched.
 
 **Verification**
-Not written -- no fix decided yet. Any fix should be checked against
-exactly these two real poisoned keys before being considered resolved.
+`tests/test_tag_cache.py::TestCacheVersioning` (5 cases: `put()` stamps
+the current version; a current-version entry is trusted; a stale-
+version entry is a miss; a legacy entry with no version key at all is a
+miss; a stale entry is overwritten on next `put()`). Confirmed against
+the two real poisoned keys via the cache-clear + full Stage 3 re-run
+above -- both now resolve correctly.
+
+---
+
+## R-034 validate_output.py's unverified_quote check cannot recognise a translated, whitespace-shifted, or ellipsized real quote
+
+**Source:** self identified, investigating 11 `unverified_quote` reject-
+severity findings surfaced by the first clean end-to-end run
+(session-10)
+**Layer:** `code`
+**Priority:** medium (downgraded from an initial "outranks everything"
+concern -- see Severity below)
+**Status:** Investigated (read-only), not fixed
+
+**Investigation**
+Per instruction, read-only, answering the three specific questions
+before proposing anything:
+
+1. **Are these paraphrases/translations of a real pooled verbatim, or
+   unsourced text?** All 11 are sourced. Checked every one against its
+   section's real `section_verbatims` pool:
+   - 9 of 11 are faithful English translations of a real Spanish-
+     language pooled verbatim, immediately followed in the model's own
+     prose by the original Spanish in parentheses -- e.g. Part 1's
+     insight literally reads: `One client expressed frustration, stating
+     "they did not explain it well to me, I don't know how much I am
+     covered for" ("No me explicaron bien nose que tanto estoy
+     cubierta").` The model is showing its work, not fabricating -- this
+     is a legitimate, transparent bilingual-quote pattern, not a defect.
+   - 1 (`"No recomiendo nunca pudo usarlo"`, Part 2) is the identical
+     Spanish pooled verbatim with different internal whitespace than
+     the pool's own stored copy (`"No  recomiendo  nunca pudo usarlo"`,
+     double spaces) -- same text, not fabricated, just not a byte-exact
+     substring.
+   - 1 (Part 4, `"ME QUEDA LEJOS LA CLINICA... NO ME BENEFICIA"`) is the
+     real pooled verbatim with an ellipsis eliding its middle clause --
+     a real quote, abbreviated.
+   No unsourced or invented quote was found anywhere in this run.
+
+2. **Does the writer receive text beyond the section's verbatim pool?**
+   Yes -- `writer.py`'s `_fmt_insight_summary()` also sends THEME
+   SUMMARY (free prose from the qualitative synthesis call's own
+   `theme_summary` field), TOP DRIVERS (a label list), and SENTIMENT
+   SPLIT BY GROUP (counts) alongside the literal `VERBATIM 1/2/3: "..."`
+   lines. None of the 11 rejects trace to this extra context in this
+   run -- all trace to the literal verbatim pool -- but this is a real
+   answer to the question and a channel worth watching: a THEME SUMMARY
+   sentence quoted verbatim by the writer would be indistinguishable
+   from a fabricated quote to a reader, and would ALSO fail this check
+   (correctly, in that hypothetical case).
+
+3. **What does a reject do?** Nothing renders differently. Per
+   `validate_output.py`'s own module docstring: *"Advisory only: this
+   never blocks generation or modifies output."* A reject-severity
+   finding is written to `validation_report.json` for a human to review
+   after the fact; the quote is rendered exactly as the model wrote it
+   regardless of severity.
+
+**Root cause:** `_check_unverified_quotes()` does a same-language,
+whitespace-exact substring match (`quoted in pool_text or pool_text in
+quoted`) against `insight_verbatims`. It has no tolerance for (a) a
+translation of a non-English pooled verbatim, (b) whitespace
+differences within an otherwise-identical string, or (c) an ellipsis
+eliding part of a longer real quote -- three distinct false-positive
+causes, not one.
+
+**Severity: LOW, not the "outranks everything" case.** No fabricated
+quotation attributed to a real client was found. The report content
+itself is fine; the check that's supposed to catch fabrication has a
+blind spot that makes it noisy on real, sourced, translated quotes --
+which risks the opposite failure mode long-term: a check that cries
+wolf on legitimate translations trains a reviewer to stop reading its
+findings, which is exactly when a genuinely unsourced quote (channel 2
+above) would slip through unnoticed.
+
+**Intended behaviour**
+Not decided -- no fix proposed per instruction, pending your call on
+severity. Candidates for a future pass: normalise whitespace before
+comparing; check the pool's Spanish text specifically when the writer's
+own bilingual pattern (`"english" ("original")`) is detected, rather
+than only ever comparing the English half; treat a quote as verified if
+it's a substring of the pool text WITH interior ellipsis segments
+stripped and compared piecewise.
+
+**Verification**
+Not written -- no fix decided yet.
 
 ---
 

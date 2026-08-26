@@ -739,9 +739,8 @@ parts:
         word_limit: 80
         note: >
           Compares caregivers (support at least one child) against non-caregivers on financial
-          stress and healthcare access -- two metrics unrelated to child wellbeing itself, since
-          child wellbeing cannot be measured for non-caregivers. See the scorecard table's
-          population note for each row's base. Significance threshold: p < 0.05, mark with *.
+          stress and healthcare access. See the scorecard table's population note for each row's
+          base. Significance threshold: p < 0.05, mark with *.
 
       insight:
         word_limit: 120

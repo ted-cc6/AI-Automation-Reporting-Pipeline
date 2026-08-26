@@ -450,8 +450,15 @@ def _add_executive_summary(doc, analysis: dict, qual: dict):
     top_actions = (qual or {}).get("top_actions", [])[:3]
     if top_actions:
         _add_heading(doc, "Recommended Actions", level=3)
+        # C-018/R-013: "List Number" is one shared numbering instance for the
+        # whole document -- reusing it here continued Top Findings' count
+        # (1-3) into Recommended Actions (4-6) instead of restarting at 1.
+        # "List Number 2" is a distinct built-in Word style with its own
+        # independent numId (confirmed: python-docx's default template
+        # gives ListNumber/ListNumber2 numId 5/6 respectively), so it
+        # restarts cleanly without any raw-XML numbering surgery.
         for action in top_actions:
-            _add_paragraph(doc, action, style="List Number")
+            _add_paragraph(doc, action, style="List Number 2")
 
     caveats = data_availability_caveats(analysis)
     if caveats:

@@ -725,6 +725,28 @@ class TestAddExecutiveSummary:
         assert "Recommended Actions" in body
         assert "Action A" in body
 
+    def test_recommended_actions_use_a_distinct_numbering_style(self):
+        # C-018/R-013 (session-10): Top Findings and Recommended Actions
+        # both used to render with style "List Number" -- one shared
+        # numbering instance in Word, so Recommended Actions continued
+        # Top Findings' count (1-3) as 4-6 instead of restarting at 1.
+        # "List Number 2" is a distinct built-in style with its own numId
+        # (confirmed: python-docx's default template gives ListNumber/
+        # ListNumber2 numId 5/6), so it restarts independently.
+        from docx import Document
+        doc = Document()
+        qual = {
+            "executive_summary": "Summary.",
+            "top_findings": ["Finding A", "Finding B"],
+            "top_actions": ["Action A", "Action B"],
+        }
+        _add_executive_summary(doc, {"parts": _EXEC_SUMMARY_PARTS}, qual)
+        finding_styles = {p.style.name for p in doc.paragraphs if p.text in ("Finding A", "Finding B")}
+        action_styles = {p.style.name for p in doc.paragraphs if p.text in ("Action A", "Action B")}
+        assert finding_styles == {"List Number"}
+        assert action_styles == {"List Number 2"}
+        assert finding_styles != action_styles
+
 
 class TestAssembleExecutiveSummary:
     def _doc_text(self, doc_path) -> str:
