@@ -412,7 +412,7 @@ def chart_part5_drivers(data, out_dir):
               loc='upper center', bbox_to_anchor=(0.5, -0.08), ncol=1,
               labelcolor=C['ink_2'])
 
-    add_title(fig, 'Child Wellbeing Drivers',
+    add_title(fig, 'Factors Associated with Child Wellbeing',
               'Spearman ρ with child wellbeing improvement  (n≈1,928 caregivers)')
     add_source(fig, note='† Renewal Intent n=127 only')
     plt.tight_layout(rect=[0, 0.10, 1, 0.90])

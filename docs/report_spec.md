@@ -75,6 +75,7 @@ This file is the single source of truth for the next pipeline iteration. Every r
 | R-032 | self | code | Required top-level keys are checked for presence, not content, beyond R-027's four | 3 |
 | R-033 | self | code | Protection-flag tag_cache entries written under pre-fix code silently poison correct future flags -- IMPLEMENTED | 1 |
 | R-034 | self | code | validate_output.py's unverified_quote check has no translation/whitespace/ellipsis tolerance -- investigated, LOW severity, all 11 real rejects trace to genuine pooled verbatims | 3 |
+| R-035 | Lorenz's colleague | mixed (template + prompt + check) | Correlations and group differences must be described as associations, never as causal claims -- IMPLEMENTED | 1 |
 
 ---
 
@@ -274,6 +275,22 @@ The only valid measurement is a full, clean, end-to-end regeneration
 with nothing reused -- see this requirement's own end-to-end run entry
 (if this note is read before that run exists, no current number should
 be cited for `runs/lacro_final_check/` at all).
+
+**Baseline updated again (session-11) -- read this before citing "14
+blocking" too.** `fixtures/test9.txt` now reports **4 passed, 3 skipped,
+3 advisory failures, 15 blocking failures**. The 14->15 blocking RISE
+is, once again, **not** evidence that Test9's own report got worse --
+Test9 is frozen and was not regenerated this session. It is entirely
+explained by C-025 (R-035's new check): Test9 was written before R-035
+existed, so its old "Drivers of Satisfaction" heading, "Driver" column
+header, and causal-sounding correlation language now correctly fail a
+check that didn't exist when Test9 was captured. Every other blocking
+failure Test9 still exhibits is the same substantive defect as before
+(now 15 of them). **15 blocking failures is the baseline progress
+metric going forward, for the third time -- each rise or fall in this
+number has so far always been a check-methodology change, never a
+report-quality one; read the requirement each change is attributed to
+before drawing any conclusion from the raw count.**
 
 ---
 
@@ -2645,6 +2662,183 @@ stripped and compared piecewise.
 
 **Verification**
 Not written -- no fix decided yet.
+
+---
+
+## R-035 Correlations and group differences must be described as associations, not causation
+
+**Source:** new reviewer feedback on Test11, from a colleague of Lorenz's
+**Layer:** mixed (template/config + prompt + check)
+**Priority:** high
+**Status:** Implemented (session-11)
+
+**Current behaviour**
+The report described correlations and group differences using causal
+verbs: "drove," "driver(s)," "lever," "underpins," "eased," "strengthens,"
+"translating X into Y" -- language that asserts a mechanism a
+cross-sectional survey cannot establish. Test11 contained (among others):
+*"Analysis of 1,721 clients revealed that value perception drove
+satisfaction most strongly"*; *"offers the strongest lever for improving
+client advocacy"*; *"Value perception was the central NPS driver"*;
+*"This trust ... underpins the protective value of coverage"*; *"the
+health cover eased both access and cost pressures"*; *"direct experience
+filing a claim substantially strengthens process knowledge"*; and the
+most exposed case, *"caregivers face greater barriers translating cover
+into improved access"* -- which asserts a specific mechanism behind an
+observed group difference that the data cannot support.
+
+The word "driver" was also structural: Part 4's and Part 5's correlation
+tables were headed "Drivers of Satisfaction" / "Child Wellbeing Drivers,"
+their shared column header read "Driver," and the methodology appendix
+said a negative correlation "reflects a POSITIVE real-world relationship"
+-- all of which invite the exact causal reading the underlying statistics
+(Spearman rank correlation on cross-sectional survey data) do not
+support.
+
+**Intended behaviour**
+Correlations and group differences are described as associations only.
+Causal verbs (drive, cause, determine, improve, reduce, strengthen,
+underpin, ease, translate...into, lever, impact-as-verb) are banned
+outside a quoted client verbatim. The report's headings, table headers,
+chart titles, and methodology text use "factor"/"association" language
+instead of "driver"/"reflects a...relationship."
+
+**Part A -- deterministic renames (template/config)**
+
+| # | Change | Location(s) |
+|---|---|---|
+| 1 | "Drivers of Satisfaction" -> "Factors Associated with Satisfaction" | `report_spec.yaml`'s `part_4.sections.s4_3.label`; `assembler.py`'s matching fallback default |
+| 2 | "Child Wellbeing Drivers" -> "Factors Associated with Child Wellbeing" | `report_spec.yaml`'s `part_5.sections.s5_1.label`; `assembler.py`'s matching fallback default |
+| 3 | "Driver" column header -> "Factor" | Both `drivers_table.headers` lists in `report_spec.yaml`; `assembler.py`'s `_add_drivers_table()` shared fallback default |
+| 4 | "Child Wellbeing Drivers (Spearman Correlation)" -> "Factors Associated with Child Wellbeing (Spearman Correlation)" | `report_spec.yaml`'s `part_5` visuals caption; `generate_visuals.py`'s embedded matplotlib title (`chart_part5_drivers()`) |
+| 5 | "Top NPS Theme Drivers" -> "Top NPS Themes" | `report_spec.yaml`'s `part_4` visuals caption (this chart has no generator -- `has_generator: False` in `dashboard/api/visuals_source.py` -- so there is no matplotlib title to change) |
+| 6 | Methodology appendix interpretation paragraph reworded to association language, plus one added sentence stating these are observed associations in cross-sectional data that do not establish causation | `assembler.py`'s `_SPEARMAN_METHODOLOGY_INTRO`, `_SPEARMAN_METHODOLOGY_SCORING_NOTE_DEFAULT`, `_SPEARMAN_METHODOLOGY_SCORING_NOTE_LACRO`, and the appendix subheading ("...Drivers Tables)" -> "...Factors Tables)") |
+
+**Extended beyond the six items above, confirmed with the user before
+implementing (leaving these would have undermined Part B):**
+- All ~14 other occurrences of "driver(s)" as a concept-word in
+  `report_spec.yaml`'s prompt `note:` text, `population:` strings, and the
+  cross-reference from Part 4's note to "the Child Wellbeing Drivers
+  table" (now "the Factors Associated with Child Wellbeing table") --
+  reworded to "factor." Left as-is: `drivers:`/`drivers_table:`/
+  `drivers_data`/`drivers_outcome_label`/`rho_path` internal key names
+  and the `part5_drivers.png` filename -- these are never shown to a
+  reader or the model as prose, matching the R-011 precedent of leaving
+  internal identifiers stable while changing only display strings.
+- `writer.py`'s SCALE DIRECTION paragraph, which said "a Part 5 driver
+  correlation" and "for that specific driver" -- reworded to "factor."
+- The 13 per-driver `direction:` fields in `report_spec.yaml` (6 in Part
+  4, 7 in Part 5), which repeated "a positive real-world relationship,
+  despite the negative sign" (11 instances), "the expected, negative
+  real-world relationship" (1), and an alternate same-direction phrasing
+  (1) -- none contained a literally banned C-025 term, but all shared
+  the exact phrasing item 6 targets in the appendix. Reworded to "is
+  associated with... an association in the expected direction," for
+  consistency between the appendix and the per-factor notes the writer
+  reads.
+- `generate_visuals.py:415`'s embedded matplotlib title for
+  `part5_drivers.png` (the one Part 5 chart with a real generator) --
+  renamed to match the caption. Verified by code inspection only: every
+  real run so far shows `VISUAL PENDING` (the PNG is never actually
+  generated in this environment), so `report_checks.py` cannot see this
+  string either way.
+- **New, not in the original six items:** a one-line association/no-
+  causation note now renders directly beneath both correlation tables
+  (`report_spec.yaml`'s new `drivers_table.association_note` field,
+  rendered by `assembler.py`'s `_add_drivers_table()`), not only in the
+  methodology appendix -- a reader looking at the table itself, which is
+  where a causal reading is most tempting, will not necessarily reach
+  the appendix.
+
+**Part B -- VOICE RULES (prompt layer)**
+
+Added one bullet to `writer.py`'s shared `_house_voice_text()` VOICE
+RULES block: bans drive/drives/drove/driver, cause/causes/caused, leads
+to, determines, improves, reduces, strengthens, underpins, eases,
+translates into, lever, and impact-as-a-verb outside a quoted client
+verbatim; gives the required substitutions ("X drives Y" ->
+"X is associated with Y"; "X improves Y" -> "higher X is associated with
+higher Y"; "the strongest driver" -> "the factor most strongly
+associated"; a group difference described as what was observed, not what
+one group's status did to produce the other's outcome); explicitly
+instructs plain, not hedged, language ("Claimants reported higher child
+wellbeing" stands as written); and confirms the report title, "Insurance
+Impact Report," is the programme's name, not a causal claim, and needs no
+rewording.
+
+**Part C -- C-025 (check layer)**
+
+`docs/report_checks.py` gained `C-025` (BLOCKING). Design:
+- **Banned terms:** every inflection of each verb, not only the literal
+  forms named in the feedback ("improving"/"improved" are exactly as
+  causal as "improves" -- confirmed with the user this broader
+  interpretation was intended). `translat\w*(?:\s+\S+){0,3}\s+into`
+  allows up to 3 intervening words, so it catches Test11's real
+  "translating cover into improved access" without spanning across a
+  full sentence. "impact" is banned only as its inflected verb forms
+  (`impacts`/`impacted`/`impacting`); bare "impact" (a noun in this
+  report, including the report title) is never flagged.
+- **Verbatim exclusion:** one regex, `["“][^"”]*["”](\s*
+  \([^)]*\))?`, matches a quoted span and an immediately-following
+  parenthetical in a single pass -- covering both a plain block quote and
+  this codebase's bilingual pattern (an English gloss quoted, followed
+  by the unquoted original-language text in parentheses, e.g. writer.py's
+  own example: `"the process was very slow" ("el proceso fue muy
+  lento")`) without needing separate handling for each.
+- **"Improved" exemption, per explicit instruction not to let the check
+  fire on a metric name or a factual "what respondents reported"
+  statement:** the three fixed metric labels that literally end in
+  "Improved" ("Children's Wellbeing Improved," "Healthcare Access
+  Improved," "Child Wellbeing Improved") are stripped by exact string
+  match before scanning. Separately, "improved" is exempt when
+  immediately preceded by a reporting/observation verb ("reported
+  improved X," matching the feedback's own example) or when it ends its
+  clause with nothing following ("...access ... improved.", the real
+  phrasing this codebase's Part 4/5 healthcare-access narrative already
+  uses) -- both confirmed against real generated text, not invented.
+  Every other inflection of "improve" (improve/improves/improving) has
+  no such exemption and is banned outright; unattributed "improved X"
+  with no reporting verb before it and no clause-ending signal after it
+  (e.g. "the programme improved outcomes for many families") is still
+  banned.
+- Docstring notes prompt instructions are probabilistic, so this check
+  exists to catch drift, not to replace Part B.
+
+**Verified:**
+- `tests/test_report_checks_c025.py` (26 cases): all 7 real Test11
+  sentences trip the check; every banned-term family is covered
+  independently; quoted-verbatim exemption (plain and bilingual, with a
+  banned term inside vs. just outside the quote in the same sentence);
+  every "improved" exemption case plus the unattributed-causal-use
+  negative case; clean narrative passes cleanly.
+- `tests/test_assembler.py::TestAddDriversTable` (2 new cases): default
+  header is "Factor," not "Driver"; the association note renders when
+  configured and is omitted (not a blank line) when not.
+- Full test suite: 753 passed (was 724 before this requirement).
+
+**Confirmed against real data:** regenerated all 9 report parts against
+`runs/lacro_final_check/` with the new VOICE RULES and renamed sections
+(analysis and qualitative outputs unchanged -- R-035 only touches
+`report_spec.yaml`/`writer.py`/`assembler.py`/`generate_visuals.py`).
+Rewritten Part 4/5 sections and the methodology paragraph shown to the
+user for tone review before shipping (see conversation). `docs/
+report_checks.py` re-run against both `fixtures/test9.txt` and the fresh
+extraction.
+
+**Baseline note:** C-025 is a brand-new check for a brand-new requirement
+that predates this session entirely -- `fixtures/test9.txt` (frozen,
+unregenerated, and genuinely written before R-035 existed) now correctly
+FAILS C-025 too, moving its own blocking count from 14 to 15. This is
+coverage expanding correctly, the same class of baseline movement
+documented for R-006a's and R-008's check additions -- not a regression
+on Test9's own content, and not evidence anything got worse.
+
+**Verification**
+- `assert no banned causal verb appears outside a quoted verbatim`
+- `assert both correlation tables use "Factor," not "Driver," as their
+  column header`
+- `assert the methodology appendix and both correlation tables state
+  these are observed associations, not causal claims`
 
 ---
 

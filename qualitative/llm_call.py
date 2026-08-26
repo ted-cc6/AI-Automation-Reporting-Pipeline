@@ -582,6 +582,20 @@ executive_summary, top_findings, top_actions, label), never use an em dash
 or en dash. Use a comma, colon, semicolon, parentheses, or a new sentence
 instead.
 
+Describe correlations and group differences as associations only, never as
+one thing driving, causing, or determining another -- this is
+cross-sectional survey data, and the design does not support causal
+inference. Do not use, outside a quoted client verbatim: drive, drives,
+drove, driver, cause, causes, caused, leads to, determines, improves,
+reduces, strengthens, underpins, eases, translates into, lever, or impact
+as a verb. Say "X is associated with Y," not "X drives Y." Say "the factor
+most strongly associated," not "the strongest driver." Describe a group
+difference as what was observed (e.g. "claimants reported higher child
+wellbeing than those who did not file"), never as what one group's status
+did to produce the other's outcome. This applies to executive_summary and
+top_findings specifically, where a single-sentence claim about the whole
+client base is most likely to overstate what the data supports.
+
 ## OUTPUT SCHEMA
 
 Return ONLY valid JSON. No markdown, no explanation, no extra keys.

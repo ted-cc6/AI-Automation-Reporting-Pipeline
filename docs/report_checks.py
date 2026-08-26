@@ -919,6 +919,131 @@ def no_placeholder_for_absent_visual(text: str):
     return True, ""
 
 
+# R-035 (docs/report_spec.md, session-11): a cross-sectional survey supports
+# association claims, not causal ones -- the report must never describe a
+# correlation or a group difference as one thing driving, causing, or
+# determining another. This is a VOICE RULES instruction (generation/
+# writer.py), and prompt instructions are probabilistic: a model can still
+# drift back to causal phrasing on a given call. C-025 exists to catch that
+# drift, not to replace the prompt rule.
+
+# A quoted client verbatim is exempt -- the client's own words stand as
+# given. Covers both a plain block quote and this codebase's bilingual
+# pattern (an English gloss quoted, immediately followed by the original-
+# language text in an unquoted parenthetical, e.g. writer.py's own example:
+# "the process was very slow" ("el proceso fue muy lento")) in one match, so
+# neither half of a bilingual quote reaches the scan below.
+_C025_VERBATIM_SPAN = re.compile(r'["“][^"”]*["”](\s*\([^)]*\))?')
+
+# Confirmed with the user (session-11): the ban covers descriptions of
+# findings/correlations, not the formal Recommended Actions section --
+# a recommendation inherently proposes a future action ("review coverage
+# to improve the value proposition"), a different communicative act from
+# claiming a correlation IS a causal mechanism. Narrower than "any
+# forward-looking language anywhere" -- a narrative aside outside this
+# section ("this gap highlights an opportunity to improve X") is NOT
+# exempt and must still be reworded. Bounded to the next recognized
+# heading (or end of text) so an unrelated section immediately after
+# Recommended Actions is never swept in by accident.
+_C025_RECOMMENDED_ACTIONS_REGION = re.compile(
+    r"Recommended Actions\b.*?(?=\n?(?:Data Availability|About This Survey|Appendix:|Part\s+\d+\s*:)|\Z)",
+    re.S,
+)
+
+# "Improved" (and, as confirmed on a real regeneration, "reduced") are the
+# banned-family words with a genuine non-causal use in this report: a fixed
+# metric label ("Healthcare Access Improved"), descriptive prose reporting
+# what respondents said happened to them ("36.1% reported improved child
+# wellbeing", "...reported that their access ... improved.") with no causal
+# agent named, or a participle heading its own noun-phrase subject in an
+# association statement ("Reduced financial stress is also associated with
+# higher satisfaction"). Every other banned term in _C025_CAUSAL_TERMS has
+# no such legitimate use anywhere in this report and is banned outright,
+# with no exemption -- including the gerund forms "improving"/"reducing",
+# which in practice need a named agent to read naturally ("insurance
+# reducing financial stress"), unlike the past-participle forms above.
+_C025_FIXED_IMPROVED_LABELS = (
+    "Children's Wellbeing Improved", "Healthcare Access Improved", "Child Wellbeing Improved",
+)
+_C025_SAFE_IMPROVED_PRECEDING = re.compile(
+    r"\b(?:reported?|reports?|showed|shows?|found|experienced?|saw|indicat\w*)\s+(?:an?\s+)?improved\b",
+    re.I,
+)
+_C025_SAFE_IMPROVED_TRAILING = re.compile(
+    r"\bimproved\b(?=\s*[.,;)]|\s+(?:and|but|while|whereas|among|for)\b)",
+    re.I,
+)
+
+# "Reduced" has the identical non-causal state-description use "improved"
+# does -- confirmed on a real regeneration: "Reduced financial stress is
+# also associated with higher satisfaction" describes a level, not a causal
+# claim, the same way "improved X" can. Both participles (past-tense only,
+# not "improving"/"reducing" -- a gerund here reads as an active verb
+# needing a named agent, e.g. the real, correctly-still-banned "insurance
+# reducing financial stress") are exempt specifically when the noun phrase
+# they head is itself the subject of an association statement.
+_C025_SAFE_STATE_PARTICIPLE_ASSOCIATION = re.compile(
+    r"\b(?:improved|reduced)\s+\S+(?:\s+\S+){0,3}\s+(?:is|are|was|were)\s+"
+    r"(?:also\s+|likely\s+)?(?:strongly\s+|closely\s+)?(?:associated|correlated|linked)\b",
+    re.I,
+)
+
+# Every inflection of each banned verb, not just the literal forms LM's
+# colleague listed ("improving"/"improved" are exactly as causal as
+# "improves"). "translat(e/es/ed/ing) ... into" allows up to 3 words between
+# (e.g. Test11's real "translating cover into improved access") without
+# spanning across a full sentence. Two words are banned as their inflected
+# VERB forms only, bare noun uses left alone, confirmed against real
+# generated text for each: "impact" (impacts/impacted/impacting -- bare
+# "impact" is a noun in this report, including the report title, "Insurance
+# Impact Report," the programme's name, not a causal claim) and "ease"
+# (eases/eased/easing -- bare "ease" showed up as ordinary descriptive prose,
+# "Positive feedback highlighted ease of use," not a causal claim).
+_C025_CAUSAL_TERMS = re.compile(
+    r"\b("
+    r"driv(?:e|es|ing)|drove|driven|drivers?|"
+    r"caus(?:e|es|ing)|caused|"
+    r"leads?\s+to|"
+    r"determin(?:e|es|ing)|determined|"
+    r"improv(?:e|es|ing)|improved|"
+    r"reduc(?:e|es|ing)|reduced|"
+    r"strengthen(?:s|ing)?|strengthened|"
+    r"underpin(?:s|ning)?|underpinned|"
+    r"eas(?:es|ing)|eased|"
+    r"translat\w*(?:\s+\S+){0,3}\s+into|"
+    r"levers?|"
+    r"impact(?:s|ing)|impacted"
+    r")\b",
+    re.I,
+)
+
+
+def _c025_strip_verbatims_and_safe_uses(text: str) -> str:
+    t = _C025_RECOMMENDED_ACTIONS_REGION.sub(" ", text)
+    t = _C025_VERBATIM_SPAN.sub(" ", t)
+    for label in _C025_FIXED_IMPROVED_LABELS:
+        t = t.replace(label, "")
+    t = _C025_SAFE_IMPROVED_PRECEDING.sub(" ", t)
+    t = _C025_SAFE_IMPROVED_TRAILING.sub(" ", t)
+    t = _C025_SAFE_STATE_PARTICIPLE_ASSOCIATION.sub(" ", t)
+    return t
+
+
+@reg.add("C-025", "R-035", BLOCKING)
+def no_causal_language_outside_verbatims(text: str):
+    """Correlations and group differences are described as associations,
+    never as one thing driving, causing, or determining another -- outside
+    a quoted client verbatim (the client's own words are exempt) and
+    outside the formal Recommended Actions section (a recommendation
+    proposes a future action, not a claim about what the data shows).
+    """
+    t = _c025_strip_verbatims_and_safe_uses(_norm(text))
+    hits = sorted(set(h.lower() for h in _C025_CAUSAL_TERMS.findall(t)))
+    if hits:
+        return False, f"causal language outside verbatims: {hits[:8]}"
+    return True, ""
+
+
 # ------------------------------------------------------------------ reporting
 
 def main() -> int:

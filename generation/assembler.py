@@ -180,13 +180,14 @@ def _group_header(groups: dict, key: str, fallback_label: str) -> str:
 
 
 def _add_drivers_table(doc, section: dict):
-    """Renders a Spearman drivers table (Part 4's satisfaction drivers, Part 5's
-    child wellbeing drivers) -- shared since both sections use the identical shape."""
+    """Renders a Spearman correlation table (Part 4's factors associated with
+    satisfaction, Part 5's factors associated with child wellbeing) -- shared
+    since both sections use the identical shape."""
     drivers_data  = section.get("drivers_data", [])
     drivers_table = section.get("drivers_table", {})
     if not drivers_data:
         return
-    headers = drivers_table.get("headers", ["Driver", "ρ (Spearman)", "p-value", "N"])
+    headers = drivers_table.get("headers", ["Factor", "ρ (Spearman)", "p-value", "N"])
     rows = []
     for d in drivers_data:
         if d.get("not_applicable"):
@@ -199,6 +200,13 @@ def _add_drivers_table(doc, section: dict):
             n_str   = str(d["n_valid"]) if d["n_valid"] is not None else "?"
             rows.append([d["label"], rho_str, p_str, n_str])
     _add_table(doc, headers, rows)
+    # R-035 (docs/report_spec.md, session-11): a reader looking at the table
+    # itself, not just the methodology appendix, is where a causal reading is
+    # most tempting -- this note is deterministic, code-rendered, not left to
+    # the writer prompt to remember to say every time.
+    association_note = drivers_table.get("association_note")
+    if association_note:
+        _add_paragraph(doc, association_note)
     # Full ρ/p-value/N methodology explanation lives once in the Methodology
     # Notes appendix (see _add_methodology_appendix()) rather than repeated
     # verbatim under both Part 4's and Part 5's drivers tables.
@@ -334,13 +342,15 @@ def _add_protection_signals_annex(doc, protection_flags: list, severity_counts: 
 _SPEARMAN_METHODOLOGY_INTRO = (
     "ρ (rho) is the Spearman rank correlation coefficient, a value from -1 to +1 showing "
     "how strongly two things move together: values near +1 or -1 indicate a strong "
-    "relationship, values near 0 indicate little to none. Spearman correlation is "
+    "association, values near 0 indicate little to none. Spearman correlation is "
     "calculated on the rank order of responses rather than their raw values, which makes "
     "it well suited to Likert-scale survey questions like the ones in Parts 4 and 5. p "
-    "(the p-value) shows how likely a correlation this strong could appear by chance alone "
-    "if no real relationship existed; p<0.05 is the conventional threshold for statistical "
+    "(the p-value) shows how likely an association this strong could appear by chance alone "
+    "if no real association existed; p<0.05 is the conventional threshold for statistical "
     "significance. N is the number of respondents included in each specific calculation, "
-    "which can vary by driver because not every question was asked of every client{n_example}."
+    "which can vary by factor because not every question was asked of every client{n_example}. "
+    "These are observed associations in cross-sectional survey data, collected at a single "
+    "point in time; they do not establish that one factor is responsible for another."
 )
 
 # The Renewal Intent/Vietnam example is only true, and only a driver at all,
@@ -360,12 +370,12 @@ _SPEARMAN_METHODOLOGY_SCORING_NOTE_DEFAULT = (
     "Renewal Intent, and Confidence in Payout are all scored so that a LOWER number is the "
     "more positive response (e.g. 1 = \"Definitely would renew\"). A negative correlation "
     "with the outcome variable (client satisfaction, NPS, in Part 4; child wellbeing in "
-    "Part 5) for any of these drivers therefore reflects a POSITIVE real-world "
-    "relationship (e.g. stronger renewal intent aligning with a better outcome), not a "
+    "Part 5) for any of these factors therefore corresponds to a POSITIVE association in "
+    "plain terms (e.g. stronger renewal intent occurring alongside a better outcome), not a "
     "negative one. NPS itself runs the opposite way (0=worst, 10=best): when NPS appears as "
-    "the outcome (Part 4), a negative correlation with it is what reflects the positive "
-    "relationship described above; when NPS appears as a DRIVER of child wellbeing (Part 5 "
-    "only), a positive correlation there likewise reflects a positive relationship."
+    "the outcome (Part 4), a negative correlation with it is what corresponds to the positive "
+    "association described above; when NPS appears as a FACTOR associated with child wellbeing "
+    "(Part 5 only), a positive correlation there likewise corresponds to a positive association."
 )
 
 # LACRO never asks Renewal Intent (see _SPEARMAN_N_EXAMPLE_DEFAULT's comment
@@ -379,12 +389,13 @@ _SPEARMAN_METHODOLOGY_SCORING_NOTE_LACRO = (
     "and Confidence in Payout are all scored so that a LOWER number is the more positive "
     "response (e.g. 1 = the most positive answer option for that question). A negative "
     "correlation with the outcome variable (client satisfaction, NPS, in Part 4; child "
-    "wellbeing in Part 5) for any of these drivers therefore reflects a POSITIVE real-world "
-    "relationship (e.g. a more positive response aligning with a better outcome), not a "
-    "negative one. NPS itself runs the opposite way (0=worst, 10=best): when NPS appears as "
-    "the outcome (Part 4), a negative correlation with it is what reflects the positive "
-    "relationship described above; when NPS appears as a DRIVER of child wellbeing (Part 5 "
-    "only), a positive correlation there likewise reflects a positive relationship."
+    "wellbeing in Part 5) for any of these factors therefore corresponds to a POSITIVE "
+    "association in plain terms (e.g. a more positive response occurring alongside a better "
+    "outcome), not a negative one. NPS itself runs the opposite way (0=worst, 10=best): when "
+    "NPS appears as the outcome (Part 4), a negative correlation with it is what corresponds "
+    "to the positive association described above; when NPS appears as a FACTOR associated "
+    "with child wellbeing (Part 5 only), a positive correlation there likewise corresponds to "
+    "a positive association."
 )
 
 
@@ -413,7 +424,7 @@ def _add_methodology_appendix(doc, meta: "dict | None" = None):
     table; both now print a one-line pointer to this appendix instead (see
     _add_drivers_table())."""
     doc.add_heading("Appendix: Methodology Notes", level=1)
-    _add_heading(doc, "Spearman Rank Correlation (Parts 4 & 5 Drivers Tables)", level=2)
+    _add_heading(doc, "Spearman Rank Correlation (Parts 4 & 5 Factors Tables)", level=2)
     for para in _spearman_methodology_note(meta or {}).split("\n\n"):
         _add_paragraph(doc, para)
 
@@ -765,7 +776,7 @@ def build_part_4(doc, package: dict, texts: dict):
 
     s4_3 = sections.get("s4_3", {})
     if s4_3.get("drivers_data"):
-        _add_heading(doc, s4_3.get("label", "Drivers of Satisfaction"), level=2)
+        _add_heading(doc, s4_3.get("label", "Factors Associated with Satisfaction"), level=2)
         _add_paragraph(doc, texts.get("s4_3", ""))
         _add_drivers_table(doc, s4_3)
 
@@ -782,7 +793,7 @@ def build_part_5(doc, package: dict, texts: dict):
     visuals  = package.get("visuals", [])
 
     s5_1 = sections.get("s5_1", {})
-    _add_heading(doc, s5_1.get("label", "Child Wellbeing Drivers"), level=2)
+    _add_heading(doc, s5_1.get("label", "Factors Associated with Child Wellbeing"), level=2)
     _add_paragraph(doc, texts.get("s5_1", ""))
     _add_drivers_table(doc, s5_1)
 

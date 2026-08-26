@@ -473,7 +473,7 @@ parts:
       - file: "part4_nps.png"
         caption: "Net Promoter Score"
       - file: "part4_themes.png"
-        caption: "Top NPS Theme Drivers"
+        caption: "Top NPS Themes"
     sections:
       s4_1:
         label: "Net Promoter Score"
@@ -520,7 +520,7 @@ parts:
           Report top 3 promoter themes and top 3 detractor themes by count.
 
       s4_3:
-        label: "Drivers of Satisfaction"
+        label: "Factors Associated with Satisfaction"
         word_limit: 90
         metrics:
           nps_headline:
@@ -533,19 +533,19 @@ parts:
             p_path: "parts.part_4.satisfaction_drivers.drivers.financial_stress.p_value"
             n_path: "parts.part_4.satisfaction_drivers.drivers.financial_stress.n_valid"
             suppressed_path: "parts.part_4.satisfaction_drivers.drivers.financial_stress.suppressed"
-            direction: "Raw code: 1=stress significantly reduced (best) to 5=significantly increased (worst); NPS runs 0=worst to 10=best. A negative rho here means lower financial stress correlates with a higher NPS, a positive real-world relationship, despite the negative sign."
+            direction: "Raw code: 1=stress significantly reduced (best) to 5=significantly increased (worst); NPS runs 0=worst to 10=best. A negative rho here means lower financial stress is associated with a higher NPS, an association in the expected direction despite the negative sign."
           coverage_understanding:
             rho_path: "parts.part_4.satisfaction_drivers.drivers.coverage_understanding.value"
             p_path: "parts.part_4.satisfaction_drivers.drivers.coverage_understanding.p_value"
             n_path: "parts.part_4.satisfaction_drivers.drivers.coverage_understanding.n_valid"
             suppressed_path: "parts.part_4.satisfaction_drivers.drivers.coverage_understanding.suppressed"
-            direction: "Raw code: 1=very good understanding (best) to 4=very poor (worst); NPS runs 0=worst to 10=best. A negative rho here means better coverage understanding correlates with a higher NPS, a positive real-world relationship, despite the negative sign."
+            direction: "Raw code: 1=very good understanding (best) to 4=very poor (worst); NPS runs 0=worst to 10=best. A negative rho here means better coverage understanding is associated with a higher NPS, an association in the expected direction despite the negative sign."
           claim_process_understanding:
             rho_path: "parts.part_4.satisfaction_drivers.drivers.claim_process_understanding.value"
             p_path: "parts.part_4.satisfaction_drivers.drivers.claim_process_understanding.p_value"
             n_path: "parts.part_4.satisfaction_drivers.drivers.claim_process_understanding.n_valid"
             suppressed_path: "parts.part_4.satisfaction_drivers.drivers.claim_process_understanding.suppressed"
-            direction: "Raw code: 1=very good understanding (best) to 4=very poor (worst); NPS runs 0=worst to 10=best. A negative rho here means better claims-process understanding correlates with a higher NPS, a positive real-world relationship, despite the negative sign."
+            direction: "Raw code: 1=very good understanding (best) to 4=very poor (worst); NPS runs 0=worst to 10=best. A negative rho here means better claims-process understanding is associated with a higher NPS, an association in the expected direction despite the negative sign."
           worth_premium:
             rho_path: "parts.part_4.satisfaction_drivers.drivers.worth_premium.value"
             p_path: "parts.part_4.satisfaction_drivers.drivers.worth_premium.p_value"
@@ -555,22 +555,23 @@ parts:
             population:
               default: "Health & credit-life clients only; Vietnam's crop-insurance clients were not asked this question, so they are excluded from this correlation"
               lacro: null
-            direction: "Raw code: 1=definitely worth it (best) to 5=definitely not worth it (worst); NPS runs 0=worst to 10=best. A negative rho here means feeling the premium is worth it correlates with a higher NPS, a positive real-world relationship, despite the negative sign."
+            direction: "Raw code: 1=definitely worth it (best) to 5=definitely not worth it (worst); NPS runs 0=worst to 10=best. A negative rho here means feeling the premium is worth it is associated with a higher NPS, an association in the expected direction despite the negative sign."
           renewal_intent:
             rho_path: "parts.part_4.satisfaction_drivers.drivers.renewal_intent.value"
             p_path: "parts.part_4.satisfaction_drivers.drivers.renewal_intent.p_value"
             n_path: "parts.part_4.satisfaction_drivers.drivers.renewal_intent.n_valid"
             suppressed_path: "parts.part_4.satisfaction_drivers.drivers.renewal_intent.suppressed"
-            population: "Vietnam's crop-insurance clients only; its lower N compared to other drivers reflects this smaller population, not suppressed/missing data; not asked of health or credit-life clients in any country"
-            direction: "Raw code: 1=definitely would renew (best) to 5=definitely would not renew (worst); NPS runs 0=worst to 10=best. A negative rho here means STRONGER renewal intent correlates with a HIGHER NPS, a positive real-world relationship. Do not describe this as renewal intent being bad for satisfaction; the negative sign is an artifact of the 1=best coding, not a negative finding."
+            population: "Vietnam's crop-insurance clients only; its lower N compared to other factors reflects this smaller population, not suppressed/missing data; not asked of health or credit-life clients in any country"
+            direction: "Raw code: 1=definitely would renew (best) to 5=definitely would not renew (worst); NPS runs 0=worst to 10=best. A negative rho here means STRONGER renewal intent is associated with a HIGHER NPS, an association in the expected direction. Do not describe this as renewal intent being bad for satisfaction; the negative sign is an artifact of the 1=best coding, not a negative finding."
           confidence_pay:
             rho_path: "parts.part_4.satisfaction_drivers.drivers.confidence_pay.value"
             p_path: "parts.part_4.satisfaction_drivers.drivers.confidence_pay.p_value"
             n_path: "parts.part_4.satisfaction_drivers.drivers.confidence_pay.n_valid"
             suppressed_path: "parts.part_4.satisfaction_drivers.drivers.confidence_pay.suppressed"
-            direction: "Raw code: 1=very confident (best) to 5=not confident at all (worst); NPS runs 0=worst to 10=best. A negative rho here means higher confidence correlates with a higher NPS, a positive real-world relationship, despite the negative sign."
+            direction: "Raw code: 1=very confident (best) to 5=not confident at all (worst); NPS runs 0=worst to 10=best. A negative rho here means higher confidence is associated with a higher NPS, an association in the expected direction despite the negative sign."
         drivers_table:
-          headers: ["Driver", "ρ (Spearman)", "p-value", "N"]
+          headers: ["Factor", "ρ (Spearman)", "p-value", "N"]
+          association_note: "These are observed associations in cross-sectional survey data and do not establish that one factor is responsible for another."
           # Full ρ/p-value/N methodology explanation lives once in
           # generation/assembler.py's _add_methodology_appendix() (rendered as
           # a document appendix) rather than duplicated here -- this section's
@@ -578,15 +579,17 @@ parts:
         drivers_outcome_label: "client satisfaction (NPS)"
         note: >
           All correlations are Spearman rank correlations computed directly on q_nps_score
-          (0-10) against each driver's raw ordinal code (Likert 1-5/1-4) -- no
+          (0-10) against each factor's raw ordinal code (Likert 1-5/1-4) -- no
           top_two_box/bottom_two_box transformation is applied, the same methodology Part 5
-          uses for its Child Wellbeing Drivers table, just with NPS instead of child wellbeing
-          as the outcome. Each driver's own [direction: ...] note above states what its sign
-          means in plain English -- use that stated direction rather than assuming a negative
-          rho is a negative finding. A driver with a null value in the JSON is suppressed --
-          show "SUPPRESSED" in the table. A driver with a smaller N than the others reflects a
-          restricted population (see that driver's population note above, if present) -- do
-          not describe this as missing or suppressed data.
+          uses for its Factors Associated with Child Wellbeing table, just with NPS instead of
+          child wellbeing as the outcome. Each factor's own [direction: ...] note above states
+          what its sign means in plain English -- use that stated direction rather than
+          assuming a negative rho is a negative finding. A factor with a null value in the JSON
+          is suppressed -- show "SUPPRESSED" in the table. A factor with a smaller N than the
+          others reflects a restricted population (see that factor's population note above, if
+          present) -- do not describe this as missing or suppressed data. Describe every
+          correlation as an association, never as one thing driving, causing, or determining
+          another -- this is cross-sectional survey data, not an experiment.
 
       insight:
         word_limit: 120
@@ -599,7 +602,7 @@ parts:
     title: "Child Wellbeing"
     visuals:
       - file: "part5_drivers.png"
-        caption: "Child Wellbeing Drivers (Spearman Correlation)"
+        caption: "Factors Associated with Child Wellbeing (Spearman Correlation)"
       - file: "part5_healthcare.png"
         caption: "Healthcare Access and Medical Cost Impact"
     scorecard_metrics:
@@ -629,7 +632,7 @@ parts:
         population: "Health-insurance clients who needed care; excludes clients who said they had not needed medical care, the same restricted base as the Healthcare Access figure earlier in this section"
     sections:
       s5_1:
-        label: "Child Wellbeing Drivers"
+        label: "Factors Associated with Child Wellbeing"
         word_limit: 90
         metrics:
           cwb_headline:
@@ -650,19 +653,19 @@ parts:
             p_path: "parts.part_5.drivers.financial_stress.p_value"
             n_path: "parts.part_5.drivers.financial_stress.n_valid"
             suppressed_path: "parts.part_5.drivers.financial_stress.suppressed"
-            direction: "Raw code: 1=stress significantly reduced (best) to 5=significantly increased (worst). A negative rho here means higher stress correlates with lower child wellbeing, the expected, negative real-world relationship."
+            direction: "Raw code: 1=stress significantly reduced (best) to 5=significantly increased (worst). A negative rho here means higher stress is associated with lower child wellbeing, an association in the expected direction."
           coverage_understanding:
             rho_path: "parts.part_5.drivers.coverage_understanding.value"
             p_path: "parts.part_5.drivers.coverage_understanding.p_value"
             n_path: "parts.part_5.drivers.coverage_understanding.n_valid"
             suppressed_path: "parts.part_5.drivers.coverage_understanding.suppressed"
-            direction: "Raw code: 1=very good understanding (best) to 4=very poor (worst). A negative rho here means better coverage understanding correlates with better child wellbeing, a positive real-world relationship, despite the negative sign."
+            direction: "Raw code: 1=very good understanding (best) to 4=very poor (worst). A negative rho here means better coverage understanding is associated with better child wellbeing, an association in the expected direction despite the negative sign."
           claim_process_understanding:
             rho_path: "parts.part_5.drivers.claim_process_understanding.value"
             p_path: "parts.part_5.drivers.claim_process_understanding.p_value"
             n_path: "parts.part_5.drivers.claim_process_understanding.n_valid"
             suppressed_path: "parts.part_5.drivers.claim_process_understanding.suppressed"
-            direction: "Raw code: 1=very good understanding (best) to 4=very poor (worst). A negative rho here means better claims-process understanding correlates with better child wellbeing, a positive real-world relationship, despite the negative sign."
+            direction: "Raw code: 1=very good understanding (best) to 4=very poor (worst). A negative rho here means better claims-process understanding is associated with better child wellbeing, an association in the expected direction despite the negative sign."
           worth_premium:
             rho_path: "parts.part_5.drivers.worth_premium.value"
             p_path: "parts.part_5.drivers.worth_premium.p_value"
@@ -672,28 +675,29 @@ parts:
             population:
               default: "Health & credit-life clients only; Vietnam's crop-insurance clients were not asked this question, so they are excluded from this correlation"
               lacro: null
-            direction: "Raw code: 1=definitely worth it (best) to 5=definitely not worth it (worst). A negative rho here means feeling the premium is worth it correlates with better child wellbeing, a positive real-world relationship, despite the negative sign."
+            direction: "Raw code: 1=definitely worth it (best) to 5=definitely not worth it (worst). A negative rho here means feeling the premium is worth it is associated with better child wellbeing, an association in the expected direction despite the negative sign."
           renewal_intent:
             rho_path: "parts.part_5.drivers.renewal_intent.value"
             p_path: "parts.part_5.drivers.renewal_intent.p_value"
             n_path: "parts.part_5.drivers.renewal_intent.n_valid"
             suppressed_path: "parts.part_5.drivers.renewal_intent.suppressed"
-            population: "Vietnam's crop-insurance clients only; its lower N compared to other drivers (each driver's N is shown alongside it above) reflects this smaller population, not suppressed/missing data; not asked of health or credit-life clients in any country"
-            direction: "Raw code: 1=definitely would renew (best) to 5=definitely would not renew (worst). A negative rho here means STRONGER renewal intent correlates with BETTER child wellbeing, a positive real-world relationship. Do not describe this as renewal intent being bad for wellbeing; the negative sign is an artifact of the 1=best coding, not a negative finding."
+            population: "Vietnam's crop-insurance clients only; its lower N compared to other factors (each factor's N is shown alongside it above) reflects this smaller population, not suppressed/missing data; not asked of health or credit-life clients in any country"
+            direction: "Raw code: 1=definitely would renew (best) to 5=definitely would not renew (worst). A negative rho here means STRONGER renewal intent is associated with BETTER child wellbeing, an association in the expected direction. Do not describe this as renewal intent being bad for wellbeing; the negative sign is an artifact of the 1=best coding, not a negative finding."
           confidence_pay:
             rho_path: "parts.part_5.drivers.confidence_pay.value"
             p_path: "parts.part_5.drivers.confidence_pay.p_value"
             n_path: "parts.part_5.drivers.confidence_pay.n_valid"
             suppressed_path: "parts.part_5.drivers.confidence_pay.suppressed"
-            direction: "Raw code: 1=very confident (best) to 5=not confident at all (worst). A negative rho here means higher confidence correlates with better child wellbeing, a positive real-world relationship, despite the negative sign."
+            direction: "Raw code: 1=very confident (best) to 5=not confident at all (worst). A negative rho here means higher confidence is associated with better child wellbeing, an association in the expected direction despite the negative sign."
           nps_score:
             rho_path: "parts.part_5.drivers.nps_score.value"
             p_path: "parts.part_5.drivers.nps_score.p_value"
             n_path: "parts.part_5.drivers.nps_score.n_valid"
             suppressed_path: "parts.part_5.drivers.nps_score.suppressed"
-            direction: "Raw score: 0=worst to 10=best (NOT reverse-coded, unlike the other drivers here). A positive rho here means higher NPS correlates with better child wellbeing, with the sign and the real-world relationship pointing the same direction."
+            direction: "Raw score: 0=worst to 10=best (NOT reverse-coded, unlike the other factors here). A positive rho here means higher NPS is associated with better child wellbeing, with the sign and the association pointing the same direction."
         drivers_table:
-          headers: ["Driver", "ρ (Spearman)", "p-value", "N"]
+          headers: ["Factor", "ρ (Spearman)", "p-value", "N"]
+          association_note: "These are observed associations in cross-sectional survey data and do not establish that one factor is responsible for another."
           # See Part 4's identical comment -- full methodology text lives once
           # in the document's Methodology Notes appendix, not duplicated here.
         note: >
@@ -702,14 +706,16 @@ parts:
           transformation is applied in this section (unlike the Part 6/7 scorecards, which do
           transform these same questions into % positive-response figures; do not assume the two
           calculations use the same input values).
-          Each driver's own [direction: ...] note above states what its sign means in plain
+          Each factor's own [direction: ...] note above states what its sign means in plain
           English; use that stated direction rather than assuming a negative rho is a negative
           finding; several of these are negative precisely because the underlying scale runs
-          1=best. A driver with a null value in the JSON is suppressed; show "SUPPRESSED" in
+          1=best. A factor with a null value in the JSON is suppressed; show "SUPPRESSED" in
           the table.
-          The worth_premium driver's lower N compared to other drivers (each driver's N is shown
+          The worth_premium factor's lower N compared to other factors (each factor's N is shown
           alongside it above) reflects its smaller population (see worth_premium's population
-          note); do not describe this as missing or suppressed data.
+          note); do not describe this as missing or suppressed data. Describe every correlation
+          as an association, never as one thing driving, causing, or determining another -- this
+          is cross-sectional survey data, not an experiment.
 
       s5_2:
         label: "Healthcare Access and Medical Cost"

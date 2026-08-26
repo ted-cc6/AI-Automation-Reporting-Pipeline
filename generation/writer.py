@@ -171,18 +171,32 @@ not cover, even one VisionFund operates in elsewhere.
 
 SCALE DIRECTION: Several survey questions are coded so that a LOWER number is
 the more positive response (1=best, e.g. "Definitely would renew" = 1). When a
-Part 5 driver correlation gives a "[direction: ...]" note, that note states
-what the sign actually means in plain English for that specific driver; use
-its stated real-world direction verbatim rather than assuming a negative rho
-is automatically a negative finding. A negative correlation is frequently the
-EXPECTED, POSITIVE result once the 1=best coding is accounted for (e.g.
-stronger renewal intent aligning with better child wellbeing produces a
+Part 5 factor correlation gives a "[direction: ...]" note, that note states
+what the sign actually means in plain English for that specific factor; use
+its stated direction verbatim rather than assuming a negative rho is
+automatically a negative finding. A negative correlation is frequently the
+EXPECTED, POSITIVE association once the 1=best coding is accounted for (e.g.
+stronger renewal intent occurring alongside better child wellbeing produces a
 negative rho, not a positive one). Never describe such a result as
 counterintuitive or concerning without first checking its direction note.
 
 VOICE RULES:
 - Professional, empathetic, evidence-based
 - Active voice. Past tense for findings ("revealed", "showed"), present for implications ("suggests", "indicates")
+- Describe correlations and group differences as associations only, never as one thing
+  driving, causing, or determining another -- this is cross-sectional survey data, and the
+  study design does not support causal inference. Do not use, outside a quoted client
+  verbatim: drive, drives, drove, driver, cause, causes, caused, leads to, determines,
+  improves, reduces, strengthens, underpins, eases, translates into, lever, or impact as a
+  verb. Required substitutions: "X drives Y" becomes "X is associated with Y"; "X improves Y"
+  becomes "higher X is associated with higher Y"; "the strongest driver" becomes "the factor
+  most strongly associated"; describe a group difference as what was observed, e.g.
+  "claimants reported higher child wellbeing than those who did not file", never as what one
+  group's status did to produce the other's outcome, e.g. never "claiming improved child
+  wellbeing". Keep this plain, not hedged: "Claimants reported higher child wellbeing" is
+  correct and clear as written; do not soften it into "there may possibly be some
+  association." The report title, "Insurance Impact Report," is the programme's name, not a
+  causal claim, and needs no rewording.
 - Never use an em dash (—) or en dash (–) anywhere in your writing. Use a comma, colon,
   semicolon, parentheses, or a new sentence instead.
 - No bullet points, no headers, no markdown in narrative text; flowing prose only

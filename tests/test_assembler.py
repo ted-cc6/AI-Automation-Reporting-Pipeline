@@ -373,6 +373,45 @@ class TestAddDriversTable:
         # The old ~200-word inline explanation must not be duplicated here.
         assert "Spearman rank correlation coefficient" not in body_text
 
+    def test_default_header_is_factor_not_driver(self):
+        # R-035 (docs/report_spec.md, session-11): "Driver" invites a causal
+        # reading this cross-sectional data doesn't support.
+        rows = self._table_rows({
+            "label": "NPS", "rho": 0.2, "p_value": 0.01, "n_valid": 500,
+            "suppressed": False, "not_applicable": False,
+        })
+        assert rows[0][0] == "Factor"
+        assert "Driver" not in rows[0]
+
+    def test_association_note_renders_when_configured(self):
+        from docx import Document
+        doc = Document()
+        note = "These are observed associations in cross-sectional survey data and do not establish that one factor causes or determines another."
+        _add_drivers_table(doc, {
+            "drivers_data": [{
+                "label": "NPS", "rho": 0.2, "p_value": 0.01, "n_valid": 500,
+                "suppressed": False, "not_applicable": False,
+            }],
+            "drivers_table": {"association_note": note},
+        })
+        body_text = "\n".join(p.text for p in doc.paragraphs)
+        assert note in body_text
+
+    def test_association_note_omitted_when_not_configured(self):
+        # Backward compatible: existing drivers_table configs with no
+        # association_note key must not render an empty/placeholder line.
+        from docx import Document
+        doc = Document()
+        _add_drivers_table(doc, {
+            "drivers_data": [{
+                "label": "NPS", "rho": 0.2, "p_value": 0.01, "n_valid": 500,
+                "suppressed": False, "not_applicable": False,
+            }],
+            "drivers_table": {},
+        })
+        body_text = "\n".join(p.text for p in doc.paragraphs)
+        assert "cross-sectional" not in body_text
+
 
 # ---------------------------------------------------------------------------
 # Methodology appendix -- de-duplicates the Spearman ρ/p-value/N explanation
@@ -415,7 +454,7 @@ class TestMethodologyAppendix:
         assert "Renewal Intent was asked only of Vietnam's crop-insurance clients" in text
         # The scoring-direction example (a separate constant from the
         # N-variability example above) also names Renewal Intent for an
-        # unscoped report, where it's a real reported driver.
+        # unscoped report, where it's a real factor in the table.
         assert 'Renewal Intent' in text
         assert '"Definitely would renew"' in text
 
