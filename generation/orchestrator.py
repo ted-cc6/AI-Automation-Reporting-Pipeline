@@ -185,6 +185,25 @@ def load_data(run_id: str) -> tuple:
 # Per-section extractors
 # ---------------------------------------------------------------------------
 
+def _format_coping_components(components: list, suppressed_components: int) -> str:
+    """R-008 (docs/report_spec.md, session-10): render negative_coping's
+    component breakdown (analysis_engine/sections/part_3.py's
+    _build_coping_components()) as prose the writer prompt can quote
+    directly, e.g. "sold assets or livestock (n=7)". Named components
+    only -- a component suppressed for being too small to name without
+    risking identifying a specific respondent is counted, not listed."""
+    parts = [f"{c['label'].lower()} (n={c['n']})" for c in (components or [])]
+    if not parts and not suppressed_components:
+        return ""
+    text = "; ".join(parts) if parts else "no single behaviour is common enough to name"
+    if suppressed_components:
+        text += (
+            f"; {suppressed_components} further component(s) suppressed "
+            "(too few respondents to name without risk of identifying them)"
+        )
+    return text
+
+
 def extract_metrics(analysis: dict, section_spec: dict) -> dict:
     """Build a flat dict of formatted metric strings for one section."""
     result = {}
@@ -214,6 +233,14 @@ def extract_metrics(analysis: dict, section_spec: dict) -> dict:
         population = _resolve_population(m_cfg.get("population"), report_scope)
         if population:
             result[m_key + "_population"] = population
+
+        components_path = m_cfg.get("components_path")
+        if components_path:
+            comps = get_nested(analysis, components_path, default=[]) or []
+            supp_n = get_nested(analysis, m_cfg.get("suppressed_components_path", ""), default=0) or 0
+            comp_text = _format_coping_components(comps, supp_n)
+            if comp_text:
+                result[m_key + "_components"] = comp_text
 
     # Driver rho/p/n for Part 4/5 sections. This flat "metrics" dict is a
     # SEPARATE representation of the same drivers _build_drivers_data() below

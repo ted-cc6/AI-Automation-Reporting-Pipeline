@@ -14,10 +14,58 @@ COL_PRIOR_ACCESS       = "q_prior_access"
 
 _ALTERNATIVE_ACCESS_DIFFICULT = ["Very difficult", "Slightly difficult"]
 
+# R-008 (docs/report_spec.md, session-10): the four components
+# data_loader_derived.py's compute_flag_negative_coping() ORs together to
+# produce flag_negative_coping -- "used savings" (__a) and "borrowed money"
+# (__b) are deliberately NOT part of this list; they're the two options the
+# flag itself treats as ordinary, not severe, coping, so they are not part
+# of what this breakdown is a breakdown OF.
+_COPING_COMPONENTS = [
+    ("sold_assets_livestock", "q_coping_mechanisms__c", "Sold assets or livestock"),
+    ("reduced_food_consumption", "q_coping_mechanisms__d", "Reduced food consumption or essential spending"),
+    ("took_children_out_of_school", "q_coping_mechanisms__e", "Took children out of school"),
+    ("closed_business_temporarily", "q_coping_mechanisms__f", "Closed business temporarily"),
+]
+
+# Disclosure-avoidance threshold for NAMING an individual component -- distinct
+# from analysis_engine.stats.LOW_N_THRESHOLD (30), which governs whether an
+# entire metric ROW is reliable enough to report at all. That threshold
+# applied here would suppress every component on real data (the flagged
+# group itself is far smaller than 30 -- e.g. n=8 on runs/lacro_final_check/),
+# making a named behaviour impossible even when one component is a clear,
+# non-tiny majority (7 of 8) -- confirmed with the user (session-10) this is
+# a genuinely different kind of threshold (identifiability of a named
+# individual, not statistical reliability) and should not reuse the same
+# constant. A count of exactly 1 is suppressed (a single respondent would be
+# identifiable from a named category); anything else found is named.
+_COPING_COMPONENT_SUPPRESS_AT_OR_BELOW = 1
+
 
 def _missing_col(col: str) -> dict:
     return {"value": None, "n_valid": 0, "n_total": 0, "suppressed": True,
             "suppress_reason": f"column missing: {col}", "not_applicable": True}
+
+
+def _build_coping_components(insured_event_base) -> "tuple[list, int]":
+    """Ranked (descending) named component counts, plus how many components
+    were found but suppressed for being too small to name without risking
+    identifying a specific respondent (R-008). A component with n==0 never
+    happened in this data and is omitted entirely -- it is not "suppressed",
+    there is nothing to suppress. Sums to at most n_true of flag_negative_coping's
+    own headline (a respondent can select more than one severe option)."""
+    named, suppressed = [], 0
+    for key, col, label in _COPING_COMPONENTS:
+        if col not in insured_event_base.columns:
+            continue
+        n = int(insured_event_base[col].fillna(False).sum())
+        if n == 0:
+            continue
+        if n <= _COPING_COMPONENT_SUPPRESS_AT_OR_BELOW:
+            suppressed += 1
+            continue
+        named.append({"key": key, "label": label, "n": n})
+    named.sort(key=lambda c: -c["n"])
+    return named, suppressed
 
 
 def calculate(ds, segment_masks: dict) -> dict:
@@ -39,13 +87,17 @@ def calculate(ds, segment_masks: dict) -> dict:
         metrics["negative_coping"] = {
             "base": "insured_event_base", "n_base": len(ds.insured_event_base),
             "headline": _missing_col(col), "segments": {seg: _missing_col(col) for seg in segment_masks},
+            "components": [], "suppressed_components": 0,
         }
     else:
+        components, suppressed_components = _build_coping_components(ds.insured_event_base)
         metrics["negative_coping"] = {
             "base": "insured_event_base",
             "n_base": len(ds.insured_event_base),
             "headline": share_true(ds.insured_event_base[col]),
             "segments": disaggregate(ds.insured_event_base, col, share_true, segment_masks),
+            "components": components,
+            "suppressed_components": suppressed_components,
         }
 
     # financial_stress_high — base: all_respondents. q_financial_stress ("How much

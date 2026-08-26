@@ -220,6 +220,27 @@ the unrendered visuals, and the rest) -- none of them were touched.
 superseding the 17 above for the same reason 17 itself was pinned: so
 it stops moving for reasons unrelated to the report itself.
 
+**Baseline updated again (session-10) -- read this before citing "15
+blocking" too.** `fixtures/test9.txt` now reports **4 passed, 3 skipped,
+3 advisory failures, 14 blocking failures**. The 15->14 blocking drop is,
+once again, **not** evidence that Test9's own report improved -- Test9
+is frozen and was not regenerated this session. It is entirely explained
+by C-011's regex gaining `sell\w*` alongside `sold` (R-008's
+implementation, this session): Test9's own frozen coping narrative
+already contained a "sell"-form mention of the behaviour that the old
+regex, missing that irregular verb's conjugation, never matched. Every
+other blocking failure Test9 still exhibits is the same substantive
+defect as before. **14 blocking failures is the baseline progress metric
+going forward.**
+
+Session-10 also implemented R-007, R-010, R-011 as code/schema fixes
+(not check-methodology changes) -- these do NOT move Test9's own count,
+since Test9 is a frozen, unregenerated fixture and none of those fixes
+touch report-checks.py's check logic itself (R-007/R-010/R-011 are
+verified separately, against a live regeneration of
+`runs/lacro_final_check/`, documented in each requirement's own entry
+above).
+
 ---
 
 ## R-003 Deduplicate client protection appendix
@@ -1547,6 +1568,7 @@ Not applicable until a direction is chosen.
 **Source:** LM5, "can we mention what that negative coping behavior is?"
 **Layer:** `schema`, with a computation change
 **Priority:** medium
+**Status:** Implemented (session-10)
 
 **Current behaviour**
 Negative coping is collapsed to a binary flag before the narrative is generated, so the option level detail (used savings, borrowed money, sold assets, reduced food consumption, took children out of school, closed business) is discarded upstream and cannot be named.
@@ -1571,6 +1593,102 @@ The current headline is 6.5 percent of 124, which is roughly 8 respondents. Comp
 - `assert coping metric has a non empty components list OR an explicit suppression note`
 - `assert sum(component counts) <= n`
 - `assert no component with count below the suppression threshold is named`
+
+**Correction to "Current behaviour" above:** it lists all six multi-select
+options (used savings, borrowed money, sold assets, reduced food
+consumption, took children out of school, closed business). Only the
+last four feed `flag_negative_coping` in the first place --
+`data_loader/data_loader_derived.py`'s `compute_flag_negative_coping()`
+deliberately excludes "used savings"/"borrowed money" as ordinary, not
+severe, coping. The breakdown this entry implements is a breakdown of
+what `flag_negative_coping` actually measures (the four severe options),
+not the full six-option multi-select.
+
+**A genuine threshold conflict, raised and resolved with the user
+(session-10) before implementing:** the Rule above says "apply the
+standard suppression threshold to components." This codebase has exactly
+one such constant, `analysis_engine.stats.LOW_N_THRESHOLD` (30) -- used
+everywhere else to decide whether a whole metric ROW is statistically
+reliable enough to report. Applied literally to per-component counts
+within an already-small flagged group (n=8 on real data), it suppresses
+every component unconditionally (max possible count is 8), making a
+named behaviour permanently impossible regardless of how dominant one
+component is -- on this run, "sold assets or livestock" is 7 of 8 (87.5%)
+and would still be suppressed. This is a different kind of threshold
+than `LOW_N_THRESHOLD` -- disclosure-avoidance (would naming this count
+identify a specific respondent?) rather than statistical reliability --
+and conflating the two would have made R-008 unsatisfiable by
+construction. The user chose a new, separate constant: suppress only
+n<=1 (a literal single-respondent category), matching the spec's own
+wording ("rather than listing single respondent categories") more
+literally than the 30-threshold does.
+
+**Implementation**
+`analysis_engine/sections/part_3.py` gained `_COPING_COMPONENTS` (the
+four severe options with human-readable labels),
+`_COPING_COMPONENT_SUPPRESS_AT_OR_BELOW = 1` (the new, separate
+constant), and `_build_coping_components()`: for each component, count
+True over `insured_event_base` (excludes q_coping_mechanisms__a/__b);
+n==0 is omitted (never happened, nothing to suppress); n==1 is counted
+in `suppressed_components`, not named; n>1 is named and the list is
+ranked descending. Wired into `negative_coping`'s dict as `components`
+(list) and `suppressed_components` (int).
+
+`generation/orchestrator.py` gained `_format_coping_components()` and a
+`components_path`/`suppressed_components_path` pair on the metric spec
+(parallel to the existing `n_path`/`population`), producing a
+`negative_coping_components` string entry in `extract_metrics()`'s
+output -- e.g. `"sold assets or livestock (n=7); 1 further component(s)
+suppressed (too few respondents to name without risk of identifying
+them)"`. `generation/writer.py`'s metrics-prompt loop renders this as a
+`[components: ...]` annotation alongside the metric line (same pattern
+as its existing `[population: ...]`), and `generation/report_spec.yaml`'s
+Part 3 `s3_1` note instructs the model to state the most common named
+behaviour, report the suppressed count plainly when present, never
+invent a suppressed behaviour's identity, and never name a component
+without a real n backing it.
+
+**Verified:** `tests/test_part_3.py::TestCopingComponents` (6 cases,
+including an exact reproduction of the real production numbers: 7 sold
+assets/livestock, 1 closed business, 1 suppressed);
+`tests/test_orchestrator.py::TestExtractMetrics`/`TestFormatCopingComponents`
+(components_path threading + the formatting function's own cases,
+including "all suppressed" and "nothing found").
+
+**Confirmed against real data:** re-ran `analysis_engine` against
+`runs/lacro_final_check/` and diffed `analysis_results.json` -- only
+`parts.part_3.metrics.negative_coping.components`/`suppressed_components`
+appeared (`[{"sold_assets_livestock": ..., "n": 7}]`, `suppressed_components:
+1`), nothing else changed. Regenerated Part 3's narrative with a single
+real `write_part()` call (not the full 9-part run, since nothing else
+changed) using the real Gemini model: the model correctly wrote *"The
+most common of these was selling assets or livestock, while one other
+strategy was suppressed due to a small sample size"* -- grounded in the
+real breakdown, not the prior run's fabricated "selling assets" guess
+(the earlier, pre-R-008 narrative already said "selling assets" with
+**no real component data behind it at all** -- a real, if mild,
+hallucination this fix also incidentally corrects into a grounded
+statement). Re-assembled and re-ran `docs/report_checks.py`: **C-011
+flips FAIL -> pass**; blocking failures for this extraction: 4 -> 3.
+
+**C-011 regex widened (session-10):** the check's own regex required
+the literal substring "sold", but a writer model naturally reaches for
+present-tense "selling" -- every other verb in the check's alternation
+matches its own conjugations as a plain substring (e.g. "closed
+.{0,20}business" inside "closed their business"), but "sold"/"sell" is
+an irregular verb pair that doesn't share a stem, so this was a genuine
+regex gap, not an intentional restriction. Added `sell\w*` alongside
+`sold`. This is a check-code fix in `docs/report_checks.py`, not a
+report-content or prompt change -- flagged here for the same reason as
+R-007's C-009 finding, so it isn't mistaken for silent scope creep.
+
+**Baseline note:** widening C-011's regex also flips it to pass on
+`fixtures/test9.txt` (the frozen fixture already contained a "sell"-form
+mention that the old regex missed) -- `fixtures/test9.txt` now reports
+**4 passed / 14 blocking** (was 3 passed / 15 blocking). This is a
+check-methodology correction applied retroactively to an unchanged text,
+the same class of baseline movement documented for R-006a's C-006/007/008
+rewrite -- not progress on the frozen report itself.
 
 ---
 

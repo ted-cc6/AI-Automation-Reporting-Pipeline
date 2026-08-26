@@ -633,12 +633,22 @@ def cross_references_point_to_the_right_part(text: str):
 
 @reg.add("C-011", "R-008", BLOCKING)
 def coping_behaviour_is_named(text: str):
-    """Negative coping is not reported as a bare rate."""
+    """Negative coping is not reported as a bare rate.
+
+    "sell" added (session-10, R-008 implementation): every other verb here
+    matches its own conjugations as a plain substring ("borrow" inside
+    "borrowed"/"borrowing", "closed .{0,20}business" inside "closed their
+    business"), but "sold" does not share a stem with "sell"/"selling" --
+    an irregular verb, not a substring match -- so a real, correctly-named
+    "selling assets or livestock" (the natural present-tense phrasing a
+    writer model reaches for) failed this check even though a real
+    behaviour was actually named, not omitted.
+    """
     t = _norm(text)
     if "coping" not in t.lower():
         return None, "coping not reported"
     named = re.search(
-        r"(sold|borrow|savings|reduc\w+ food|took .{0,20}children out|"
+        r"(sold|sell\w*|borrow|savings|reduc\w+ food|took .{0,20}children out|"
         r"closed .{0,20}business|withdrew|pawn)", t, re.I)
     if not named:
         return False, "coping rate reported without naming any behaviour"

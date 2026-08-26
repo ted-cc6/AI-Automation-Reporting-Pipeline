@@ -405,6 +405,8 @@ parts:
             n_path: "parts.part_3.metrics.negative_coping.headline.n_valid"
             suppressed_path: "parts.part_3.metrics.negative_coping.headline.suppressed"
             population: "Clients who experienced an insured event in the last 12 months -- this includes both those who filed a claim and those who did not; it is not the same as 'claimants' alone"
+            components_path: "parts.part_3.metrics.negative_coping.components"
+            suppressed_components_path: "parts.part_3.metrics.negative_coping.suppressed_components"
           financial_stress_high:
             path: "parts.part_3.metrics.financial_stress_high.headline.value"
             fmt: "pct"
@@ -431,6 +433,18 @@ parts:
           to decide direction; higher source values are worse), but this must never be exposed
           or referenced in the narrative text -- state each percentage and what it means in plain
           language, with no mention of scales, coding, or methodology.
+
+          negative_coping's [components: ...] value, when present, names the specific severe
+          coping behaviour(s) respondents actually used (e.g. "sold assets or livestock"),
+          ranked by how common they were, plus a count of any further behaviour too small to
+          name without risking identifying a specific respondent. State the most common named
+          behaviour in the narrative (e.g. "most commonly, clients sold assets or livestock")
+          rather than reporting negative_coping as a bare percentage with no behaviour attached.
+          If a component was suppressed, say how many were suppressed and why (too few
+          respondents to name safely) -- do not guess at or invent what a suppressed behaviour
+          might have been, and do not name a behaviour with an n not given in [components: ...].
+          If [components: ...] is entirely absent, say only that a share of clients used a
+          severe coping strategy, with no invented behaviour.
 
       s3_2:
         label: "Confidence in Payout"

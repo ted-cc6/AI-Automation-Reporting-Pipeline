@@ -447,7 +447,7 @@ def _build_sections_text(package: dict) -> str:
         # Metrics
         metrics = s_data.get("metrics", {})
         for m_key, m_val in metrics.items():
-            if m_key.endswith("_n") or m_key.endswith("_population"):
+            if m_key.endswith("_n") or m_key.endswith("_population") or m_key.endswith("_components"):
                 continue
             line = f"  {m_key}: {m_val}"
             n_val = metrics.get(m_key + "_n")
@@ -456,6 +456,9 @@ def _build_sections_text(package: dict) -> str:
             pop_val = metrics.get(m_key + "_population")
             if pop_val:
                 line += f"  [population: {pop_val}]"
+            comp_val = metrics.get(m_key + "_components")
+            if comp_val:
+                line += f"  [components: {comp_val}]"
             lines.append(line)
 
         # Distributions

@@ -16,6 +16,7 @@ from generation.orchestrator import (
     _build_scorecard_7,
     _build_trend_data,
     _check_metric_coverage,
+    _format_coping_components,
     _not_applicable_path,
     _resolve_population,
     default_parts_filter,
@@ -169,6 +170,67 @@ class TestExtractMetrics:
         }}}
         result = extract_metrics(analysis, section_spec)
         assert result["foo"] == "40.0%"
+
+    def test_components_path_threads_named_components_into_metrics(self):
+        # R-008: negative_coping's components_path/suppressed_components_path
+        # feed _format_coping_components() into a "<key>_components" entry
+        # writer.py's prompt renders as [components: ...].
+        analysis = {"parts": {"part_3": {"metrics": {"negative_coping": {
+            "headline": {"value": 0.065, "n_valid": 124},
+            "components": [{"key": "sold_assets_livestock", "label": "Sold assets or livestock", "n": 7}],
+            "suppressed_components": 1,
+        }}}}}
+        section_spec = {"metrics": {"negative_coping": {
+            "path": "parts.part_3.metrics.negative_coping.headline.value", "fmt": "pct",
+            "components_path": "parts.part_3.metrics.negative_coping.components",
+            "suppressed_components_path": "parts.part_3.metrics.negative_coping.suppressed_components",
+        }}}
+        result = extract_metrics(analysis, section_spec)
+        assert result["negative_coping_components"] == (
+            "sold assets or livestock (n=7); 1 further component(s) suppressed "
+            "(too few respondents to name without risk of identifying them)"
+        )
+
+    def test_no_components_path_configured_is_unaffected(self):
+        # Every other metric on the codebase has no components_path at all --
+        # must not raise or add a spurious "_components" key.
+        analysis = {"parts": {"part_1": {"metrics": {"foo": {"headline": {"value": 0.4}}}}}}
+        section_spec = {"metrics": {"foo": {
+            "path": "parts.part_1.metrics.foo.headline.value", "fmt": "pct",
+        }}}
+        result = extract_metrics(analysis, section_spec)
+        assert "foo_components" not in result
+
+
+class TestFormatCopingComponents:
+    def test_named_components_only(self):
+        components = [{"key": "a", "label": "Sold assets or livestock", "n": 7}]
+        assert _format_coping_components(components, 0) == "sold assets or livestock (n=7)"
+
+    def test_multiple_components_ranked_and_joined(self):
+        components = [
+            {"key": "a", "label": "Reduced food consumption", "n": 10},
+            {"key": "b", "label": "Sold assets or livestock", "n": 3},
+        ]
+        assert _format_coping_components(components, 0) == (
+            "reduced food consumption (n=10); sold assets or livestock (n=3)"
+        )
+
+    def test_suppressed_count_appended(self):
+        components = [{"key": "a", "label": "Sold assets or livestock", "n": 7}]
+        result = _format_coping_components(components, 2)
+        assert result.startswith("sold assets or livestock (n=7); ")
+        assert "2 further component(s) suppressed" in result
+
+    def test_all_suppressed_no_named_components(self):
+        result = _format_coping_components([], 3)
+        assert result == (
+            "no single behaviour is common enough to name; 3 further component(s) "
+            "suppressed (too few respondents to name without risk of identifying them)"
+        )
+
+    def test_nothing_found_and_nothing_suppressed_returns_empty_string(self):
+        assert _format_coping_components([], 0) == ""
 
     def test_driver_loop_within_extract_metrics_omits_not_applicable_entirely(self):
         # Regression test: this loop used to lack the `continue` the metrics
