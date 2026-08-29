@@ -743,6 +743,20 @@ def build_part_3(doc, package: dict, texts: dict):
     s3_1 = sections.get("s3_1", {})
     _add_heading(doc, s3_1.get("label", "Financial Stress and Coping"), level=2)
     _add_paragraph(doc, texts.get("s3_1", ""))
+    # R-038 (docs/report_spec.md): state the negative-coping base directly,
+    # in the same style as Part 6's note beneath its table, so the figure is
+    # not read as a claimants-only rate. Rendered only when the metric is
+    # actually present (extract_metrics drops a not_applicable metric; a
+    # suppressed one renders the string "SUPPRESSED").
+    nc = s3_1.get("metrics", {}).get("negative_coping")
+    if nc and nc not in ("SUPPRESSED", "NOT APPLICABLE"):
+        _add_paragraph(
+            doc,
+            "The negative coping figure above covers all clients who reported "
+            "an insurable event in the past 12 months; this includes both those "
+            "who filed a claim and those who did not, and is not restricted to "
+            "claimants."
+        )
     if visuals:
         _add_image_or_placeholder(doc, visuals[0])
 

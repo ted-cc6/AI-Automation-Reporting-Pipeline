@@ -51,8 +51,15 @@ REQUIRED_COLS = {
 
 
 def compute_flag_negative_coping(df: pd.DataFrame) -> pd.array:
-    """True if respondent used a severe coping strategy after an insured event.
-    NaN for respondents who did not experience an insured event.
+    """True when the scope gate q_insured_event_12m == True AND the respondent
+    selected at least one severe coping option (q_coping_mechanisms__c/__d/__e/__f:
+    sold assets or livestock, reduced food or essential spending, took children
+    out of school, closed business temporarily). NaN wherever q_insured_event_12m
+    is not True -- the flag is scoped to clients who reported an insurable event.
+
+    The resulting base for the Part 3 headline is that whole insurable-event
+    population, both those who filed a claim and those who did not -- not
+    claimants only (in the Africa scope, n=357 = 149 filed + 208 did not file).
     """
     required = [
         "q_insured_event_12m",

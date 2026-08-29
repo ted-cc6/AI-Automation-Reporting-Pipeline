@@ -1075,6 +1075,55 @@ def insurable_event_terminology(text: str):
     return True, ""
 
 
+# Phrases that name the negative-coping base rather than leaving a reader
+# to assume it. The reviewer (TD24) read 19.0% as a claimant figure; it is
+# not -- the base is everyone who reported an insurable event (n=357 in
+# the Africa scope), comprising 149 who filed and 208 who did not.
+# Deliberately a family of accepted phrasings rather than one literal
+# string: unlike Part 6's note, which is deterministic template text,
+# Part 3's base statement may be written by the writer LLM, and pinning
+# it to one exact wording would fail on a correct paraphrase.
+_C027_BASE_PHRASES = (
+    "insurable event",
+    "both those who filed",
+    "those who filed and those who did not",
+    "filers and non-filers",
+    "whether or not they filed",
+)
+
+@reg.add("C-027", "R-038", BLOCKING)
+def coping_figure_states_its_base(text: str):
+    """R-038 (TD24): the negative-coping rate is never reported as a bare
+    figure -- the population it is computed over is stated alongside it.
+
+    Complements C-011, which checks that the coping BEHAVIOUR is named
+    (R-008). This checks the coping DENOMINATOR is named. A report can
+    pass C-011 and still leave a reader believing the rate describes
+    claimants, which is the defect TD24 raised.
+
+    Skips when no coping content is present, same semantics as C-011.
+    """
+    t = _norm(text)
+    if "coping" not in t.lower():
+        return None, "coping not reported"
+
+    # Bound to the coping discussion itself: the first mention through a
+    # generous window, rather than the whole report -- "insurable event"
+    # appears in Part 2's funnel and Part 6's note regardless, so an
+    # unbounded search would pass on unrelated text elsewhere.
+    first = t.lower().find("coping")
+    window = t[max(0, first - 400): first + 800]
+    if not re.search(r"\d{1,3}\.?\d?%", window):
+        return None, "coping mentioned but no rate reported near it"
+
+    if not any(p in window.lower() for p in _C027_BASE_PHRASES):
+        return False, (
+            "coping rate reported without naming its base; R-038 requires "
+            "the insurable-event population to be stated alongside it"
+        )
+    return True, ""
+
+
 # ------------------------------------------------------------------ reporting
 
 def main() -> int:
