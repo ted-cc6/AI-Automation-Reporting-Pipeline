@@ -1,4 +1,4 @@
-# LACRO Insurance Impact Report: Change Specification
+# Insurance Impact Report: Change Specification
 
 **Baseline artifact:** `LAC_Insurance_Impact_Report_default_2026_Q2_Test9.pdf` (generated 17 August 2026)
 **Reviewers:** Lorenz M (LM1, LM3-LM11 -- ten comments, not eleven), second
@@ -3093,3 +3093,169 @@ To be completed after regeneration and sent to Lorenz alongside the new draft.
 | LM11 | R-010 | | |
 | (not raised) | R-003 | Implemented | Protection appendix duplicates, flagged proactively. Verified: 34 listed -> 27 after dedup (high 3->2, medium 23->17, low 8 unchanged). |
 | (not raised) | R-017 | Implemented | Found during R-003 implementation: summary and appendix each recomputed severity counts independently and could disagree. Now both read from the same `_compute_severity_counts()` call on the canonical list. |
+
+
+
+---
+
+# Part Two: Africa scope requirements
+
+Requirements R-001 to R-035 above were sourced from LACRO reviewer comments
+(LM) during August 2026. Requirements from R-036 onward are sourced from
+Theo Dubois' comments (TD) on
+`Africa_Insurance_Impact_Report_default_2026_Q2` dated 23 July 2026, plus
+defects found while reproducing that report on 28 August 2026.
+
+Both families share one pipeline. Any change made for one is a change made
+for the other, so every requirement below carries a LACRO regression
+obligation.
+
+Team decision (Trevor Smith, 2026-08-26): only comments that change the
+analysis method or correct wrong data are in scope. Comments about how
+findings are framed or presented are being handled directly with the
+reviewer and must NOT be implemented as prompt or analysis changes. The
+writer is designed to state findings plainly; do not soften it.
+
+### R-036: generation model id must be valid for its provider
+Source: defect found reproducing the Africa report, 2026-08-28.
+`generation/report_spec.yaml:12` held `model: "Claude Opus 4.8"` from
+2026-07-14 (commit 4038163) to 2026-08-28, a human display name rather than a
+model id. `pipeline_runner.py:409` and `run_generation.py:106` pass the spec
+model straight to the Gemini endpoint, which returns HTTP 400 on every call.
+All nine narrative sections failed for six weeks on the CLI path; the docx
+still assembled, with a placeholder under every Part.
+
+Fixed by setting `model: "gemini-2.5-pro"`, matching
+`llm_providers.DEFAULT_MODELS["gemini"]` and `qualitative/config.yaml`.
+
+Also as part of this requirement: change this document's H1 title from
+"LACRO Insurance Impact Report: Change Specification" to "Insurance Impact
+Report: Change Specification", since it now covers more than one family.
+Leave the Part One heading and all of R-001 to R-035 untouched.
+
+Note for follow-up (see R-039, R-040): `runs/lacro_final_check/` Stage 4
+artifacts predate its Stage 3 artifacts by ~45 minutes, so that report was
+assembled from separate invocations and no artifact records which model wrote
+its narratives. The LACRO draft under review is not currently reproducible.
+
+### R-037: display terminology is "insurable event", not "insured event"
+Source: TD24.
+The survey question asks whether the client experienced an event that might be
+covered. "Insured event" asserts coverage that was not established. Change
+display strings only, in six locations confirmed in run `africa_2026_Q2`:
+- `analysis_engine/sections/part_2.py` claims funnel table row label
+- `analysis_engine/sections/part_5.py` caregiver comparison footnote
+- `analysis_engine/sections/part_6.py` note beneath the scorecard table
+- writer prompt guidance in `generation/report_spec.yaml` for Parts 1 and 3,
+  so generated prose follows (observed 3 narrative occurrences: part_1.s1_1,
+  part_1.s1_2, part_3.s3_1)
+
+Internal identifiers are explicitly OUT of scope and must not be renamed:
+`q_insured_event_12m`, `flag_negative_coping`, `insured_event_base`,
+`data_loader/value_coding_map.yaml`, `dashboard_alignment/indicator_map.yaml`,
+the GENDSI sub-project, and all test fixtures. These are legacy identifiers
+tied to the source instrument and the Power BI semantic model. Renaming them
+would touch the data loader, dashboard reconciliation and a separate
+sub-project for no reader-visible benefit.
+
+Scope expanded from six locations to thirteen during implementation
+(2026-08-29). The plan pass found seven further "insured event" strings, all
+writer-prompt guidance in the same file (`generation/report_spec.yaml` lines
+303, 310, 315, 328, 415, 848, 861, covering Parts 2, 3 and 6), that had not
+surfaced in `africa_2026_Q2` but are the same class of change in the same
+file. Left unchanged they would leave C-026 -- a rendered-text check -- able
+to fail non-deterministically on any regeneration where the writer echoed one
+of them; that non-determinism risk is the reason for expanding.
+
+Verified by check C-026.
+
+### R-038: state the base for the negative coping figure
+Source: TD24, second half.
+The reviewer asked whether the 19.0% severe coping figure is measured among
+claimants. It is not. Confirmed by inspection: the base is all clients who
+reported an insurable event (n=357 in the Africa scope), comprising 149 who
+filed and 208 who did not. Verified rates: 10.07% among filers, 25.48% among
+non-filers.
+
+Two changes:
+1. Part 3's rendered output must state the base explicitly alongside the
+   figure, in the same style as Part 6's existing note.
+2. Correct the docstring at `data_loader/data_loader_derived.py:53-76`, which
+   says the flag is true if the respondent used a severe coping strategy
+   "after an insured event". State the actual scope gate
+   (`q_insured_event_12m == True`) and the resulting denominator.
+
+No number changes. This is disclosure, not a recomputation.
+
+Verified by check C-027.
+
+### R-039 (deferred): record provider and model in Stage 4 artifacts
+`written_texts.json` and `writer_raw_part_*.json` carry no provider or model
+metadata, which is why R-036 was invisible and why the LACRO draft cannot be
+attributed. Write provider, model id and timestamp into the Stage 4 run meta.
+
+### R-040 (deferred): validate model id against provider before Stage 4 runs
+Fail at startup with a clear message rather than after 27 failed API calls.
+
+### R-041 (deferred): verbatim source column resolution
+R-030 fallback. In run `africa_2026_Q2`, 8 of 21 rendered verbatims could not
+be resolved to a source column and fell back to a fixed-order guess. Observed
+consequence: `row_1509` renders the respondent's NPS follow-up text while the
+same respondent's protection flag is drawn from their claim challenges free
+text, presenting two different answers as one voice. This supersedes the
+originally scoped quote deduplication work (TD23): all 21 row IDs are distinct
+across sections, so cross-section duplication is not occurring.
+
+### R-042 (deferred): NPS tagging batch parse failure
+Batch 1 of 4 fails deterministically with invalid JSON at char 20424, same
+byte offset across runs, dropping ~600 of 2,078 NPS responses from tagging.
+Currently a non-fatal warning. Losing 29% of the qualitative base warrants a
+retry with repair, and a data quality flag rather than a log line.
+
+### R-043 (deferred): Vietnam exclusion must match what Data Notes claims
+Data Notes states Vietnam is "excluded from headline claims and quoted
+verbatims". Only the verbatim exclusion is actually applied. Part 3's 19.0%
+and the executive summary N=2,091 both include Vietnam. Either apply the
+exclusion to headline claims or correct the disclosure text.
+
+### R-044 (deferred): scope label reads "Africa and Vietnam"
+Source: TD8. `REPORT_SCOPES["africa"]["label"]` is "Africa and Asia". Vietnam
+is the only ASIA country in the bundle, so the current label implies broader
+coverage than exists. The `regions` filter is unchanged; Vietnam stays bundled.
+
+### R-045 (deferred): remove the silent "Global Portfolio" fallback
+A run started without `--report-scope` renders "Global Portfolio" throughout,
+which is how the 23 July draft came to be mislabelled. Fail at startup
+instead. LACRO is unaffected: `DEFAULT_REPORT_SCOPES` always supplies a scope,
+and the legacy `dataset_schema == "larco"` path is caught by `_lacro_scoped()`
+before this branch.
+
+### R-046 (deferred): low confidence band for thin cells
+Source: TS22R21, Trevor asking what critical mass constitutes a trend.
+`LOW_N_THRESHOLD = 30` is currently binary hide. Add a second tier above it
+that renders the value with its confidence interval and a caveat rather than
+hiding it. Precedents exist: `_SENTIMENT_SPLIT_MIN_BASE_FOR_PCT` reports
+counts with a caveat, Part 10 `indicative` shows both waves with an
+annotation. `ci_lower`/`ci_upper` are already computed and stored on every
+result and read by nothing in `generation/`.
+Upper bound pending decision. Inventory from `africa_2026_Q2`: a bound of 100
+rescues nothing rendered; 130 captures ~8 underlying figures; 150 additionally
+pulls in the entire n=149 claimant column of Parts 6 and 7.
+
+### R-049 (deferred): writer voice-rule drift on gemini-2.5-pro
+Observed after the R-036 model change. The Claude-authored drafts predating
+2026-07-14 are not available for comparison, but the first gemini-2.5-pro
+narrative (`africa_2026_Q2`, 2026-08-28) failed C-025 (R-035: no causal
+language outside verbatims) on two occurrences, both in generated prose,
+neither in a quoted verbatim:
+- part_2.s2_1: "...client support to improve access to benefits."
+- part_4.s4_1: "...highlighting a need for improved client communication and
+  claims fulfillment."
+The "improved" uses in part_5.s5_2 / s5_3 and part_6.narrative are the
+survey-result participle tied to the "Healthcare Access Improved" and "Child
+Wellbeing Improved" metric labels, which C-025 already exempts.
+This is prompt-instruction drift, not a code defect: R-035's VOICE RULES
+instruction is probabilistic and gemini-2.5-pro complies with it less
+reliably than whatever wrote the pre-2026-07-14 drafts. Not fixed in this
+batch. Options: tighten the writer prompt, add a post-generation rewrite
+pass, or accept C-025 as advisory for gemini-authored runs.

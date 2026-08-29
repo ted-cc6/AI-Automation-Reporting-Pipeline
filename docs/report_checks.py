@@ -1,5 +1,5 @@
 """
-LACRO Insurance Impact Report: validation check suite.
+Insurance Impact Report: validation check suite.
 
 Every check maps to a requirement ID in docs/report_spec.md.
 

@@ -9,7 +9,7 @@
 schema_version: "1.0"
 run_id_default: "2026_Q2"
 output_filename: "VFI_Insurance_Impact_Report_2026_Q2.docx"
-model: "Claude Opus 4.8"
+model: "gemini-2.5-pro"
 
 # R-002 -- the Executive Summary headline-numbers table's metric list, moved
 # out of generation/executive_summary.py's old hardcoded _HEADLINE_METRICS
