@@ -116,7 +116,7 @@ class TestBuildPart6:
         doc = Document()
         build_part_6(doc, self._package(), {"narrative": ""})
         texts = "\n".join(self._paragraph_texts(doc))
-        assert "restricted to clients who reported an insured event" in texts
+        assert "restricted to clients who reported an insurable event" in texts
 
     def test_no_retired_labels_anywhere(self):
         doc = Document()
