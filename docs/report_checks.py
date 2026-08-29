@@ -742,7 +742,7 @@ def non_filer_terminology_states_population(text: str):
     if "did not file" not in t:
         return None, "no Part 6 'Did not file' scorecard header found"
 
-    if "restricted to clients who reported an insured event" not in t:
+    if "restricted to clients who reported an insurable event" not in t:
         return False, "Part 6 scorecard is missing its population-scope note"
 
     return True, ""
@@ -1041,6 +1041,37 @@ def no_causal_language_outside_verbatims(text: str):
     hits = sorted(set(h.lower() for h in _C025_CAUSAL_TERMS.findall(t)))
     if hits:
         return False, f"causal language outside verbatims: {hits[:8]}"
+    return True, ""
+
+# ------------------------------------------------- Africa scope (R-036 onward)
+
+@reg.add("C-026", "R-037", BLOCKING)
+def insurable_event_terminology(text: str):
+    """R-037 (TD24): rendered text says "insurable event", never "insured
+    event". The survey question asks whether the client experienced an
+    event that might be covered; "insured event" asserts a coverage
+    determination that was never made.
+
+    A universal banned-phrase check like C-014/C-016/C-020/C-022 -- it
+    never skips, because the phrase is banned everywhere it could appear.
+
+    Scope note: this governs DISPLAY strings only. The internal
+    identifiers q_insured_event_12m, flag_negative_coping and
+    insured_event_base are deliberately unchanged (R-037 records why) and
+    never reach rendered text -- C-022 already enforces that separately,
+    so there is no overlap between the two checks.
+
+    Paired edit: C-016 asserts the literal Part 6 note "restricted to
+    clients who reported an insurable event". Both were changed together
+    under R-037; changing one without the other fails the suite.
+    """
+    t = _lower(text)
+    hits = t.count("insured event")
+    if hits:
+        return False, (
+            f"'insured event' appears {hits} time(s) in rendered text; "
+            f"R-037 requires 'insurable event'"
+        )
     return True, ""
 
 

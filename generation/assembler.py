@@ -871,7 +871,7 @@ def build_part_6(doc, package: dict, texts: dict):
         _add_paragraph(
             doc,
             "Both groups above are restricted to clients who reported an "
-            "insured event in the past 12 months; neither describes "
+            "insurable event in the past 12 months; neither describes "
             "clients who never faced a claimable event during that period."
         )
         _add_paragraph(doc, "* p < 0.05 (chi-squared or Fisher's exact test)")

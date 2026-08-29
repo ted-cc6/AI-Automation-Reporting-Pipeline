@@ -135,12 +135,14 @@ parts:
           the prior, narrower definition and no longer matches what this figure counts.
 
           The _claimant and _non_claimant figures are restricted to clients who experienced
-          an insured event in the past 12 months (claimant = filed, non_claimant = did not
+          an insurable event in the past 12 months (claimant = filed, non_claimant = did not
           file) -- NOT a comparison against clients who never had a claimable event. Phrase
           this as "among clients who filed a claim" / "among clients who experienced an
           event but did not file", never as "those who had not [filed]" on its own (which
           reads as "clients overall, minus claimants") and never implying every respondent
-          falls into one of these two groups.
+          falls into one of these two groups. Use the phrase "insurable event", never
+          "insured event" -- the survey asks whether the client experienced an event that
+          MIGHT be covered, not one already determined to be covered.
 
       s1_2:
         label: "Claim Process Understanding"
@@ -178,7 +180,7 @@ parts:
           pad this section with generic commentary to reach the word limit.
 
           The _claimant and _non_claimant figures are restricted to clients who experienced
-          an insured event in the past 12 months (claimant = filed, non_claimant = did not
+          an insurable event in the past 12 months (claimant = filed, non_claimant = did not
           file) -- NOT a comparison against clients who never had a claimable event. Phrase
           this as "among clients who filed a claim" / "among clients who experienced an
           event but did not file", never as "those who had not [filed]" on its own.
@@ -289,7 +291,7 @@ parts:
         funnel_table:
           headers: ["Stage", "N", "Rate"]
           rows:
-            - label: "Experienced insured event"
+            - label: "Experienced insurable event"
               n_key: "n_experienced_event"
               rate_key: "pct_experienced_event"
             - label: "Filed a claim"
@@ -300,19 +302,19 @@ parts:
               rate_key: "pct_claim_paid"
         note: >
           Some VisionFund country programmes' survey instruments gate "filed a claim" behind
-          a separate "did you experience an insured event" question (rate expressed as % of
+          a separate "did you experience an insurable event" question (rate expressed as % of
           that event base); others ask about filed claims directly with no such gate (rate
           expressed as % of ALL surveyed clients instead). Never assume which of these applies
           from the report's country or region name -- a given region can appear in this report
           under either behavior depending on which survey instrument produced the data, so
           check strictly by what is actually present in THIS data package, every time:
           if n_experienced_event / pct_experienced_event ARE present above, this programme's
-          survey DOES gate on an insured event -- describe the funnel from insured event
+          survey DOES gate on an insurable event -- describe the funnel from insurable event
           through to claim filed, and pct_filed_of_event is the filed-claim rate as a
           percentage of that event base, not of all surveyed clients. If n_experienced_event
           / pct_experienced_event are absent from this data package, this programme's survey
           has no such gate -- write about "filed a claim" directly without mentioning an
-          insured-event step at all, and pct_filed_of_event is then the rate against all
+          insurable-event step at all, and pct_filed_of_event is then the rate against all
           surveyed clients instead. If n_claim_paid / pct_claim_paid are absent, this
           programme's survey does not collect claim OUTCOME data (paid vs. not) at all -- do
           not say claims were "not paid" or imply a 0% payment rate; state plainly that claim
@@ -325,7 +327,7 @@ parts:
           no_claim_reasons_base:
             path: "parts.part_2.no_claim_reasons.n_base"
             fmt: "count"
-            population: "Clients who experienced an insured event in the last 12 months but did not file a claim -- the same base as Part 6's 'Did not file' group. Not the full non-claiming population; every client here was eligible to claim and chose or was unable to."
+            population: "Clients who experienced an insurable event in the last 12 months but did not file a claim -- the same base as Part 6's 'Did not file' group. Not the full non-claiming population; every client here was eligible to claim and chose or was unable to."
         distribution_path: "parts.part_2.no_claim_reasons.distribution"
         qualitative_keys:
           - "other_subthemes.claim_no_reason_other"
@@ -404,7 +406,7 @@ parts:
             fmt: "pct"
             n_path: "parts.part_3.metrics.negative_coping.headline.n_valid"
             suppressed_path: "parts.part_3.metrics.negative_coping.headline.suppressed"
-            population: "Clients who experienced an insured event in the last 12 months -- this includes both those who filed a claim and those who did not; it is not the same as 'claimants' alone"
+            population: "Clients who experienced an insurable event in the last 12 months -- this includes both those who filed a claim and those who did not; it is not the same as 'claimants' alone"
             components_path: "parts.part_3.metrics.negative_coping.components"
             suppressed_components_path: "parts.part_3.metrics.negative_coping.suppressed_components"
           financial_stress_high:
@@ -412,7 +414,7 @@ parts:
             fmt: "pct"
             n_path: "parts.part_3.metrics.financial_stress_high.headline.n_valid"
             suppressed_path: "parts.part_3.metrics.financial_stress_high.headline.suppressed"
-            population: "All surveyed clients -- this question is asked of everyone regardless of claim or insured-event status; it is not conditional on having filed a claim or even having experienced an insured event"
+            population: "All surveyed clients -- this question is asked of everyone regardless of claim or insurable-event status; it is not conditional on having filed a claim or even having experienced an insurable event"
           alternative_access_difficult:
             path: "parts.part_3.metrics.alternative_access_difficult.headline.value"
             fmt: "pct"
@@ -444,7 +446,9 @@ parts:
           respondents to name safely) -- do not guess at or invent what a suppressed behaviour
           might have been, and do not name a behaviour with an n not given in [components: ...].
           If [components: ...] is entirely absent, say only that a share of clients used a
-          severe coping strategy, with no invented behaviour.
+          severe coping strategy, with no invented behaviour. Use the phrase "insurable
+          event", never "insured event" -- the survey asks whether the client experienced an
+          event that MIGHT be covered, not one already determined to be covered.
 
       s3_2:
         label: "Confidence in Payout"
@@ -614,7 +618,7 @@ parts:
         sig_path: "parts.part_5.caregiver_comparison.metrics.financial_stress_high.significance.p_value"
         caregiver_sup: "parts.part_5.caregiver_comparison.metrics.financial_stress_high.caregiver.suppressed"
         non_caregiver_sup: "parts.part_5.caregiver_comparison.metrics.financial_stress_high.non_caregiver.suppressed"
-        population: "All surveyed clients (same base as Part 3's financial stress metric); not restricted to those who experienced an insured event"
+        population: "All surveyed clients (same base as Part 3's financial stress metric); not restricted to those who experienced an insurable event"
       - key: healthcare_access
         label: "Healthcare Access Improved"
         fmt: "pct"
@@ -845,7 +849,7 @@ parts:
         word_limit: 100
         note: >
           This table's two groups are "Claimant (filed)" and "Did not file" -- a note stating
-          both are restricted to clients who experienced an insured event in the past 12
+          both are restricted to clients who experienced an insurable event in the past 12
           months already appears beneath the table in the rendered report; do not restate it
           as your own sentence, but let it govern how you write about the two groups. This is
           NOT a comparison against clients who never had a claimable event at all; do not
@@ -858,7 +862,7 @@ parts:
 
           Significance threshold: p < 0.05 = statistically significant, mark with *.
           Any row with its own population note in the scorecard table describes a further
-          restricted population on top of that shared insured-event base; do not imply the
+          restricted population on top of that shared insurable-event base; do not imply the
           same clients answered every row. The Net Promoter Score row is tested differently
           from every other row (see that row's note); do not describe it as "significant" or
           "not significant" using the same p<0.05-chi-squared framing as the % rows; state
