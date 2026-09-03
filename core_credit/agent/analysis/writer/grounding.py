@@ -29,11 +29,28 @@ _PERCENT_RE = re.compile(r"(\d+(?:\.\d+)?)\s?(?:%|percent)")
 
 _TOLERANCE = 0.6  # allows the writer to round 42.3% to "42 percent" without a false flag
 
-# Matches "..." spans of meaningful length -- a floor of 25 characters skips short quoted
-# survey-option labels ("a. Very difficult", "b. Slightly difficult") and single-word
-# emphasis that were never meant to represent a client's own words, while still catching the
-# real fabricated quotes seen in production (all 40+ characters -- full sentences).
-_QUOTED_SPAN_RE = re.compile(r'"([^"]{25,})"')
+# Every "..." pair in the text, matched left to right so a closing quote mark can never be
+# read as the opening of the next span. The length filter is applied to the matched spans
+# afterward (see _MIN_QUOTE_LEN), NOT baked into the pattern: an earlier version required 25+
+# characters *inside* the quotes for the pattern to match at all, so a short quoted string (a
+# metric box label like "very much improved", 18 chars) was skipped entirely and re.finditer
+# then paired ITS closing quote with the opening quote of the next real verbatim, swallowing
+# 300-640 characters of ordinary prose as one bogus span. Found during CC-001 verification
+# (docs/core_credit_report_spec.md CC-005): it fired on 8 of 8 runs of one insight.
+_QUOTED_SPAN_RE = re.compile(r'"([^"]*)"')
+
+# A quoted span (or a pool verbatim) shorter than this is not treated as a client's own words:
+# it is a survey-option label ("a. Very difficult"), a quoted metric term ("very much
+# improved"), or single-word emphasis. Real fabricated verbatims seen in production are all
+# full sentences, 40+ characters. Gates both check_quote_grounding (which spans to test) and
+# check_profile_grounding (which pool verbatims are searchable), so the two stay consistent.
+_MIN_QUOTE_LEN = 25
+
+# The start of a quote's own attribution clause, scanning back from the quote: everything up to
+# and including a sentence terminator (with any trailing closing bracket/quote and whitespace)
+# or a hard line break belongs to an earlier sentence. check_profile_grounding also cuts at the
+# previous quoted span's closing quote mark, whichever is later.
+_CLAUSE_BOUNDARY_RE = re.compile(r'[.!?]["\')\]]*\s+|\n')
 
 # Matches a literal citation-style marker like "[3]" left in prose -- these come from the
 # numbered verbatim pool the writer is shown, but nothing in the final document prints that
@@ -124,42 +141,114 @@ def _normalize_quote_marks(s: str) -> str:
     return s.translate(_QUOTE_MARK_TRANSLATION)
 
 
-def check_quote_grounding(text: str, pool: list[Verbatim]) -> list:
-    """Every quoted span (25+ characters) in `text` that doesn't match a real Verbatim's quote
-    in `pool`. Matching is exact after whitespace-trimming and quote-mark normalization -- the
-    system prompt requires the model to reproduce a real quote character-for-character, so a
-    genuine quote from the pool will match exactly; anything that doesn't match was either
-    invented outright or altered enough that it's no longer the client's real words. Empty list
-    means every quoted span traces back to a real client record.
+# Terminal punctuation stripped before the exact-match test. A sentence period placed inside
+# the closing quote mark ("...loan amount.") is correct English typography, not a different
+# quote from "...loan amount", so a trailing run of these is normalised away on BOTH the
+# candidate span and the pool verbatim. Only the trailing run -- internal punctuation is left
+# intact, so a verbatim with a word (and its comma) dropped from the middle still fails to
+# match and reads as fabrication, not a partial quote.
+_TERMINAL_PUNCT = " .,;:!?…"
+
+
+def _match_core(s: str) -> str:
+    return _normalize_quote_marks(s).strip().rstrip(_TERMINAL_PUNCT)
+
+
+def _classify_quoted_spans(text: str, pool: list[Verbatim]) -> tuple[list, list]:
+    """(ungrounded, partial) for every quoted span of real-sentence length in `text`.
+
+      ungrounded -- traces to no real client record, whole or in part: fabrication.
+      partial    -- an exact contiguous substring of a real pool verbatim: the client's real
+                    words, but only a fragment of them.
+
+    A span that reproduces a pool verbatim exactly (modulo quote-mark style and a moved
+    terminal period, see _match_core) is neither -- it is clean.
     """
-    real_quotes = {_normalize_quote_marks(v.quote.strip()) for v in pool}
-    flagged = []
-    for match in _QUOTED_SPAN_RE.finditer(text):
-        candidate = match.group(1).strip()
-        if _normalize_quote_marks(candidate) not in real_quotes:
-            flagged.append(candidate)
-    return flagged
+    normalized_text = _normalize_quote_marks(text)
+    pool_norm = [_normalize_quote_marks(v.quote.strip()) for v in pool]
+    exact = {_match_core(p) for p in pool_norm}
+    ungrounded: list = []
+    partial: list = []
+    for match in _QUOTED_SPAN_RE.finditer(normalized_text):
+        span = match.group(1).strip()
+        if len(span) < _MIN_QUOTE_LEN:
+            continue
+        core = _match_core(span)
+        if core in exact:
+            continue
+        if core and any(core in whole for whole in pool_norm):
+            partial.append(span)
+        else:
+            ungrounded.append(span)
+    return ungrounded, partial
+
+
+def check_quote_grounding(text: str, pool: list[Verbatim]) -> list:
+    """Every quoted span of real-sentence length (>= _MIN_QUOTE_LEN) in `text` that traces to
+    NO real client verbatim, whole or in part -- i.e. fabrication. The system prompt requires
+    the model to reproduce a real quote character-for-character; a span that does (allowing for
+    quote-mark style and a moved terminal period) is clean, and a span that is an exact
+    contiguous FRAGMENT of a real verbatim is a partial quote (check_partial_quotes), not an
+    ungrounded one. Empty list means nothing in `text` was invented.
+
+    Spans are paired first (every "..." pair, left to right) and only then filtered by length,
+    so a short quoted term earlier in the text cannot desync the pairing for the spans that
+    follow it -- see _QUOTED_SPAN_RE.
+    """
+    return _classify_quoted_spans(text, pool)[0]
+
+
+def check_partial_quotes(text: str, pool: list[Verbatim]) -> list:
+    """Every quoted span in `text` that is an EXACT CONTIGUOUS substring of a real pool verbatim
+    but not the whole of one -- the client's real words, quoted only in fragment. This is not
+    fabrication (check_quote_grounding) and not a house-style violation: it never feeds
+    _writer_violations, because the corrective rewrite replaces quotes rather than restoring
+    dropped context and would likely make a truncation worse. It is surfaced for a human
+    reviewer, because a fragment can change what a client said -- "the money I was waiting for"
+    lifted out of a longer complaint about a broken promise reads very differently from the
+    whole. Every fragment is flagged regardless of how much of the source it covers: meaning
+    distortion does not scale with length, so there is no coverage threshold to gate on.
+    """
+    return _classify_quoted_spans(text, pool)[1]
 
 
 def check_profile_grounding(text: str, pool: list[Verbatim]) -> list:
     """For every real, pool-matched quote found in `text`, checks that no country OTHER than
-    the quote's own real country is mentioned near it. Catches a failure check_quote_grounding
-    can't see: a genuine quote, reproduced correctly, wrapped in an invented attribution.
-    Confirmed for real: a production report quoted a real Malawi client's real words as "a
-    female Ugandan caregiver from a PWD household in Malawi" -- the quote text matched the pool
-    exactly, "Ugandan" did not match anything about that client at all.
+    the quote's own real country is mentioned in the attribution clause that introduces it.
+    Catches a failure check_quote_grounding can't see: a genuine quote, reproduced correctly,
+    wrapped in an invented attribution. Confirmed for real: a production report quoted a real
+    Malawi client's real words as "a female Ugandan caregiver from a PWD household in Malawi" --
+    the quote text matched the pool exactly, "Ugandan" did not match anything about that client.
+
+    Two guards added after CC-001 verification found this check unusable at a 3/8 false-positive
+    rate (docs/core_credit_report_spec.md CC-005):
+      - Only pool verbatims of real-sentence length (>= _MIN_QUOTE_LEN) are searched, and the
+        match must be word-bounded. A one-letter junk verbatim (a real client answer of just
+        "B") was matching inside "BUSINESS" in an unrelated, correctly-attributed quote.
+      - The country scan is scoped to this quote's own attribution clause -- from the previous
+        quoted span's closing quote mark, or the last sentence boundary, up to this quote --
+        not a flat 200-character lookback, which bled a neighbouring (also correct) quote's
+        country in.
     """
     from benchmark_module.mapping import COUNTRY_CODE_TO_NAME, COUNTRY_NAME_TO_CODE
 
     all_country_names = set(COUNTRY_NAME_TO_CODE.keys())
+    normalized = _normalize_quote_marks(text)
     flagged = []
     for v in pool:
-        if not v.country:
+        quote = _normalize_quote_marks(v.quote.strip())
+        if not v.country or len(quote) < _MIN_QUOTE_LEN:
             continue
-        idx = text.find(v.quote)
-        if idx == -1:
+        m = re.search(r"(?<!\w)" + re.escape(quote) + r"(?!\w)", normalized)
+        if m is None:
             continue
-        window = text[max(0, idx - 200) : idx]
+        idx = m.start()
+        lookback = normalized[max(0, idx - 200) : idx]
+        intro = lookback[:-1] if lookback.endswith('"') else lookback  # drop this quote's own opening mark
+        clause_start = intro.rfind('"') + 1  # after the previous quoted span, or 0 if none
+        for boundary in _CLAUSE_BOUNDARY_RE.finditer(intro):
+            clause_start = max(clause_start, boundary.end())
+        window = intro[clause_start:]
         correct_name = COUNTRY_CODE_TO_NAME.get(v.country, v.country)
         wrong = {name for name in all_country_names if name in window} - {correct_name}
         if wrong:

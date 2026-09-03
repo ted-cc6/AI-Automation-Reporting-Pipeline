@@ -169,9 +169,18 @@ class WrittenText(BaseModel):
     )
     ungrounded_quotes: list[str] = Field(
         default_factory=list,
-        description="Quoted spans in `text` that don't match any real Verbatim in the pool it was given -- "
-        "catches an invented illustrative quote, since only IDs formally resolved via used_verbatim_ids are "
-        "otherwise checked against real client records",
+        description="Quoted spans in `text` that trace to no real Verbatim in the pool, whole or in part -- "
+        "i.e. fabrication. Catches an invented illustrative quote, since only IDs formally resolved via "
+        "used_verbatim_ids are otherwise checked against real client records. A span that is an exact "
+        "contiguous fragment of a real verbatim goes in partial_quotes instead, not here.",
+    )
+    partial_quotes: list[str] = Field(
+        default_factory=list,
+        description="Quoted spans in `text` that are an exact contiguous substring of a real pool verbatim -- "
+        "the client's real words, but only a fragment of them, which can change what the client actually said. "
+        "Not fabrication (that is ungrounded_quotes) and deliberately NOT a _writer_violations trigger: the "
+        "corrective rewrite replaces quotes rather than restoring dropped context, so it would likely make a "
+        "truncation worse. Surfaced for a human reviewer to judge.",
     )
     orphan_markers: list[str] = Field(
         default_factory=list,

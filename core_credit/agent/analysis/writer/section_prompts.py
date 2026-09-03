@@ -156,24 +156,42 @@ IMPROVED_CHILD_WELLBEING = SubsectionPrompt(
 CAREGIVER_VS_OTHER = SubsectionPrompt(
     subsection_id="4.2",
     title="Caregivers against other clients",
-    word_cap=80,
+    # Raised from the template's 80: CC-028 turned 4.2 from a one-line caregiver-vs-other note
+    # into a methodological correction -- it now has to carry the raw gaps, the standardised
+    # gaps, the two sign reversals, the country-concentration reason, and the causation caveat.
+    # Those five points land around 165-175 words and do not compress further without dropping
+    # one CC-028 requires; the completeness check still flags a run that overshoots this.
+    word_cap=175,
     instructions=(
-        "Compare caregivers with other clients across the shared outcomes in the table: "
-        "quality of life, financial worry, community respect, business income, loan goal "
-        "achievement, household influence, savings, and the Net Promoter Score. Report both "
-        "rates and the gap. Report significance only where it makes the point clearer. Note "
-        "whether caregivers are reaching the households that most need a buffer."
+        "Prose, no lists. The reader has the full table of rates, raw gaps and standardised "
+        "gaps directly above your text -- do not recite it row by row. Interpret it, in four "
+        "or five sentences. Required points: (a) as observed, caregivers lead non-caregivers "
+        "on most outcomes, a few gaps wide -- you may name the single widest; (b) standardising "
+        "both groups to a common country mix collapses almost every gap, and loan goal "
+        "achievement and the NPS promoter rate flip from a non-caregiver lead to caregivers "
+        "level or slightly ahead; (c) the reason is that non-caregivers are a small group "
+        "concentrated in a few countries -- Ecuador and Montenegro hold about a quarter of "
+        "them, Montenegro weak on these outcomes -- so the raw comparison partly reflects "
+        "country mix, not caregiver status (name Ecuador and Montenegro); (d) so the raw "
+        "loan-goal gap says nothing about caregivers reaching buffer-need households; (e) a "
+        "standardised gap is still an association, country being only one confounder."
     ),
 )
 
 CHILD_WELLBEING_INSIGHT = SubsectionPrompt(
     subsection_id="4-insight",
     title="Insight for Child Wellbeing",
-    word_cap=120,
+    word_cap=180,  # raised from 120: CC-028's corrected caregiver-gap reading plus verbatims
     instructions=(
-        "Bring the section together in three to five sentences a reader can act on. Fold in "
-        "the child wellbeing share and the widest caregiver gap. Include two or three "
-        "verbatims with profile if any are available."
+        "Three or four sentences, plus one verbatim. Keep it tight -- the word cap is firm, "
+        "do not quote gap figures. Sentence one: the headline child-wellbeing share, reported "
+        "among caregivers. Sentence two: the raw caregiver-versus-non-caregiver gaps look "
+        "large on several outcomes, but country standardisation removes almost all of that "
+        "gap, so it mostly reflects which countries the two groups sit in, not caregiver "
+        "status, and a couple of outcomes reverse once countries are matched. Sentence three: "
+        "so do not read a broader social benefit, a deeper loan effect, or buffer-targeting "
+        "success into these numbers; any small standardised gap is an association only. Then "
+        "one verbatim with profile if available."
     ),
 )
 
@@ -201,7 +219,8 @@ QUALITY_OF_LIFE_CHANGE = SubsectionPrompt(
     instructions=(
         "Report the share who report an improved quality of life, using the top two boxes "
         "(very much and slightly improved). Give the gender split and any segment that stands "
-        "out, and tie it back to business income above."
+        "out. Report this figure on its own, and do not tie it to business income or any other "
+        "metric, since no association between them has been computed."
     ),
 )
 
@@ -301,11 +320,14 @@ LOAN_PURPOSE_ACHIEVED = SubsectionPrompt(
 HOUSEHOLD_INFLUENCE_IMPROVED = SubsectionPrompt(
     subsection_id="6.2",
     title="Influence over household decisions",
-    word_cap=80,
+    word_cap=95,
     instructions=(
         "Report the share whose influence over household resource decisions improved. Lead "
-        "with the gender read, because this is a core measure of women's empowerment, and "
-        "describe what changed, drawing on the free text where it helps."
+        "with the gender read, because this is a core measure of women's empowerment. The data "
+        "includes a ranked breakdown of the ways influence improved (AGENCY04a, asked only of "
+        "clients who reported an improvement): add exactly one sentence, right after the "
+        "headline figure, naming the single most frequently reported improvement, and state "
+        "that its base is the clients who reported improved influence, not all respondents."
     ),
 )
 
@@ -346,19 +368,29 @@ SAVINGS_INCREASED = SubsectionPrompt(
 SHOCK_INCIDENCE_AND_IMPACT = SubsectionPrompt(
     subsection_id="7.2",
     title="Shocks and their impact",
-    word_cap=80,
+    word_cap=110,
     instructions=(
         "Report the share of clients and communities that met a shock in the last 24 months, "
         "and the main impacts on income, assets, and health. Note where it concentrates by "
-        "geography or climate exposure."
+        "geography or climate exposure. Two different bases are in play in this subsection and "
+        "you must name each one where you use it: the shock-incidence share is measured over "
+        "the full portfolio (its n), while the impact figures are measured only among the "
+        "clients who reported that a shock affected their household (their n, a much smaller "
+        "conditional subset). Make the switch from the full portfolio to that affected subset "
+        "explicit in the prose, do not let the reader carry the first base onto the second."
     ),
 )
 
 COPING_MECHANISMS = SubsectionPrompt(
     subsection_id="7.3",
     title="Coping mechanisms",
-    word_cap=90,
+    word_cap=120,
     instructions=(
+        "Every figure in this subsection -- the coping mechanisms and the negative-coping share "
+        "-- is measured only among the clients who reported that a shock affected their "
+        "household, not all respondents. State that base explicitly, using the n printed beside "
+        "the figures, the first time you cite a figure here, and do not imply it is "
+        "portfolio-wide. "
         "Report the main coping mechanisms and quantify negative coping, such as cutting food "
         "or essential spending, selling assets or livestock, taking children out of school, "
         "and migration. Flag whether it concentrates in any segment, such as clients affected "
@@ -370,11 +402,15 @@ COPING_MECHANISMS = SubsectionPrompt(
 VF_REDUCED_SHOCK_SEVERITY = SubsectionPrompt(
     subsection_id="7.4",
     title="Effect of VisionFund on the severity of the shock",
-    word_cap=70,
+    word_cap=90,
     instructions=(
         "Report the share who said VisionFund services reduced the severity of the shock, "
         "joining significantly and somewhat. Read it as realized preparedness, the resilience "
-        "dividend that comes with access."
+        "dividend that comes with access. State the base explicitly, using the n printed beside "
+        "the figure: this share is calculated only among clients who reported that a climate or "
+        "economic shock affected their household, a conditional subset of respondents, not all "
+        "respondents. Make clear in the same sentence that this is a different and much smaller "
+        "base than the shock-incidence figure in 7.2, which is measured over the full portfolio."
     ),
 )
 
@@ -414,7 +450,10 @@ GENDER_INSIGHT = SubsectionPrompt(
     word_cap=120,
     instructions=(
         "Bring the section together in three to five sentences a reader can act on, covering "
-        "the gender story for the whole report. Include two or three verbatims with profile. "
+        "the gender story for the whole report. Describe the observed pattern only, and do not "
+        "propose an explanation for it: a reviewer flagged a draft that said women's advantage "
+        "is concentrated in outcomes tied to tenure and relationship depth, a claim the report "
+        "never tested. Include two or three verbatims with profile. "
         "Every row already states which gender has the higher share as a bracketed "
         "[FACT: ...] -- use that fact directly rather than comparing the two percentages "
         "yourself, and never state or imply the opposite of what it says. Use each metric's "

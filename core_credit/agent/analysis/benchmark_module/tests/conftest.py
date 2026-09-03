@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-# benchmark_module/tests -> benchmark_module -> analysis -> agent -> core_peoject (project root)
+# benchmark_module/tests -> benchmark_module -> analysis -> agent -> core_credit (project root)
 PROJECT_ROOT = Path(__file__).resolve().parents[4]
 BENCHMARKS_PATH = str(PROJECT_ROOT / "External Benchmarks.xlsx")
 

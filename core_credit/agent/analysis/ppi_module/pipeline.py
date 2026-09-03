@@ -18,6 +18,7 @@ from schemas.poverty_likelihood import CountryPovertyResult
 from .country_policy import TARGET_LINES, policy_for
 from .reference_data import available_line_codes, guide_id_for_survey_version
 from .scoring import (
+    _scorecard_index_and_ambiguous,
     build_lookup_index,
     build_scorecard_index,
     find_ambiguous_options,
@@ -125,6 +126,8 @@ def score_country(
         status_reason = f"{n_total - max_scored} of {n_total} clients could not be scored (incomplete PPI answers)."
 
     ambiguous = find_ambiguous_options(country_code, guide_id, survey_version, scorecard_path)
+    n_unscored_label_conflict = 0
+    n_unscored_incomplete = 0
     if ambiguous:
         questions = sorted({q for q, _ in ambiguous})
         question_label = "question" if len(questions) == 1 else "questions"
@@ -139,6 +142,28 @@ def score_country(
         status_reason = f"{status_reason} {ambiguous_note}" if status_reason else ambiguous_note
         status = SectionStatus.PARTIAL
 
+        # CC-025: split the unscored count into the two unrelated causes -- clients unscored
+        # PURELY because the ambiguous (question, letter) key was dropped (they would score if
+        # it were kept, last-write-wins), vs. everyone else, who fails on some other missing
+        # answer. The former is fixable upstream in PPI_scorecards.xlsx; the latter is a
+        # data-collection gap. Measured on the poverty line that scored the most clients.
+        seen_full, _ = _scorecard_index_and_ambiguous(country_code, guide_id, survey_version, scorecard_path)
+        best_line = max(
+            lines_to_score,
+            key=lambda lc: sum(
+                1 for a in all_answers if score_from_index(a, scorecard_index, lc, required_questions).score is not None
+            ),
+        )
+        scored_now = sum(
+            1 for a in all_answers if score_from_index(a, scorecard_index, best_line, required_questions).score is not None
+        )
+        scored_if_typo_fixed = sum(
+            1 for a in all_answers if score_from_index(a, seen_full, best_line, required_questions).score is not None
+        )
+        total_unscored = n_total - max_scored
+        n_unscored_label_conflict = max(0, min(scored_if_typo_fixed - scored_now, total_unscored))
+        n_unscored_incomplete = total_unscored - n_unscored_label_conflict
+
     return CountryPovertyResult(
         country_code=country_code,
         status=status,
@@ -149,6 +174,8 @@ def score_country(
         values=values,
         n_scored=max_scored,
         n_total=n_total,
+        n_unscored_label_conflict=n_unscored_label_conflict,
+        n_unscored_incomplete=n_unscored_incomplete,
     )
 
 

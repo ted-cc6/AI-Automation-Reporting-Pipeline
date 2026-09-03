@@ -166,34 +166,45 @@ def render_client_profile(doc, section) -> None:
 
 
 def render_executive_summary(doc, section) -> None:
-    """Confirmed the hard way that showing only `headline_value` next to the MFI Index
-    benchmark column was actively misleading whenever a theme also has a
-    benchmark_comparable_value: the two are scored on different box definitions (e.g.
-    Resilience's headline 77.5% "any savings increase" vs. its 27.8% comparable figure on the
-    benchmark's stricter basis), so a reader comparing the table's own two columns by eye gets
-    the wrong gap, and the prose below -- which correctly uses the comparable figure per the
-    writer's own instructions -- ends up citing a different number than the table did, with no
-    explanation anywhere. A dedicated column makes both bases visible instead of silently
-    picking one.
+    """Four columns: Theme, Score, VisionFund (benchmark-comparable basis), MFI Index Benchmark.
+
+    The third column exists because Score and the benchmark can be on different box definitions
+    (e.g. Resilience's headline 77.5% "any savings increase" vs. its 27.8% figure on the
+    benchmark's stricter "very much" basis) -- a reader comparing Score against the benchmark by
+    eye would get the wrong gap, and the prose below correctly uses the stricter figure. This
+    column carries VisionFund's own number on the benchmark's basis: the stricter-box
+    `benchmark_comparable_value` where one exists, otherwise the Score itself (the boxes match,
+    or -- for the CC-011 averaged themes -- there is no single benchmark to be comparable to).
+    It always prints a number; the earlier "same as Score" string read as a null to reviewers
+    (CC-014).
+
+    After CC-011 only Client Satisfaction retains an MFI Index benchmark (the five averaged
+    themes carry benchmark=None, and Poverty Likelihood / Child Wellbeing never had one), so the
+    last two columns read "n/a" for seven of the eight rows. The benchmark year is printed on
+    the cell, not the header, so it does not imply a wave for the n/a rows (CC-015).
     """
     h.add_section_heading(doc, "Executive Summary")
     _visual(doc, "executive-summary")
-    headers = ["Theme", "Score", "Comparable to Benchmark", "MFI Index Benchmark"]
+    headers = ["Theme", "Score", "VisionFund (benchmark-comparable basis)", "MFI Index Benchmark"]
     rows = []
     for s in section.theme_scores:
         value = f"{s.headline_value:.0f} (NPS)" if not s.is_percentage else f"{s.headline_value:.1%}"
+
+        bench_text = "n/a"
         if s.benchmark and s.benchmark.external_mfi_index is not None:
             bench = s.benchmark.external_mfi_index if not s.is_percentage else s.benchmark.external_mfi_index * 100
             unit = "" if not s.is_percentage else "%"
             bench_text = f"{bench:.1f}{unit}"
-        else:
-            bench_text = "n/a"
+            if s.benchmark.external_mfi_index_year is not None:
+                bench_text += f" ({s.benchmark.external_mfi_index_year})"
+
         if s.benchmark_comparable_value is not None:
             comparable = s.benchmark_comparable_value if not s.is_percentage else s.benchmark_comparable_value * 100
             unit = "" if not s.is_percentage else "%"
             comparable_text = f"{comparable:.1f}{unit}"
         else:
-            comparable_text = "same as Score" if bench_text != "n/a" else "n/a"
+            comparable_text = value  # no stricter-box figure: the Score is already this basis
+
         rows.append([s.theme_name, value, comparable_text, bench_text])
     h.add_table(doc, headers, rows)
     _prose(doc, section.analysis_text)
@@ -217,11 +228,24 @@ def render_poverty_likelihood(doc, section) -> None:
     h.add_subheading(doc, "2.1 Poverty likelihood across poverty lines")
     _visual(doc, "2.1")
     _prose(doc, section.poverty_line_shares_analysis)
+    if section.na_footnote:
+        # CC-016: the PPI coverage caveat used to render in small italics at the very end of
+        # Part 2, well past the 2.1 figures it qualifies (Kenya on 90 of 271 clients, Zambia on
+        # 32 of 281). It now sits directly under 2.1, at body size. na_footnote carries its own
+        # neutral "PPI scoring coverage by country this wave" opening; this line only adds the
+        # data-quality framing (CC-013: genuine scorecard outcomes, not estimates or omissions)
+        # and ties it to the figures above.
+        h.add_body_paragraph(
+            doc,
+            "These are genuine scorecard outcomes, not estimates or omissions -- incomplete PPI "
+            "answers, a guide or survey-version gap, or a country where PPI was not collected. "
+            "Read the 2.1 figures alongside them.",
+            italic=True,
+        )
+        h.add_body_paragraph(doc, section.na_footnote)
     h.add_subheading(doc, "2.2 The MFI against the national poverty rate")
     _visual(doc, "2.2")
     _prose(doc, section.national_comparison_analysis)
-    if section.na_footnote:
-        h.add_caption(doc, section.na_footnote)
     h.add_subheading(doc, "Insight for Poverty Likelihood")
     _prose(doc, section.insight_text)
     add_verbatims(doc, section.insight_verbatims)
@@ -249,7 +273,14 @@ def render_child_wellbeing(doc, section) -> None:
     _prose(doc, section.improved_child_wellbeing_analysis)
     h.add_subheading(doc, "4.2 Caregivers against other clients")
     _visual(doc, "4.2")
-    headers = ["Outcome", "Caregiver %", "Non-caregiver %", "Gap (sig?)"]
+    headers = [
+        "Outcome",
+        "Caregiver %",
+        "Non-caregiver %",
+        "Raw gap (sig?)",
+        "Country-standardised gap",
+        "Composition share",
+    ]
     # GapComparison itself carries no per-row label -- group_a_label is just "Caregiver" for
     # every one of these 8 rows. The real outcome names only exist as
     # driver.build_child_wellbeing.CAREGIVER_TABLE_LABELS, in the same order the driver built
@@ -262,14 +293,35 @@ def render_child_wellbeing(doc, section) -> None:
             f"CAREGIVER_TABLE_LABELS has {len(labels)} entries but caregiver_vs_other has "
             f"{len(section.caregiver_vs_other)} -- can't safely zip labels to rows by position."
         )
+    std_by_outcome = {r.outcome: r for r in section.caregiver_standardisation}
     rows = []
     for label, row in zip(labels, section.caregiver_vs_other):
         a = f"{row.group_a_share:.1%}" if row.group_a_share is not None else "n/a"
         b = f"{row.group_b_share:.1%}" if row.group_b_share is not None else "n/a"
         gap = f"{row.gap:+.1%}" if row.gap is not None else "n/a"
         sig = _significance_label(row.significance) if row.significance and row.significance.significant else ""
-        rows.append([label, a, b, f"{gap}{sig}"])
+        std = std_by_outcome.get(label)
+        if std is None:
+            std_gap = comp_share = "n/a"
+        elif std.standardised_gap is None:
+            std_gap = comp_share = "not computable this wave"
+        else:
+            std_gap = f"{std.standardised_gap:+.1%}"
+            comp_share = f"{std.composition_share:.0%}" if std.composition_share is not None else "n/a"
+        rows.append([label, a, b, f"{gap}{sig}", std_gap, comp_share])
     h.add_table(doc, headers, rows)
+    support = section.caregiver_standardisation_support
+    if support is not None:
+        excluded = ", ".join(f"{c} (n={n})" for c, n in support.excluded.items()) or "none"
+        h.add_caption(
+            doc,
+            f"Country-standardised gap: {support.method}, computed per outcome over the "
+            f"{len(support.included)} countries with a non-caregiver base of {support.n_threshold} "
+            f"or more. Excluded for a thin or absent non-caregiver base: {excluded}. "
+            f"Composition share is the fraction of the raw gap that country mix accounts for; a "
+            f"value above 100% means the standardised gap runs the other way. Standardisation "
+            f"removes country as a confounder, it does not make the residual comparison causal.",
+        )
     _prose(doc, section.caregiver_vs_other_analysis)
     h.add_subheading(doc, "Insight for Child Wellbeing")
     _prose(doc, section.insight_text)

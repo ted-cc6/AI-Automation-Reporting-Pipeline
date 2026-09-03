@@ -15,6 +15,7 @@ from schemas.poverty_likelihood import CountryVsNationalRate
 from writer.grounding import (
     check_grounding,
     check_orphan_markers,
+    check_partial_quotes,
     check_profile_grounding,
     check_quote_grounding,
     collect_acceptable_percentages,
@@ -217,6 +218,47 @@ def test_check_orphan_markers_flags_bracket_citations():
 
 def test_check_orphan_markers_clean_text_returns_empty():
     assert check_orphan_markers("Clients reported improved wellbeing across the portfolio.") == []
+
+
+def test_check_quote_grounding_accepts_a_moved_terminal_period():
+    # CC-006: the writer reproduced a real verbatim exactly but placed the sentence-ending
+    # period inside the closing quote mark. Correct typography, not a grounding failure.
+    pool = [_verbatim("I am able to educate my children because of the loan amount")]
+    text = 'A client said, "I am able to educate my children because of the loan amount."'
+    assert check_quote_grounding(text, pool) == []
+    assert check_partial_quotes(text, pool) == []
+
+
+def test_check_partial_quotes_flags_a_contiguous_fragment():
+    # CC-006: a real, correctly-sourced verbatim quoted only in fragment -- not fabrication,
+    # but a reviewer should see it, because the fragment can change the meaning.
+    pool = [_verbatim("they promised me the money I was waiting for but the payout never came")]
+    text = 'One client recalled "the money I was waiting for" while describing the delay.'
+    assert check_quote_grounding(text, pool) == []
+    assert check_partial_quotes(text, pool) == ["the money I was waiting for"]
+
+
+def test_check_partial_quotes_ignores_an_exact_full_quote():
+    pool = [_verbatim("the money I was waiting for never actually arrived at the branch")]
+    text = 'One client said, "the money I was waiting for never actually arrived at the branch."'
+    assert check_quote_grounding(text, pool) == []
+    assert check_partial_quotes(text, pool) == []
+
+
+def test_internal_deletion_is_ungrounded_not_partial():
+    # CC-006 edge case: a real verbatim with a word removed from the MIDDLE is no longer the
+    # client's contiguous words -- it must read as fabrication, never a partial quote.
+    pool = [_verbatim("I am able to educate my children because of the loan amount")]
+    text = 'A client said, "I am able to educate children because of the loan amount."'
+    assert check_partial_quotes(text, pool) == []
+    assert check_quote_grounding(text, pool) == ["I am able to educate children because of the loan amount."]
+
+
+def test_check_partial_quotes_leaves_a_true_fabrication_in_ungrounded():
+    pool = [_verbatim("I am able to educate my children because of the loan amount")]
+    text = 'A client said, "this loan let me hire two people and open a second market stall."'
+    assert check_partial_quotes(text, pool) == []
+    assert check_quote_grounding(text, pool) == ["this loan let me hire two people and open a second market stall."]
 
 
 def test_check_quote_grounding_treats_curly_and_straight_apostrophes_as_equal():

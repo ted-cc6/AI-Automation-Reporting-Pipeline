@@ -1,26 +1,53 @@
 """Builds ExecutiveSummarySection -- the cross-cutting "headline read across all eight themes."
 
-The schema commits to exactly one headline_value per theme (ThemeScore), so this file's one
-real editorial decision is which single metric represents each of the 8 Parts:
+Theme scores follow the Core Credit Dashboard Design specification (section 3, spider-chart
+table): each theme's headline is the UNWEIGHTED MEAN of its constituent indicator shares.
 
-  Financial Access            -> first-time access (Part 1's own "headline inclusion metric")
-  Poverty Likelihood          -> below $1.90/day (2011 PPP), the most standard global line
-  Business & Household Impact -> quality of life improved (the "so what" of the two 3.x metrics)
-  Child Wellbeing             -> improved child wellbeing
-  Client Protection           -> no unfair treatment (the most conduct-central of its 6 metrics)
-  Agency                      -> fully achieved loan purpose
-  Resilience                  -> savings increased (portfolio-wide base, unlike the
-                                  shock-severity metric which only covers shock-affected clients)
-  Client Satisfaction         -> NPS (score, -100..100 -- NOT a percentage; ThemeScore.is_percentage
-                                  is False for this one and the prompt tells the writer never to
-                                  compare it directly against the other seven shares)
+  Financial Access             -> mean of First Access, Access to Alternatives
+  Poverty Likelihood           -> below $1.90/day (2011 PPP)                    [single indicator]
+  Business & Household Impact  -> mean of Business Income, Quality of Life
+  Child Wellbeing              -> improved child wellbeing                      [single indicator]
+  Client Protection            -> mean of Financial Worry, Loan Understanding, Complaints
+                                  Mechanism, Fair Treatment, Reporting Behavior, Reduced Food Intake
+  Agency                       -> mean of Goal Achievement ("Yes, in full" OR "Yes, partially" --
+                                  the combined loan_purpose_achieved metric, CC-010), Influence in
+                                  Household, Respect in Community
+  Resilience                   -> mean of Savings, Realized Preparedness
+  Client Satisfaction          -> NPS (score, -100..100 -- NOT a percentage)   [single indicator]
 
-Every benchmark shown is carried through unchanged from that metric's own already-computed
-BenchmarkComparison -- nothing here re-fetches or recomputes a benchmark.
+Previous design (superseded, CC-011). The schema commits to one headline_value per theme, and
+this file used to pick a SINGLE representative metric for each Part rather than average:
 
-This is also the reason Executive Summary had to wait: it's the only cross-cutting section that
-reads ALL EIGHT sections' finished output, so it couldn't be built before Client Protection and
-Agency had real runs to read.
+  Financial Access            -> first-time access (Part 1's headline inclusion metric)
+  Business & Household Impact  -> quality of life improved (the "so what" of the two 3.x metrics)
+  Client Protection            -> no unfair treatment (the most conduct-central of its 6 metrics)
+  Agency                       -> fully achieved loan purpose ("Yes, in full" only)
+  Resilience                   -> savings increased (portfolio-wide base, unlike shock severity)
+  Poverty Likelihood / Child Wellbeing / Client Satisfaction -> single indicator, unchanged
+
+That was an editorial call -- the "most representative" metric per theme -- forced by the schema
+holding only one number. It has been superseded: the dashboard spec defines these themes as
+indicator averages, three of the single-metric values disagreed with the published Power BI
+dashboard (Agency 70.1 -> 85.1, Client Protection 95.4 -> 75.0, Resilience 77.5 -> 67.5), and
+reviewers flagged the disagreement. The report now averages per the spec so the report and the
+dashboard agree. (Resilience lands near 67.5% against the dashboard's 45%; that gap is expected
+and open pending the reviewer's reply -- deliberately not reconciled here.)
+
+Unavailable constituents (CC-011). If a constituent indicator is missing for a wave (e.g. a
+section output produced before CC-010 carries no combined Goal Achievement metric), the theme
+is the mean of the constituents that DO exist and metric_label records the count ("N of M
+available this wave"). A theme with zero available constituents raises rather than emit a
+meaningless number.
+
+Benchmarks. An averaged theme carries NO MFI Index benchmark: the 60 Decibels figures are
+per-indicator, each on its own box definition, so there is no single benchmark for a
+multi-indicator mean, and CC-003 already bars loose benchmark comparison. The three
+single-indicator themes keep whatever benchmark their one metric already carried (in practice
+only Client Satisfaction's NPS has one).
+
+Nothing here re-fetches or recomputes a metric or a benchmark -- every input is read from an
+already-built section's finished output. This is also why Executive Summary runs last: it's the
+only cross-cutting section that reads ALL EIGHT sections' finished output.
 
 Usage: python build_executive_summary.py
 """
@@ -37,7 +64,7 @@ from typing import Optional
 from dotenv import load_dotenv
 
 ANALYSIS_ROOT = Path(__file__).resolve().parents[1]  # agent/analysis
-PROJECT_ROOT = Path(__file__).resolve().parents[3]  # core_peoject
+PROJECT_ROOT = Path(__file__).resolve().parents[3]  # core_credit
 
 sys.path.insert(0, str(ANALYSIS_ROOT))
 load_dotenv(PROJECT_ROOT / ".env")
@@ -92,16 +119,24 @@ def _theme_scores(sections: Optional[dict] = None) -> list:
         m for m in poverty_likelihood.poverty_line_shares if m.metric_id == "poverty_likelihood_USD190day2011PPP"
     )
 
-    def _comparable(metric_result) -> Optional[float]:
-        cv = metric_result.benchmark_comparable_value
-        return cv.share if cv is not None else None
+    def _mean_theme(theme_name: str, label: str, constituents: list) -> ThemeScore:
+        """Unweighted mean of the constituents that exist this wave, per the dashboard spec.
+        `constituents` is a list of MetricResult-or-None; a missing metric or a null overall.share
+        is dropped and metric_label records the count when fewer than all are used. An averaged
+        theme carries no benchmark (see the module docstring).
+        """
+        shares = [c.overall.share for c in constituents if c is not None and c.overall.share is not None]
+        if not shares:
+            raise ValueError(f"{theme_name}: no constituent indicators available this wave")
+        if len(shares) < len(constituents):
+            label = f"{label} ({len(shares)} of {len(constituents)} available this wave)"
+        return ThemeScore(theme_name=theme_name, metric_label=label, headline_value=sum(shares) / len(shares))
 
     return [
-        ThemeScore(
-            theme_name="Financial Access",
-            metric_label="First-time access to credit",
-            headline_value=financial_access.first_time_access.overall.share,
-            benchmark=financial_access.first_time_access.benchmark,
+        _mean_theme(
+            "Financial Access",
+            "Unweighted mean of first-time access and difficulty finding another lender",
+            [financial_access.first_time_access, financial_access.alternative_lender_hard_to_find],
         ),
         ThemeScore(
             theme_name="Poverty Likelihood",
@@ -109,12 +144,10 @@ def _theme_scores(sections: Optional[dict] = None) -> list:
             headline_value=poverty_190.overall.share,
             benchmark=poverty_190.benchmark,
         ),
-        ThemeScore(
-            theme_name="Business & Household Impact",
-            metric_label="Quality of life improved",
-            headline_value=business_household_impact.quality_of_life_change.overall.share,
-            benchmark=business_household_impact.quality_of_life_change.benchmark,
-            benchmark_comparable_value=_comparable(business_household_impact.quality_of_life_change),
+        _mean_theme(
+            "Business & Household Impact",
+            "Unweighted mean of business income change and quality-of-life change",
+            [business_household_impact.business_income_change, business_household_impact.quality_of_life_change],
         ),
         ThemeScore(
             theme_name="Child Wellbeing",
@@ -122,24 +155,28 @@ def _theme_scores(sections: Optional[dict] = None) -> list:
             headline_value=child_wellbeing.improved_child_wellbeing.overall.share,
             benchmark=child_wellbeing.improved_child_wellbeing.benchmark,
         ),
-        ThemeScore(
-            theme_name="Client Protection",
-            metric_label="Experienced no unfair treatment",
-            headline_value=client_protection.no_unfair_treatment.overall.share,
-            benchmark=client_protection.no_unfair_treatment.benchmark,
+        _mean_theme(
+            "Client Protection",
+            "Unweighted mean of financial worry, loan understanding, complaints mechanism, "
+            "fair treatment, reporting behaviour and reduced food intake",
+            [
+                client_protection.financial_worry_decreased,
+                client_protection.loan_terms_clear,
+                client_protection.complaints_mechanism_trusted,
+                client_protection.no_unfair_treatment,
+                client_protection.reported_when_unfair,
+                client_protection.did_not_reduce_food,
+            ],
         ),
-        ThemeScore(
-            theme_name="Agency",
-            metric_label="Fully achieved loan purpose",
-            headline_value=agency.loan_purpose_achieved_fully.overall.share,
-            benchmark=agency.loan_purpose_achieved_fully.benchmark,
+        _mean_theme(
+            "Agency",
+            "Unweighted mean of goal achievement (in full or partially), household influence and community respect",
+            [agency.loan_purpose_achieved, agency.household_influence_improved, agency.community_respect_improved],
         ),
-        ThemeScore(
-            theme_name="Resilience",
-            metric_label="Savings increased",
-            headline_value=resilience.savings_increased.overall.share,
-            benchmark=resilience.savings_increased.benchmark,
-            benchmark_comparable_value=_comparable(resilience.savings_increased),
+        _mean_theme(
+            "Resilience",
+            "Unweighted mean of savings increase and realized preparedness",
+            [resilience.savings_increased, resilience.vf_reduced_shock_severity],
         ),
         ThemeScore(
             theme_name="Client Satisfaction",

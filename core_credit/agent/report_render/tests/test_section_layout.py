@@ -9,7 +9,11 @@ from docx import Document
 
 from schemas.agency import AgencySection
 from schemas.business_household_impact import BusinessHouseholdImpactSection
-from schemas.child_wellbeing import ChildWellbeingSection
+from schemas.child_wellbeing import (
+    CaregiverGapStandardisation,
+    CaregiverStandardisationSupport,
+    ChildWellbeingSection,
+)
 from schemas.client_profile import ClientProfileSection
 from schemas.client_protection import ClientProtectionSection
 from schemas.client_satisfaction import ClientSatisfactionSection, NPSResult
@@ -94,6 +98,14 @@ def _full_report() -> CoreCreditImpactReport:
         improved_child_wellbeing=_metric("improved_child_wellbeing"), what_improved=_ranked(),
         other_improvements_qualitative=_qualitative(), improved_child_wellbeing_analysis=_wt("4.1"),
         caregiver_vs_other=[_gap() for _ in range(8)],  # must match CAREGIVER_TABLE_LABELS length
+        caregiver_standardisation=[
+            CaregiverGapStandardisation(outcome=f"outcome {i}", raw_gap=0.1, standardised_gap=0.03, composition_share=0.7)
+            for i in range(8)
+        ],
+        caregiver_standardisation_support=CaregiverStandardisationSupport(
+            caregiver_n=50, non_caregiver_n=50, included={"AAA": 40}, excluded={"BBB": 5},
+            concentration_note="AAA holds 40 of 50 non-caregivers",
+        ),
         caregiver_vs_other_analysis=_wt("4.2"), insight_text=_wt("4-insight"), insight_verbatims=[_verbatim()],
     )
     client_protection = ClientProtectionSection(
@@ -197,10 +209,10 @@ def test_executive_summary_table_shows_comparable_value_not_just_headline():
     table = doc.tables[0]
     header_row = [c.text for c in table.rows[0].cells]
     data_row = [c.text for c in table.rows[1].cells]
-    assert "Comparable to Benchmark" in header_row
+    assert "VisionFund (benchmark-comparable basis)" in header_row  # CC-014 rename
     assert "77.5%" in data_row  # headline still shown
-    assert "27.8%" in data_row  # comparable figure now also shown, not silently dropped
-    assert "16.0%" in data_row  # the actual benchmark
+    assert "27.8%" in data_row  # comparable figure renders distinctly from the headline
+    assert any("16.0%" in cell for cell in data_row)  # the actual benchmark, now with a year suffix (CC-015)
 
 
 def test_render_report_works_when_cross_cutting_sections_are_none():

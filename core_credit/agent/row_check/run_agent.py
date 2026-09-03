@@ -21,7 +21,7 @@ from pathlib import Path
 import yaml
 from dotenv import load_dotenv
 
-# row_check/ -> agent/ -> core_peoject/ (project root)
+# row_check/ -> agent/ -> core_credit/ (project root)
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 THIS_DIR = Path(__file__).resolve().parent
 

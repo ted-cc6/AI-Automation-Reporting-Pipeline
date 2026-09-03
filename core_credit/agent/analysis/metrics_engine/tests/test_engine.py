@@ -5,8 +5,10 @@ import pandas as pd
 import pytest
 
 from metrics_engine.engine import (
+    LOW_N_THRESHOLD,
     categorical_distribution,
     crosstab_by_segment,
+    directly_standardised_gap,
     gap_comparison,
     mean_value,
     metric_result,
@@ -133,6 +135,79 @@ def test_gap_comparison():
     # comment for the real report discrepancy (8.4pp shown instead of 8.3pp) this fixes.
     assert result.gap == pytest.approx(round(2 / 3, 3) - round(1 / 3, 3))
     assert result.significance is not None
+
+
+def _stratified(rows):
+    """rows: list of (stratum, in_a, in_b, mask_value) tuples -> the four aligned Series."""
+    stratum = pd.Series([r[0] for r in rows])
+    group_a = pd.Series([r[1] for r in rows])
+    group_b = pd.Series([r[2] for r in rows])
+    mask = pd.Series([r[3] for r in rows], dtype=object)
+    return mask, group_a, group_b, stratum
+
+
+def test_directly_standardised_gap_strips_a_pure_composition_effect():
+    # X: both groups score 0.8. Y: both score 0.4. No within-stratum gap anywhere. group_a
+    # sits mostly in X, group_b mostly in Y, so the raw gap is entirely which stratum each
+    # group is in -- standardisation must take it to zero.
+    rows = []
+    rows += [("X", True, False, i < 32) for i in range(40)]   # group_a in X: 32/40 = 0.8
+    rows += [("X", False, True, i < 8) for i in range(10)]    # group_b in X: 8/10 = 0.8
+    rows += [("Y", True, False, i < 4) for i in range(10)]    # group_a in Y: 4/10 = 0.4
+    rows += [("Y", False, True, i < 16) for i in range(40)]   # group_b in Y: 16/40 = 0.4
+    mask, group_a, group_b, stratum = _stratified(rows)
+
+    result = directly_standardised_gap(mask, group_a, group_b, stratum, {"X": 50, "Y": 50}, min_group_b_n=5)
+
+    assert result["raw_gap"] == pytest.approx(0.72 - 0.48)
+    assert result["standardised_gap"] == pytest.approx(0.0, abs=1e-9)
+    assert result["composition_share"] == pytest.approx(1.0)
+    assert set(result["included"]) == {"X", "Y"}
+    assert result["excluded"] == {}
+
+
+def test_directly_standardised_gap_excludes_thin_strata_and_reports_them():
+    rows = []
+    rows += [("X", True, False, i < 6) for i in range(10)]
+    rows += [("X", False, True, i < 20) for i in range(40)]   # group_b n = 40, kept
+    rows += [("Y", True, False, i < 3) for i in range(10)]
+    rows += [("Y", False, True, i < 2) for i in range(4)]     # group_b n = 4, dropped
+    mask, group_a, group_b, stratum = _stratified(rows)
+
+    result = directly_standardised_gap(mask, group_a, group_b, stratum, {"X": 50, "Y": 14}, min_group_b_n=30)
+
+    assert result["included"] == {"X": 40}
+    assert result["excluded"] == {"Y": 4}
+    assert result["standardised_gap"] is not None  # X alone still supports a number
+
+
+def test_directly_standardised_gap_returns_none_when_no_stratum_has_usable_support():
+    rows = [("X", True, False, True), ("X", True, False, False), ("X", False, True, True)]
+    mask, group_a, group_b, stratum = _stratified(rows)
+
+    result = directly_standardised_gap(mask, group_a, group_b, stratum, {"X": 3}, min_group_b_n=LOW_N_THRESHOLD)
+
+    assert result["raw_gap"] is not None
+    assert result["standardised_gap"] is None
+    assert result["composition_share"] is None
+    assert result["excluded"] == {"X": 1}
+
+
+def test_directly_standardised_gap_can_reverse_the_sign_of_the_gap():
+    # Within every stratum group_b is ahead by 0.1, but group_a is concentrated in the
+    # high-scoring stratum, so the raw gap favours group_a. Standardisation flips it back.
+    rows = []
+    rows += [("X", True, False, i < 36) for i in range(40)]   # 0.9
+    rows += [("X", False, True, True) for _ in range(5)]      # 1.0
+    rows += [("Y", True, False, i < 3) for i in range(10)]    # 0.3
+    rows += [("Y", False, True, i < 16) for i in range(40)]   # 0.4
+    mask, group_a, group_b, stratum = _stratified(rows)
+
+    result = directly_standardised_gap(mask, group_a, group_b, stratum, {"X": 50, "Y": 50}, min_group_b_n=5)
+
+    assert result["raw_gap"] > 0
+    assert result["standardised_gap"] == pytest.approx(-0.1)
+    assert result["composition_share"] > 1  # standardised gap runs the other way
 
 
 def test_gap_comparison_matches_the_displayed_percentages():

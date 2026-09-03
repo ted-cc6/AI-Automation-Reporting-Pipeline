@@ -15,7 +15,9 @@ convention a given country's guide happens to use.
 
 from __future__ import annotations
 
+import os
 import re
+import warnings
 from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
@@ -24,6 +26,41 @@ from typing import Optional
 import openpyxl
 
 _PREFIX_RE = re.compile(r"^\s*([A-Za-z]{1,3})[.)]")
+
+# Explicit opt-in for a run without the PPI reference workbooks. Without it a missing workbook
+# is a hard error (see _require_workbook) -- mirrors benchmark_module's
+# CORE_CREDIT_ALLOW_MISSING_BENCHMARKS. Setting this makes every country score NOT_AVAILABLE and
+# Part 2 report no poverty likelihood at all, so it is a deliberate, loud choice, not a default.
+_ALLOW_MISSING_ENV = "CORE_CREDIT_ALLOW_MISSING_PPI"
+
+
+def _require_workbook(path: str) -> bool:
+    """True when the workbook is present. When it is absent this raises FileNotFoundError --
+    UNLESS CORE_CREDIT_ALLOW_MISSING_PPI is set, in which case it warns and returns False so the
+    caller yields an empty scorecard/lookup (every country -> NOT_AVAILABLE downstream).
+
+    PPI_scorecards.xlsx / PPI_lookups.xlsx used to resolve to a path that did not exist after the
+    project folder was renamed (CC-009 / the same defect for External Benchmarks.xlsx). openpyxl
+    would then raise a bare FileNotFoundError deep in a country loop, or -- worse for a reviewer
+    trying to trust a low n_scored figure -- leave the real reason for an exclusion ambiguous.
+    Both workbooks now ship committed at core_credit/.
+    """
+    if Path(path).exists():
+        return True
+    if os.environ.get(_ALLOW_MISSING_ENV):
+        warnings.warn(
+            f"PPI reference workbook not found at {path!r} and {_ALLOW_MISSING_ENV} is set -- "
+            f"every country's poverty likelihood will be reported as not available for this run.",
+            RuntimeWarning,
+            stacklevel=3,
+        )
+        return False
+    raise FileNotFoundError(
+        f"PPI reference workbook not found at {path!r}. PPI_scorecards.xlsx and PPI_lookups.xlsx "
+        f"ship committed at core_credit/ and Part 2 (Poverty Likelihood) needs both. Fix the "
+        f"caller's path if this location is wrong; to run deliberately without PPI scoring, set "
+        f"{_ALLOW_MISSING_ENV}=1."
+    )
 
 # Every poverty-line / benchmark-line column that appears across the country
 # tabs. Country guides only populate a subset of these.
@@ -78,6 +115,12 @@ class LookupRow:
 
 
 def _open_workbook(path: str):
+    """Returns an openpyxl workbook, or None when the file is legitimately absent and
+    CORE_CREDIT_ALLOW_MISSING_PPI is set. Raises FileNotFoundError otherwise -- see
+    _require_workbook.
+    """
+    if not _require_workbook(path):
+        return None
     return openpyxl.load_workbook(Path(path), data_only=True, read_only=True)
 
 
@@ -85,7 +128,7 @@ def _open_workbook(path: str):
 def load_scorecard(country_code: str, scorecard_path: str) -> tuple:
     """Every answer-option row for `country_code`, across every guide version in the tab."""
     wb = _open_workbook(scorecard_path)
-    if country_code not in wb.sheetnames:
+    if wb is None or country_code not in wb.sheetnames:
         return tuple()
     ws = wb[country_code]
     rows = list(ws.iter_rows(values_only=True))
@@ -137,7 +180,7 @@ def load_lookup(country_code: str, lookup_path: str) -> tuple:
     by keeping whichever row was modified most recently.
     """
     wb = _open_workbook(lookup_path)
-    if country_code not in wb.sheetnames:
+    if wb is None or country_code not in wb.sheetnames:
         return tuple()
     ws = wb[country_code]
     rows = list(ws.iter_rows(values_only=True))

@@ -14,6 +14,10 @@ trust" pattern used everywhere else IDs get resolved in this pipeline.
 
 from __future__ import annotations
 
+import json
+import os
+import threading
+import time
 from typing import Optional
 
 from pydantic import BaseModel, Field
@@ -25,6 +29,7 @@ from .grounding import (
     check_banned_punctuation,
     check_grounding,
     check_orphan_markers,
+    check_partial_quotes,
     check_profile_grounding,
     check_quote_grounding,
 )
@@ -89,6 +94,39 @@ for that segment when the data said 18.2%. If you want to talk about the complem
 figure yourself and say explicitly that's what you're doing -- never relabel the original \
 number with the opposite word.
 
+This survey is self-reported and cross-sectional, with no counterfactual and no comparison \
+group that went without a loan, so the narrative describes what clients report, never what \
+caused it. Do not assert that one thing produced, drove, or explains another, and do not use \
+confirms, drives, translating into, shifts, proves, causes, mechanism behind, payoff, evidence \
+of, demonstrates, or leads to. Differences between segments, between loan cycles, and between \
+first-time and repeat borrowers are observational associations, never effects, levers, or \
+payoffs, because none of these groups was randomised and they differ from one another in many \
+other ways as well. A forward-looking sentence must not promise a result: write "could be \
+explored as actions to support these outcomes" or "may be a priority area to investigate", \
+never "should raise", "will improve", "carries the most leverage", or "would remove". A \
+free-text quote gives a reason a client reported, not a verified mechanism, so call it a \
+frequently reported reason or pathway. Real mistakes reviewers flagged on an earlier draft: \
+"confirming that credit access is translating into tangible household gains", which asserts a \
+causal chain from a cross-sectional self-report; "pointing to bundled services as a lever \
+worth expanding", which reads a subgroup difference as a treatment effect; and "the concrete \
+mechanism behind these gains", which promotes reported reasons to a verified mechanism.
+
+Do not assert that two figures move together, mirror each other, or reflect one another unless \
+an association between them has actually been computed and is shown in the same subsection you \
+are writing. Reporting two figures in adjacent sentences is fine and often the right thing to \
+do. Asserting a relationship between them is a separate claim, and an uncomputed one. A real \
+mistake a reviewer flagged on an earlier draft: "This broad-based wellbeing gain mirrors the \
+business income improvements seen above, suggesting stronger earnings are translating directly \
+into better everyday life", where nothing linking the two figures was ever computed.
+
+Every figure that describes a subgroup must name the subgroup it describes. Within a single \
+paragraph, do not move from a comparison of women and men into a comparison of caregivers and \
+non-caregivers without restating the base, because a reader carries the previous base forward \
+onto the next number. A real mistake a reviewer flagged on an earlier draft: section 6.2 \
+opened on women at 84.2% versus men at 82.2%, then gave caregivers at 86.2% versus \
+non-caregivers at 69.9% without restating that the second pair covers all clients, which left \
+the reviewer unable to tell whether it described all clients or only women.
+
 If a CAVEAT is attached to a benchmark, treat that comparison cautiously in your framing rather \
 than stating it as settled fact. A line labeled "Our own figure on the SAME basis as that \
 benchmark" exists for exactly ONE purpose: comparing it against the "MFI Index benchmark" \
@@ -100,7 +138,12 @@ own 91.6% "overall" figure and our own 72.7% "comparable" figure for the SAME me
 against, and never mentioned the real external benchmark (69.0%) at all. If you mention a \
 metric's "overall" and "comparable" figures in the same sentence, be explicit that both are our \
 own numbers on different box definitions, not a benchmark comparison -- the ONLY valid \
-benchmark comparison for that metric is comparable-figure vs. external-benchmark."""
+benchmark comparison for that metric is comparable-figure vs. external-benchmark. The MFI \
+Index comparison is descriptive only, because the two datasets differ in sample composition, \
+timing, geography, questionnaire wording, and survey context, so never reach for a competitive \
+verb: not outpaces, beats, outperforms, ahead of, or wins. Write "is higher than" or "is \
+lower than" instead. A real mistake a reviewer flagged on an earlier draft: "Our Net Promoter \
+Score of 69 outpaces the MFI Index's 58"."""
 
 INSIGHT_ID_INSTRUCTION = """\n\nEvery verbatim above is numbered [N]. After writing the prose, \
 report which numbered verbatims you actually quoted in used_verbatim_ids -- this must exactly \
@@ -194,6 +237,33 @@ def _writer_violations(text: str, word_cap: int, pool: list[Verbatim]) -> list[s
     return violations
 
 
+_TRACE_LOCK = threading.Lock()
+
+
+def _trace_writer_pass(subsection_id: str, kind: str, first_pass_violations: list[str], final_word_count: int, word_cap: int) -> None:
+    """Observability only -- appends one JSONL record per subsection to $CC_WRITER_TRACE when
+    that env var is set. Records whether the first draft cleared the checks or triggered the
+    single corrective rewrite, and the final word count vs cap. No effect on control flow.
+    """
+    path = os.environ.get("CC_WRITER_TRACE")
+    if not path:
+        return
+    record = {
+        "ts": time.time(),
+        "subsection_id": subsection_id,
+        "kind": kind,  # "subsection" | "insight"
+        "needed_rewrite": bool(first_pass_violations),
+        "first_pass_violations": first_pass_violations,
+        "final_word_count": final_word_count,
+        "word_cap": word_cap,
+        "final_within_cap": final_word_count <= word_cap,
+        "final_pct_over": round((final_word_count - word_cap) / word_cap * 100, 1) if final_word_count > word_cap else 0.0,
+    }
+    with _TRACE_LOCK:
+        with open(path, "a", encoding="utf-8") as f:
+            f.write(json.dumps(record) + "\n")
+
+
 def _revise_instruction(text: str, violations: list[str], word_cap: int) -> str:
     return (
         f"Your previous draft violates house style or grounding rules: {'; '.join(violations)}.\n\n"
@@ -240,13 +310,14 @@ def write_subsection(
     text = extract_text(response)
     pool = _pool_verbatims(qualitative) if qualitative else []
 
-    violations = _writer_violations(text, prompt_config.word_cap, pool)
-    if violations:
-        revise_task = _revise_instruction(text, violations, prompt_config.word_cap)
+    first_pass_violations = _writer_violations(text, prompt_config.word_cap, pool)
+    if first_pass_violations:
+        revise_task = _revise_instruction(text, first_pass_violations, prompt_config.word_cap)
         response = llm.invoke([("system", SYSTEM_PROMPT), ("human", revise_task)])
         text = extract_text(response)
 
     word_count = len(text.split())
+    _trace_writer_pass(prompt_config.subsection_id, "subsection", first_pass_violations, word_count, prompt_config.word_cap)
 
     return WrittenText(
         subsection_id=prompt_config.subsection_id,
@@ -255,6 +326,7 @@ def write_subsection(
         within_cap=word_count <= prompt_config.word_cap,
         ungrounded_percentages=check_grounding(text, acceptable_percentages or set()),
         ungrounded_quotes=check_quote_grounding(text, pool),
+        partial_quotes=check_partial_quotes(text, pool),
         orphan_markers=check_orphan_markers(text),
         banned_punctuation=check_banned_punctuation(text),
         misattributed_quotes=check_profile_grounding(text, pool),
@@ -286,10 +358,10 @@ def write_insight(
     )
     text = raw.text.strip()
 
-    violations = _writer_violations(text, prompt_config.word_cap, pool)
-    if violations:
+    first_pass_violations = _writer_violations(text, prompt_config.word_cap, pool)
+    if first_pass_violations:
         revise_task = (
-            _revise_instruction(text, violations, prompt_config.word_cap)
+            _revise_instruction(text, first_pass_violations, prompt_config.word_cap)
             + "\n\n"
             + _format_verbatim_pool(pool)
             + INSIGHT_ID_INSTRUCTION
@@ -298,6 +370,7 @@ def write_insight(
         text = raw.text.strip()
 
     word_count = len(text.split())
+    _trace_writer_pass(prompt_config.subsection_id, "insight", first_pass_violations, word_count, prompt_config.word_cap)
 
     used_verbatims = []
     for i in raw.used_verbatim_ids:
@@ -311,6 +384,7 @@ def write_insight(
         within_cap=word_count <= prompt_config.word_cap,
         ungrounded_percentages=check_grounding(text, acceptable_percentages or set()),
         ungrounded_quotes=check_quote_grounding(text, pool),
+        partial_quotes=check_partial_quotes(text, pool),
         orphan_markers=check_orphan_markers(text),
         banned_punctuation=check_banned_punctuation(text),
         misattributed_quotes=check_profile_grounding(text, pool),

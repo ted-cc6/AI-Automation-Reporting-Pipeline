@@ -21,9 +21,10 @@ from writer.section_prompts import (
     LOAN_PURPOSE_ACHIEVED,
 )
 
-from ..config import MetricConfig, SectionConfig
+from ..config import MetricConfig, RankedMetricConfig, SectionConfig
 
 TOP_2_BOX_IMPROVED = frozenset({"a. Very much improved", "b. Slightly improved"})
+AGENCY04A_SLOTS = tuple(f"Agency/AGENCY04a_resp_{i}_en" for i in (1, 2, 3))
 
 AGENCY_CONFIG = SectionConfig(
     section_id="agency",
@@ -45,6 +46,18 @@ AGENCY_CONFIG = SectionConfig(
             has_benchmark=False,  # no separate MFI Index indicator for partial achievement
         ),
         MetricConfig(
+            metric_id="loan_purpose_achieved",
+            label="Achieved the loan's purpose (in full or partially)",
+            source_column="Agency/AGENCY03_resp_en",
+            top_box_values=frozenset({"a. Yes, in full", "b. Yes, partially"}),
+            # CC-010: the dashboard spec's "Goal Achievement" indicator for the Agency theme
+            # average. No benchmark binding on purpose -- the only MFI Index "Goal Achievement"
+            # figure is scored on "fully achieved" alone (benchmark_module/mapping.py binds it to
+            # loan_purpose_achieved_fully, confirmed with the source), so pairing it with this
+            # broader "in full OR partially" basis would be the box-type mismatch CC-003 bans.
+            has_benchmark=False,
+        ),
+        MetricConfig(
             metric_id="household_influence_improved",
             label="Household influence improved",
             source_column="Agency/AGENCY04_resp_en",
@@ -63,13 +76,28 @@ AGENCY_CONFIG = SectionConfig(
     metric_schema_fields={
         "loan_purpose_achieved_fully": "loan_purpose_achieved_fully",
         "loan_purpose_achieved_partially": "loan_purpose_achieved_partially",
+        "loan_purpose_achieved": "loan_purpose_achieved",  # CC-010: computed and stored, but not in
+        # any subsection_metric_ids or insight_metric_ids -- it feeds the Agency theme score only.
         "household_influence_improved": "household_influence_improved",
         "community_respect_improved": "community_respect_improved",
     },
+    ranked_metrics=(
+        RankedMetricConfig(
+            # CC-024/CC-019: AGENCY04a "in what ways has your household influence improved?",
+            # multi-select, asked only of clients who answered A or B in AGENCY04. Feeds the 6.2
+            # follow-on sentence naming the single most frequently reported improvement.
+            metric_id="household_influence_improvements",
+            label="Ways household influence improved (AGENCY04a -- asked only of clients who reported an improvement)",
+            slot_columns=AGENCY04A_SLOTS,
+            base_column="Agency/AGENCY04_resp_en",
+            base_values=TOP_2_BOX_IMPROVED,
+        ),
+    ),
+    ranked_metric_schema_fields={"household_influence_improvements": "household_influence_improvements"},
     subsection_prompts=(LOAN_PURPOSE_ACHIEVED, HOUSEHOLD_INFLUENCE_IMPROVED, COMMUNITY_RESPECT_IMPROVED),
     subsection_metric_ids={
         "6.1": ("loan_purpose_achieved_fully", "loan_purpose_achieved_partially"),
-        "6.2": ("household_influence_improved",),
+        "6.2": ("household_influence_improved", "household_influence_improvements"),
         "6.3": ("community_respect_improved",),
     },
     written_text_fields={

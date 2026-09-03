@@ -85,6 +85,51 @@ def _inline_gloss(v: Verbatim) -> str:
     return f'"{v.english_gloss}" (original {v.language}: "{v.quote}")'
 
 
+def _inline_glossed_text(text: str, non_english: list) -> tuple[str, int]:
+    """Substitute `"<gloss>" (original <lang>: "<quote>")` for every occurrence of a
+    non-English verbatim's exact quote in `text`, and return (new_text, occurrences_substituted).
+
+    Two rules keep this from re-entering its own output (the Test5 bug -- see CC-017):
+      - longest quote first, so a verbatim whose quote CONTAINS a shorter verbatim's quote is
+        resolved first;
+      - every substituted span is recorded as occupied, and no later verbatim may match inside
+        an occupied span. So the short "EXCELENTE" is never glossed a second time inside the
+        already-glossed "AMABILIDAD ... EXCELENTE ... ATENCION" (nor inside that verbatim's
+        original text, which the gloss keeps verbatim in its parenthetical).
+
+    Idempotent: a verbatim whose gloss marker is already present in `text` (an earlier pipeline
+    pass) is skipped entirely.
+    """
+    pending = [v for v in non_english if f'"{v.english_gloss}"' not in text]
+    pending.sort(key=lambda v: len(v.quote), reverse=True)
+
+    matches: list = []   # (start, end, verbatim), non-overlapping, in original-text coordinates
+    occupied: list = []  # (start, end) already claimed
+    for v in pending:
+        pos = 0
+        while True:
+            i = text.find(v.quote, pos)
+            if i == -1:
+                break
+            j = i + len(v.quote)
+            if not any(s < j and i < e for s, e in occupied):
+                matches.append((i, j, v))
+                occupied.append((i, j))
+            pos = j
+    if not matches:
+        return text, 0
+
+    matches.sort(key=lambda m: m[0])
+    out: list = []
+    cursor = 0
+    for i, j, v in matches:
+        out.append(text[cursor:i])
+        out.append(_inline_gloss(v))
+        cursor = j
+    out.append(text[cursor:])
+    return "".join(out), len(matches)
+
+
 def _apply_inline_translations(report) -> int:
     """Confirmed real: translating the Verbatim objects alone doesn't cover a quote the writer
     embedded directly in its own prose (per the system prompt's "quote it exactly as given,
@@ -94,10 +139,7 @@ def _apply_inline_translations(report) -> int:
     every WrittenText.text wherever a now-translated verbatim's exact quote appears verbatim in
     it. Must run AFTER every Verbatim already has `.language`/`.english_gloss` set.
 
-    Idempotent by construction, not just by convention: the substituted form still contains the
-    original quote as a substring (so the original can't be told apart from "not yet
-    substituted" by presence alone), so each check also confirms the gloss marker ISN'T already
-    there before substituting -- safe to call twice on the same report.
+    See _inline_glossed_text for the substring/re-entry handling.
     """
     from .completeness import _walk  # local import: avoids a module-load-order cycle with completeness.py
 
@@ -109,15 +151,51 @@ def _apply_inline_translations(report) -> int:
     for _path, wt in _walk(report):
         if wt is None:
             continue
-        new_text = wt.text
-        for v in non_english:
-            gloss_marker = f'"{v.english_gloss}"'
-            if v.quote in new_text and gloss_marker not in new_text:
-                new_text = new_text.replace(v.quote, _inline_gloss(v))
-                substitutions += 1
-        if new_text != wt.text:
+        new_text, n = _inline_glossed_text(wt.text, non_english)
+        if n:
             wt.text = new_text
+            substitutions += n
     return substitutions
+
+
+_PROTECTION_SEVERITY_RANK = {"high": 3, "medium": 2, "low": 1}
+
+
+def _suppress_duplicate_protection_verbatims(report) -> int:
+    """The client-protection free-text pass legitimately attaches one verbatim to a theme in
+    two severity tiers when it describes both (the Zambia KASAMA quote -- coercive collection
+    AND rude conduct -- is the case this exists for). A reader seeing the same quote twice reads
+    it as an error, so keep each verbatim once, on its highest-severity theme, and drop the
+    lower-tier copies. A cross-reference ("also cited under Medium severity") was the
+    alternative -- see docs/core_credit_report_spec.md CC-020.
+
+    Runs here because report_assembly is already the one place every surviving Verbatim is
+    walked and mutated in place; nothing else in the report changes. Client Protection only.
+    """
+    cp = getattr(report, "client_protection", None)
+    qs = getattr(cp, "protection_signals", None) if cp is not None else None
+    if qs is None or not getattr(qs, "themes", None):
+        return 0
+
+    def _key(v: Verbatim):
+        return v.client_id or v.quote.strip()
+
+    def _rank(theme) -> int:
+        return _PROTECTION_SEVERITY_RANK.get(theme.severity, 0)
+
+    removed = 0
+    seen: set = set()
+    for theme in sorted(qs.themes, key=_rank, reverse=True):  # highest severity first
+        kept = []
+        for v in theme.representative_verbatims:
+            k = _key(v)
+            if k in seen:
+                removed += 1
+                continue
+            seen.add(k)
+            kept.append(v)
+        theme.representative_verbatims = kept
+    return removed
 
 
 def translate_report_verbatims(report) -> int:
@@ -127,7 +205,12 @@ def translate_report_verbatims(report) -> int:
     how many verbatims were non-English (i.e. actually got a gloss), for logging. Safe to call
     more than once -- a Verbatim that already has `.language` set is skipped, and the inline
     substitution step is idempotent, so a second pass over the same report costs nothing.
+
+    First suppresses any client-protection verbatim that appears under more than one severity
+    tier (CC-020), so a dropped copy is never translated.
     """
+    _suppress_duplicate_protection_verbatims(report)
+
     translated = 0
     for v in _walk_verbatims(report):
         if v.language is not None:

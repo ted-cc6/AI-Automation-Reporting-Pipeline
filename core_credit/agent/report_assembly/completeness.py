@@ -58,6 +58,8 @@ def completeness_report(report) -> list[str]:
             issues.append(f"{path}: ungrounded percentages {value.ungrounded_percentages}")
         if value.ungrounded_quotes:
             issues.append(f"{path}: ungrounded quotes (not found in the source verbatim pool) {value.ungrounded_quotes}")
+        if value.partial_quotes:
+            issues.append(f"{path}: partial quote(s) -- a real verbatim quoted only in fragment, for a reviewer to check {value.partial_quotes}")
         if value.orphan_markers:
             issues.append(f"{path}: orphan citation markers left in text {value.orphan_markers}")
         if value.banned_punctuation:

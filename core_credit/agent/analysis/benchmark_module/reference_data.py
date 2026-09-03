@@ -18,7 +18,9 @@ has it.
 
 from __future__ import annotations
 
+import os
 import re
+import warnings
 from dataclasses import dataclass, field
 from functools import lru_cache
 from pathlib import Path
@@ -28,6 +30,40 @@ import openpyxl
 
 _YEAR_RE = re.compile(r"(20\d{2})")
 _REGION_RE = re.compile(r"Regional Benchmark \(([^)]+)\)")
+
+# Explicit opt-in for a deliberately benchmark-free run. Without it, a missing workbook is a
+# hard error (see _require_workbook). Named, not a silent default, on purpose.
+_ALLOW_MISSING_ENV = "CORE_CREDIT_ALLOW_MISSING_BENCHMARKS"
+
+
+def _require_workbook(benchmarks_path: str) -> bool:
+    """True when the workbook is present. When it is absent this raises FileNotFoundError --
+    UNLESS the operator has explicitly set CORE_CREDIT_ALLOW_MISSING_BENCHMARKS, in which case
+    it warns and returns False so the caller degrades every indicator to not_available_reason.
+
+    This used to silently `return ()` on a missing file. That let a whole Core Credit run
+    finish and ship a report with EVERY MFI Index benchmark missing, surfaced nowhere until a
+    reader noticed -- the same "fail after the fact" failure the Insurance pipeline records as
+    R-040 / R-045. The workbook is now committed at `core_credit/External Benchmarks.xlsx`, so
+    its absence is a real misconfiguration, not the expected BYOK state the old comment
+    described.
+    """
+    if Path(benchmarks_path).exists():
+        return True
+    if os.environ.get(_ALLOW_MISSING_ENV):
+        warnings.warn(
+            f"External Benchmarks.xlsx not found at {benchmarks_path!r} and {_ALLOW_MISSING_ENV} "
+            f"is set -- every MFI Index benchmark will be reported as not available for this run.",
+            RuntimeWarning,
+            stacklevel=3,
+        )
+        return False
+    raise FileNotFoundError(
+        f"External Benchmarks.xlsx not found at {benchmarks_path!r}. It ships committed at "
+        f"core_credit/External Benchmarks.xlsx and every Core Credit run needs it for the MFI "
+        f"Index comparison. Fix the caller's benchmarks_path if this location is wrong; to run "
+        f"deliberately without benchmarks, set {_ALLOW_MISSING_ENV}=1."
+    )
 
 
 def _forward_fill(values: list) -> list:
@@ -103,14 +139,13 @@ class MfiIndexIndicatorRow:
 def load_mfi_index_sheet(benchmarks_path: str) -> tuple:
     """Every indicator row from the "60 DB Benchmarks" tab, values keyed by the level they were reported at.
 
-    Returns an empty tuple if `benchmarks_path` doesn't exist, rather than raising -- the
-    dashboard's bring-your-own-key deployment doesn't ship a real External Benchmarks.xlsx by
-    default (it's not committed to the repo), and every caller in lookup.py already has a
-    well-defined "not found" fallback (BenchmarkComparison.not_available_reason) for exactly
-    this shape of miss, so an empty sheet degrades the same way a sheet missing one indicator
-    already does, rather than crashing the whole run.
+    Raises FileNotFoundError if `benchmarks_path` doesn't exist, so a misconfigured path fails
+    the run early rather than silently shipping a report with every MFI Index benchmark
+    missing. Set CORE_CREDIT_ALLOW_MISSING_BENCHMARKS to opt into a benchmark-free run, in
+    which case this returns an empty tuple and every indicator degrades to
+    not_available_reason -- see _require_workbook.
     """
-    if not Path(benchmarks_path).exists():
+    if not _require_workbook(benchmarks_path):
         return ()
     wb = openpyxl.load_workbook(Path(benchmarks_path), data_only=True, read_only=True)
     ws = wb["60 DB Benchmarks"]
@@ -170,11 +205,11 @@ def load_national_poverty_rates(benchmarks_path: str) -> tuple:
     """Every country row from the "PPI Benchmarks" tab, converted from 0-1 fractions to percentage
     points so it's directly comparable with ppi_module's CountryPovertyResult.values.
 
-    Returns an empty tuple if `benchmarks_path` doesn't exist -- see load_mfi_index_sheet's
-    docstring; get_national_poverty_rate() already treats "country not found" as a normal
-    Optional[None] return, not an error.
+    Raises FileNotFoundError if `benchmarks_path` doesn't exist, unless
+    CORE_CREDIT_ALLOW_MISSING_BENCHMARKS is set -- see load_mfi_index_sheet's docstring and
+    _require_workbook.
     """
-    if not Path(benchmarks_path).exists():
+    if not _require_workbook(benchmarks_path):
         return ()
     wb = openpyxl.load_workbook(Path(benchmarks_path), data_only=True, read_only=True)
     ws = wb["PPI Benchmarks"]

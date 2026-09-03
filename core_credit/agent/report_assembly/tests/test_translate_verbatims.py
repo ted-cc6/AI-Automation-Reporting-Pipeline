@@ -3,7 +3,12 @@ from unittest.mock import patch
 
 from pydantic import BaseModel, Field
 
-from report_assembly.translate_verbatims import _apply_inline_translations, _walk_verbatims, translate_report_verbatims
+from report_assembly.translate_verbatims import (
+    _apply_inline_translations,
+    _suppress_duplicate_protection_verbatims,
+    _walk_verbatims,
+    translate_report_verbatims,
+)
 from schemas.common import QualitativeSynthesis, ThemeFinding, Verbatim, WrittenText
 
 
@@ -135,3 +140,88 @@ def test_translate_report_verbatims_applies_inline_substitution_end_to_end():
         translate_report_verbatims(report)
 
     assert '"hello whole real world" (original Spanish: "hola mundo entero de verdad")' in report.insight_text.text
+
+
+def test_apply_inline_translations_does_not_re_gloss_a_substring_of_a_longer_verbatim():
+    # CC-017: the Test5 Part 8 insight rendered as
+    #   ""KINDNESS ..." (original Spanish: "AMABILIDAD POCOS REQUISITOS "EXCELLENT"
+    #     (original Spanish: "EXCELENTE") ATENCION")."
+    # -- the short verbatim "EXCELENTE" was glossed a second time inside the longer verbatim's
+    # own inline gloss. The longer quote must be resolved first and the shorter one skipped
+    # wherever it falls inside it (raw text or the gloss's parenthetical).
+    long_v = _verbatim(
+        "AMABILIDAD POCOS REQUISITOS EXCELENTE ATENCION",
+        language="Spanish", english_gloss="KINDNESS FEW REQUIREMENTS EXCELLENT SERVICE",
+    )
+    short_v = _verbatim("EXCELENTE", language="Spanish", english_gloss="EXCELLENT")
+    report = _Fake(
+        direct=long_v,
+        listed=[short_v],
+        insight_text=_wt('A promoter said "AMABILIDAD POCOS REQUISITOS EXCELENTE ATENCION" plainly.'),
+    )
+    _apply_inline_translations(report)
+    t = report.insight_text.text
+    # the longer verbatim is glossed exactly once...
+    assert (
+        '"KINDNESS FEW REQUIREMENTS EXCELLENT SERVICE" '
+        '(original Spanish: "AMABILIDAD POCOS REQUISITOS EXCELENTE ATENCION")'
+    ) in t
+    # ...and the shorter "EXCELENTE" is NOT glossed again inside it (the Test5 bug)
+    assert '"EXCELLENT" (original Spanish: "EXCELENTE")' not in t
+    assert t.count("(original Spanish:") == 1
+
+
+def test_apply_inline_translations_still_glosses_a_short_verbatim_outside_the_longer_one():
+    long_v = _verbatim(
+        "AMABILIDAD POCOS REQUISITOS EXCELENTE ATENCION",
+        language="Spanish", english_gloss="KINDNESS FEW REQUIREMENTS EXCELLENT SERVICE",
+    )
+    short_v = _verbatim("EXCELENTE", language="Spanish", english_gloss="EXCELLENT")
+    report = _Fake(
+        direct=long_v,
+        listed=[short_v],
+        insight_text=_wt('She rated it "EXCELENTE", then "AMABILIDAD POCOS REQUISITOS EXCELENTE ATENCION".'),
+    )
+    _apply_inline_translations(report)
+    t = report.insight_text.text
+    assert '"EXCELLENT" (original Spanish: "EXCELENTE")' in t  # the standalone one is still glossed
+    assert (
+        '"KINDNESS FEW REQUIREMENTS EXCELLENT SERVICE" '
+        '(original Spanish: "AMABILIDAD POCOS REQUISITOS EXCELENTE ATENCION")'
+    ) in t
+    assert t.count("(original Spanish:") == 2
+
+
+class _CP(BaseModel):
+    protection_signals: Optional[QualitativeSynthesis] = None
+
+
+class _FakeWithCP(BaseModel):
+    client_protection: Optional[_CP] = None
+
+
+def test_suppress_duplicate_protection_verbatims_keeps_only_highest_severity():
+    # CC-020: the Zambia KASAMA quote genuinely fits both High (coercive collection) and
+    # Medium (rude conduct). Keep it once, on High; drop the Medium copy.
+    q = "Vision Fund workers are sarcastic and do not have a heart of understanding"
+    qs = QualitativeSynthesis(
+        source_field="protection_signals",
+        base_n=5,
+        themes=[
+            ThemeFinding(theme="Rude staff conduct", frequency=18, severity="medium",
+                         representative_verbatims=[Verbatim(quote=q, source_field="f"),
+                                                   Verbatim(quote="only here", source_field="f")]),
+            ThemeFinding(theme="Coercive collection", frequency=9, severity="high",
+                         representative_verbatims=[Verbatim(quote=q, source_field="f")]),
+        ],
+    )
+    report = _FakeWithCP(client_protection=_CP(protection_signals=qs))
+    removed = _suppress_duplicate_protection_verbatims(report)
+
+    assert removed == 1
+    assert [v.quote for v in qs.themes[1].representative_verbatims] == [q]          # High keeps it
+    assert [v.quote for v in qs.themes[0].representative_verbatims] == ["only here"]  # Medium drops it
+
+
+def test_suppress_duplicate_protection_verbatims_noop_without_client_protection():
+    assert _suppress_duplicate_protection_verbatims(_Fake()) == 0

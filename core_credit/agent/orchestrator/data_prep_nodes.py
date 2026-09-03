@@ -54,7 +54,7 @@ def _missing_required_columns(csv_path: str) -> list:
     return [c for c in REQUIRED_COLUMNS if c not in header]
 
 AGENT_ROOT = Path(__file__).resolve().parents[1]  # agent/
-PROJECT_ROOT = AGENT_ROOT.parent  # core_peoject
+PROJECT_ROOT = AGENT_ROOT.parent  # core_credit
 COLUMN_CLEAN_DIR = AGENT_ROOT / "column_clean"
 ROW_CHECK_DIR = AGENT_ROOT / "row_check"
 

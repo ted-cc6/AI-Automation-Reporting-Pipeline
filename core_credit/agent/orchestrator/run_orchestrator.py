@@ -28,7 +28,7 @@ from dotenv import load_dotenv
 
 AGENT_ROOT = Path(__file__).resolve().parent.parent  # agent/
 ANALYSIS_ROOT = AGENT_ROOT / "analysis"
-PROJECT_ROOT = AGENT_ROOT.parent  # core_peoject
+PROJECT_ROOT = AGENT_ROOT.parent  # core_credit
 
 sys.path.insert(0, str(AGENT_ROOT))
 sys.path.insert(0, str(ANALYSIS_ROOT))

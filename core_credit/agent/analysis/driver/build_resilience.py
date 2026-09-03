@@ -30,7 +30,7 @@ from pathlib import Path
 from dotenv import load_dotenv
 
 ANALYSIS_ROOT = Path(__file__).resolve().parents[1]  # agent/analysis
-PROJECT_ROOT = Path(__file__).resolve().parents[3]  # core_peoject
+PROJECT_ROOT = Path(__file__).resolve().parents[3]  # core_credit
 
 sys.path.insert(0, str(ANALYSIS_ROOT))
 load_dotenv(PROJECT_ROOT / ".env")

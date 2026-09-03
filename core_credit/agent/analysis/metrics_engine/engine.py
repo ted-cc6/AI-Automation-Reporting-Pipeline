@@ -28,6 +28,13 @@ from schemas.common import (
 )
 
 
+LOW_N_THRESHOLD = 30
+"""Minimum answered base for a stratum (e.g. a country) to be trusted on its own in a
+subgroup comparison. Mirrors graph.nodes._LOW_N_THRESHOLD and, in the Insurance pipeline,
+analysis_engine.stats.LOW_N_THRESHOLD -- kept here so direct-standardisation callers reuse
+the same cutoff instead of re-inventing one."""
+
+
 def _norm_cdf(x: float) -> float:
     return 0.5 * (1 + math.erf(x / math.sqrt(2)))
 
@@ -198,6 +205,98 @@ def gap_comparison(
         gap=gap,
         significance=sig,
     )
+
+
+def directly_standardised_gap(
+    mask: pd.Series,
+    group_a: pd.Series,
+    group_b: pd.Series,
+    stratum: pd.Series,
+    stratum_weights: dict,
+    min_group_b_n: int = LOW_N_THRESHOLD,
+) -> dict:
+    """Direct standardisation (the epidemiological kind) of the group_a-minus-group_b gap in
+    `mask` to a common `stratum` distribution.
+
+    `stratum` is typically country; `group_b` is the smaller / sparser group (e.g.
+    non-caregivers). A stratum enters the standardisation only where `group_b` has at least
+    `min_group_b_n` answered rows for this outcome -- strata below that, or with no group_b
+    answers at all, are excluded and reported rather than folded in at full population weight
+    (a country with three group_b rows all scoring 100% would otherwise swing the result).
+    Weights come from `stratum_weights` (e.g. the full sample's per-country row counts),
+    renormalised over the included strata.
+
+    Returns a plain dict (the caller wraps it in whatever schema it needs):
+      raw_gap            group_a share minus group_b share over every answered row -- reproduces
+                         the unstandardised comparison; None if either group has no answers
+      standardised_gap   size-weighted mean of the within-stratum gaps, included strata only;
+                         None when no stratum clears `min_group_b_n`
+      composition_share  (raw_gap - standardised_gap) / raw_gap: the fraction of the observed
+                         gap that stratum mix accounts for. >1 or negative sign when
+                         standardisation reverses the gap. None when raw_gap is ~0 or
+                         standardised_gap is None
+      included           {stratum: group_b answered n} for the strata used
+      excluded           {stratum: group_b answered n} for strata dropped (thin or absent)
+      contributions      {stratum: additive contribution to raw_gap - standardised_gap} over
+                         the included strata, largest absolute contribution first
+      group_a_n, group_b_n   total answered rows per group
+    """
+    a_all = group_a.fillna(False).astype(bool)
+    b_all = group_b.fillna(False).astype(bool)
+    answered = mask.notna()
+    a_ans = a_all & answered
+    b_ans = b_all & answered
+    m01 = mask.where(answered).astype(float)  # 1.0 / 0.0 / NaN
+
+    raw_gap = None
+    if a_ans.any() and b_ans.any():
+        raw_gap = float(m01[a_ans].mean()) - float(m01[b_ans].mean())
+
+    per: dict = {}  # stratum -> (p_a, n_a, p_b, n_b)
+    for value in stratum.dropna().unique():
+        in_s = stratum == value
+        n_a = int((a_ans & in_s).sum())
+        n_b = int((b_ans & in_s).sum())
+        p_a = float(m01[a_ans & in_s].mean()) if n_a else None
+        p_b = float(m01[b_ans & in_s].mean()) if n_b else None
+        per[str(value)] = (p_a, n_a, p_b, n_b)
+
+    included = {
+        s: v[3]
+        for s, v in per.items()
+        if v[3] >= min_group_b_n and v[1] > 0 and v[0] is not None and v[2] is not None
+    }
+    excluded = {s: v[3] for s, v in per.items() if s not in included}
+
+    out = {
+        "raw_gap": raw_gap,
+        "standardised_gap": None,
+        "composition_share": None,
+        "included": dict(sorted(included.items())),
+        "excluded": dict(sorted(excluded.items())),
+        "contributions": {},
+        "group_a_n": int(a_ans.sum()),
+        "group_b_n": int(b_ans.sum()),
+    }
+
+    cs = list(included)
+    w_tot = sum(stratum_weights.get(s, 0) for s in cs)
+    n_a_tot = sum(per[s][1] for s in cs)
+    n_b_tot = sum(per[s][3] for s in cs)
+    if not cs or w_tot <= 0 or n_a_tot == 0 or n_b_tot == 0:
+        return out
+
+    w = {s: stratum_weights.get(s, 0) / w_tot for s in cs}
+    alpha = {s: per[s][1] / n_a_tot for s in cs}
+    beta = {s: per[s][3] / n_b_tot for s in cs}
+    standardised = sum(w[s] * (per[s][0] - per[s][2]) for s in cs)
+    contributions = {s: (alpha[s] - w[s]) * per[s][0] - (beta[s] - w[s]) * per[s][2] for s in cs}
+
+    out["standardised_gap"] = standardised
+    if raw_gap is not None and abs(raw_gap) > 0.005:
+        out["composition_share"] = (raw_gap - standardised) / raw_gap
+    out["contributions"] = dict(sorted(contributions.items(), key=lambda kv: abs(kv[1]), reverse=True))
+    return out
 
 
 def nps(scores: pd.Series, base: Optional[pd.Series] = None) -> NPSResult:

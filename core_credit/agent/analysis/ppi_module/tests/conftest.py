@@ -13,7 +13,7 @@ from pathlib import Path
 import pandas as pd
 import pytest
 
-# ppi_module/tests -> ppi_module -> analysis -> agent -> core_peoject (project root)
+# ppi_module/tests -> ppi_module -> analysis -> agent -> core_credit (project root)
 PROJECT_ROOT = Path(__file__).resolve().parents[4]
 SCORECARD_PATH = str(PROJECT_ROOT / "PPI_scorecards.xlsx")
 LOOKUP_PATH = str(PROJECT_ROOT / "PPI_lookups.xlsx")

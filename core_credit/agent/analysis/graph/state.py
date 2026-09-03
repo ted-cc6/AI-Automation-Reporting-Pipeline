@@ -64,6 +64,9 @@ class GraphState(TypedDict, total=False):
     # --- filled by the Send-fanned-out metric nodes; merged across all of them ---
     metric_results: Annotated[dict, operator.or_]  # metric_id -> MetricResult
 
+    # --- filled once by metrics_ready_node (CC-024); empty unless the section has ranked_metrics ---
+    ranked_metric_results: dict  # ranked metric_id -> RankedOptions
+
     # --- filled by the Send-fanned-out qualitative batch nodes; concatenated across all of them ---
     batch_results: Annotated[list, operator.add]
 

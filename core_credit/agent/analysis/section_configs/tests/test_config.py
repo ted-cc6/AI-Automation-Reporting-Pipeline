@@ -1,14 +1,27 @@
 import pytest
 
 from schemas.common import MetricResult, SegmentAxis, SegmentedValue, Verbatim, WrittenText
-from section_configs.config import MetricConfig, QualitativeConfig, SectionConfig, validate_section_config
+from section_configs.config import (
+    MetricConfig,
+    QualitativeConfig,
+    RankedMetricConfig,
+    SectionConfig,
+    validate_section_config,
+)
 from section_configs.registry import SECTION_CONFIGS
 
 
 class _FakeModel:
     """Stands in for a Pydantic schema class -- just needs .model_fields for the validator."""
 
-    model_fields = {"metric_a": None, "metric_a_analysis": None, "insight_text": None, "insight_verbatims": None, "qual": None}
+    model_fields = {
+        "metric_a": None, "metric_a_analysis": None, "insight_text": None,
+        "insight_verbatims": None, "qual": None, "ranked_a": None,
+    }
+
+
+def _ranked() -> RankedMetricConfig:
+    return RankedMetricConfig(metric_id="ranked_a", label="Ranked A", slot_columns=("c1", "c2"))
 
 
 def _minimal_config(**overrides) -> SectionConfig:
@@ -98,6 +111,39 @@ def test_qualitative_with_schema_field_is_fine():
         qualitative_schema_field="qual",
     )
     assert validate_section_config(config) == []
+
+
+def test_ranked_metric_wired_to_a_subsection_and_schema_field_is_valid():
+    config = _minimal_config(
+        ranked_metrics=(_ranked(),),
+        ranked_metric_schema_fields={"ranked_a": "ranked_a"},
+        subsection_metric_ids={"x.1": ("metric_a", "ranked_a")},
+    )
+    assert validate_section_config(config) == []
+
+
+def test_ranked_metric_without_schema_field_entry_errors():
+    config = _minimal_config(ranked_metrics=(_ranked(),))
+    errors = validate_section_config(config)
+    assert any("ranked_a" in e and "ranked_metric_schema_fields" in e for e in errors)
+
+
+def test_ranked_metric_schema_field_not_on_schema_errors():
+    config = _minimal_config(
+        ranked_metrics=(_ranked(),),
+        ranked_metric_schema_fields={"ranked_a": "not_a_field"},
+    )
+    errors = validate_section_config(config)
+    assert any("not_a_field" in e for e in errors)
+
+
+def test_metric_id_claimed_by_both_a_plain_and_a_ranked_config_errors():
+    config = _minimal_config(
+        ranked_metrics=(RankedMetricConfig(metric_id="metric_a", label="dup", slot_columns=("c",)),),
+        ranked_metric_schema_fields={"metric_a": "ranked_a"},
+    )
+    errors = validate_section_config(config)
+    assert any("both" in e for e in errors)
 
 
 @pytest.mark.parametrize("section_id", list(SECTION_CONFIGS.keys()))

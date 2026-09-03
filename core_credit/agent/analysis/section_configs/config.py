@@ -12,7 +12,7 @@ explicitly flagged gap (see registry.py), not something silently forced into thi
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Optional
 
 from writer.section_prompts import SubsectionPrompt
@@ -44,6 +44,26 @@ class MetricConfig:
 
 
 @dataclass(frozen=True)
+class RankedMetricConfig:
+    """A "select all that apply" multi-select question this section needs computed as a ranked
+    distribution (metrics_engine.multiselect_distribution -> RankedOptions).
+
+    This is the config-driven path's equivalent of what the bespoke drivers already do for
+    child-wellbeing "what improved", resilience coping mechanisms, and NPS promoter reasons --
+    the MetricConfig/top-box machinery cannot express it (CC-024). The output is a RankedOptions;
+    the section schema needs a field of that type, wired via
+    SectionConfig.ranked_metric_schema_fields.
+    """
+
+    metric_id: str
+    label: str  # heads the block in the writer's data_summary
+    slot_columns: tuple  # the K variable-slot columns, e.g. AGENCY04a_resp_{1,2,3}_en
+    base_column: Optional[str] = None  # restrict the base to rows whose base_column value is in base_values
+    base_values: Optional[frozenset] = None
+    exclude_labels: frozenset = frozenset()  # sentinel "none of these" / "n/a" options to drop from the ranking
+
+
+@dataclass(frozen=True)
 class QualitativeConfig:
     """The free-text pass this section needs, if it has one at all.
 
@@ -68,12 +88,16 @@ class SectionConfig:
 
     subsection_prompts: tuple  # tuple[SubsectionPrompt, ...] -- the "plain" write_subsection calls
     subsection_metric_ids: dict  # subsection_id -> tuple[metric_id, ...] it summarizes in its data_summary
+    #                              (a metric_id here may be a plain MetricConfig OR a RankedMetricConfig)
     written_text_fields: dict  # subsection_id -> schema field name holding that WrittenText
 
     insight_prompt: SubsectionPrompt  # every Part has exactly one Insight
     insight_metric_ids: tuple  # tuple[metric_id, ...] -- usually every metric in the section
     insight_text_field: str
     insight_verbatims_field: str
+
+    ranked_metrics: tuple = ()  # tuple[RankedMetricConfig, ...] -- multi-select distributions (CC-024)
+    ranked_metric_schema_fields: dict = field(default_factory=dict)  # ranked metric_id -> schema field (RankedOptions)
 
     qualitative: Optional[QualitativeConfig] = None
     qualitative_schema_field: Optional[str] = None  # schema field holding the QualitativeSynthesis itself
@@ -96,8 +120,13 @@ def validate_section_config(config: SectionConfig) -> list:
     """
     errors: list = []
     metric_ids = {m.metric_id for m in config.metrics}
+    ranked_ids = {rm.metric_id for rm in config.ranked_metrics}
+    all_metric_ids = metric_ids | ranked_ids
     schema_fields = set(config.schema_class.model_fields.keys())
     subsection_ids = {p.subsection_id for p in config.subsection_prompts}
+
+    if metric_ids & ranked_ids:
+        errors.append(f"metric_id(s) claimed by both a MetricConfig and a RankedMetricConfig: {sorted(metric_ids & ranked_ids)}")
 
     for metric_id, field_name in config.metric_schema_fields.items():
         if metric_id not in metric_ids:
@@ -109,11 +138,21 @@ def validate_section_config(config: SectionConfig) -> list:
         if metric_id not in config.metric_schema_fields:
             errors.append(f"metric {metric_id!r} has no entry in metric_schema_fields")
 
+    for metric_id, field_name in config.ranked_metric_schema_fields.items():
+        if metric_id not in ranked_ids:
+            errors.append(f"ranked_metric_schema_fields references unknown ranked metric_id {metric_id!r}")
+        if field_name not in schema_fields:
+            errors.append(f"ranked_metric_schema_fields[{metric_id!r}] targets unknown schema field {field_name!r}")
+
+    for metric_id in ranked_ids:
+        if metric_id not in config.ranked_metric_schema_fields:
+            errors.append(f"ranked metric {metric_id!r} has no entry in ranked_metric_schema_fields")
+
     for subsection_id, ids in config.subsection_metric_ids.items():
         if subsection_id not in subsection_ids:
             errors.append(f"subsection_metric_ids references unknown subsection_id {subsection_id!r}")
         for metric_id in ids:
-            if metric_id not in metric_ids:
+            if metric_id not in all_metric_ids:
                 errors.append(f"subsection_metric_ids[{subsection_id!r}] references unknown metric_id {metric_id!r}")
 
     for subsection_id in subsection_ids:
