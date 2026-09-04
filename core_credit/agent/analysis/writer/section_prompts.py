@@ -81,12 +81,13 @@ EXECUTIVE_SUMMARY_ANALYSIS = SubsectionPrompt(
     title="Executive Summary",
     word_cap=120,
     instructions=(
-        "State the eight theme scores at a glance. Where a benchmark exists, state how the "
-        "figure compares with the external MFI Index by 60 Decibels. Leave out any benchmark "
-        "that has no data. Lead with the two or three themes that carry the strongest impact "
-        "story, and the one or two that flag a concern. The Client Satisfaction score (NPS) "
-        "runs on a -100 to 100 scale, not a percentage -- never compare it directly against "
-        "the other seven themes' shares."
+        "State each theme score in the data at a glance (there are usually eight; Poverty "
+        "Likelihood is absent when PPI reference data was not available for the run). Where a "
+        "benchmark exists, state how the figure compares with the external MFI Index by 60 "
+        "Decibels. Leave out any benchmark that has no data. Lead with the two or three themes "
+        "that carry the strongest impact story, and the one or two that flag a concern. The "
+        "Client Satisfaction score (NPS) runs on a -100 to 100 scale, not a percentage -- "
+        "never compare it directly against the other themes' shares."
     ),
 )
 

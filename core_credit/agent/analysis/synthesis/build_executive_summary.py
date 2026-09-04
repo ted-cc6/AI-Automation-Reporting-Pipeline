@@ -115,8 +115,23 @@ def _theme_scores(sections: Optional[dict] = None) -> list:
     resilience = _load("resilience", sections)
     client_satisfaction = _load("client_satisfaction", sections)
 
+    # Poverty Likelihood is a single-indicator theme, and Part 2 is omitted entirely when the
+    # PPI reference workbooks are absent (build_poverty_likelihood emits a stub with no
+    # poverty_line_shares). In that case the theme is simply left out of the scorecard rather
+    # than shown as a zero -- Part 2's own text explains the omission.
     poverty_190 = next(
-        m for m in poverty_likelihood.poverty_line_shares if m.metric_id == "poverty_likelihood_USD190day2011PPP"
+        (m for m in poverty_likelihood.poverty_line_shares if m.metric_id == "poverty_likelihood_USD190day2011PPP"),
+        None,
+    )
+    poverty_score = (
+        ThemeScore(
+            theme_name="Poverty Likelihood",
+            metric_label="Below $1.90/day (2011 PPP)",
+            headline_value=poverty_190.overall.share,
+            benchmark=poverty_190.benchmark,
+        )
+        if poverty_190 is not None and poverty_190.overall.share is not None
+        else None
     )
 
     def _mean_theme(theme_name: str, label: str, constituents: list) -> ThemeScore:
@@ -132,18 +147,13 @@ def _theme_scores(sections: Optional[dict] = None) -> list:
             label = f"{label} ({len(shares)} of {len(constituents)} available this wave)"
         return ThemeScore(theme_name=theme_name, metric_label=label, headline_value=sum(shares) / len(shares))
 
-    return [
+    ordered = [
         _mean_theme(
             "Financial Access",
             "Unweighted mean of first-time access and difficulty finding another lender",
             [financial_access.first_time_access, financial_access.alternative_lender_hard_to_find],
         ),
-        ThemeScore(
-            theme_name="Poverty Likelihood",
-            metric_label="Below $1.90/day (2011 PPP)",
-            headline_value=poverty_190.overall.share,
-            benchmark=poverty_190.benchmark,
-        ),
+        poverty_score,
         _mean_theme(
             "Business & Household Impact",
             "Unweighted mean of business income change and quality-of-life change",
@@ -186,10 +196,11 @@ def _theme_scores(sections: Optional[dict] = None) -> list:
             benchmark=client_satisfaction.nps.benchmark,
         ),
     ]
+    return [s for s in ordered if s is not None]
 
 
 def _format_theme_scores(scores: list) -> str:
-    lines = ["Eight theme scores:"]
+    lines = [f"{len(scores)} theme scores:"]
     for s in scores:
         value = f"{s.headline_value:.0f} (NPS scale, -100..100)" if not s.is_percentage else f"{s.headline_value:.1%}"
         line = f"  - {s.theme_name} -- {s.metric_label}: {value}"
@@ -225,7 +236,7 @@ def _acceptable_percentages(scores: list) -> set:
 def build_section(sections: Optional[dict] = None) -> ExecutiveSummarySection:
     client_profile = _load("client_profile", sections)
     scores = _theme_scores(sections)
-    print("Step 1/2 done: 8 theme scores assembled from real, already-published sections (no LLM).")
+    print(f"Step 1/2 done: {len(scores)} theme scores assembled from real, already-published sections (no LLM).")
 
     summary = _format_theme_scores(scores)
     acceptable = _acceptable_percentages(scores)

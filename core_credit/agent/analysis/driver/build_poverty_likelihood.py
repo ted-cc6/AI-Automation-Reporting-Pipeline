@@ -42,7 +42,7 @@ from benchmark_module.mapping import COUNTRY_CODE_TO_NAME  # noqa: E402
 from ppi_module.aggregate import aggregate_poverty_line_shares, country_to_region_map  # noqa: E402
 from ppi_module.country_policy import na_footnote  # noqa: E402
 from ppi_module.pipeline import COUNTRY_COL, score_dataframe  # noqa: E402
-from schemas.common import QualitativeSynthesis  # noqa: E402
+from schemas.common import QualitativeSynthesis, WrittenText  # noqa: E402
 from schemas.poverty_likelihood import PovertyLikelihoodSection  # noqa: E402
 from writer.chain import write_insight, write_subsection  # noqa: E402
 from writer.formatting import format_metric_result, format_national_comparison  # noqa: E402
@@ -61,6 +61,34 @@ OUTPUT_DIR = Path(__file__).resolve().parent / "output"
 
 EMPTY_QUALITATIVE = QualitativeSynthesis(source_field="poverty_likelihood", base_n=0, themes=[])
 
+# When the PPI reference workbooks aren't present, every country scores zero clients and there
+# is nothing for the 2.1 / 2.2 / insight writers to describe -- handed an empty data summary,
+# the model writes a "please share the computed statistics" reply straight into the report.
+# Detect that case up front and emit a fixed, self-explanatory stub instead (no LLM call). The
+# reference workbooks are opted-out-of via CORE_CREDIT_ALLOW_MISSING_PPI (see
+# ppi_module/reference_data.py); orchestrator/run_for_dashboard.py sets that flag automatically
+# for BYO-data deployments.
+_NO_PPI_STUB_TEXT = (
+    "Poverty Likelihood (PPI) scoring is not available for this run. The PPI reference "
+    "workbooks were not present, so no client could be scored against a national poverty "
+    "line, and Part 2 has been omitted. Parts 1 and 3 to 10 are unaffected. To include "
+    "Part 2, add the PPI reference workbooks (PPI_scorecards.xlsx and PPI_lookups.xlsx) and "
+    "re-run."
+)
+
+
+def _no_ppi_data(country_results: list) -> bool:
+    return sum(r.n_scored for r in country_results) == 0
+
+
+def _stub_written(subsection_id: str) -> WrittenText:
+    return WrittenText(
+        subsection_id=subsection_id,
+        text=_NO_PPI_STUB_TEXT,
+        word_count=len(_NO_PPI_STUB_TEXT.split()),
+        within_cap=True,
+    )
+
 
 def find_latest_analysis_ready_csv() -> Path:
     candidates = sorted((PROJECT_ROOT / "processed_data").glob("*_analysis_ready.csv"))
@@ -71,6 +99,21 @@ def find_latest_analysis_ready_csv() -> Path:
 
 def build_section(df: pd.DataFrame) -> PovertyLikelihoodSection:
     country_results = score_dataframe(df, SCORECARD_PATH, LOOKUP_PATH)
+
+    if _no_ppi_data(country_results):
+        print("Step 1/3: no client PPI-scored this run (reference workbooks absent) -- "
+              "emitting a Part 2 'not available' stub, no LLM.")
+        return PovertyLikelihoodSection(
+            country_results=country_results,
+            poverty_line_shares=[],
+            poverty_line_shares_analysis=_stub_written("2.1"),
+            national_comparison=[],
+            national_comparison_analysis=_stub_written("2.2"),
+            na_footnote=None,
+            insight_text=_stub_written("2-insight"),
+            insight_verbatims=[],
+        )
+
     country_to_region = country_to_region_map(df, COUNTRY_COL, REGION_COL)
     poverty_line_shares = aggregate_poverty_line_shares(country_results, country_to_region, COUNTRY_CODE_TO_NAME)
     national_comparison = build_national_comparison(country_results, BENCHMARKS_PATH)

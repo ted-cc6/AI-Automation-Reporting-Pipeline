@@ -35,6 +35,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
 from pathlib import Path
 
@@ -71,6 +72,17 @@ def main() -> None:
     if not raw_path.exists():
         _emit({"event": "error", "reason": f"file not found: {raw_path}"})
         sys.exit(1)
+
+    # BYO-data deployments (the hosted dashboard) don't ship the licensed PPI / benchmark
+    # reference workbooks. Opt into graceful degradation here -- and ONLY here, never in the
+    # interactive CLI (run_orchestrator.py), where a missing workbook should stay a loud
+    # failure an operator notices. os.environ.setdefault leaves an explicitly-set value alone.
+    if not Path(args.benchmarks_path).exists():
+        os.environ.setdefault("CORE_CREDIT_ALLOW_MISSING_BENCHMARKS", "1")
+        print(f"note: {args.benchmarks_path} not found -- external MFI Index comparison disabled for this run", flush=True)
+    if not ((PROJECT_ROOT / "PPI_scorecards.xlsx").exists() and (PROJECT_ROOT / "PPI_lookups.xlsx").exists()):
+        os.environ.setdefault("CORE_CREDIT_ALLOW_MISSING_PPI", "1")
+        print("note: PPI reference workbooks not found -- Part 2 (Poverty Likelihood) will be omitted with a 'not available' note", flush=True)
 
     graph_config = {
         "configurable": {"thread_id": args.run_id},
