@@ -152,6 +152,20 @@ def _format_responses(responses: list) -> str:
     return "\n".join(lines)
 
 
+def _response_key(r: FreeTextResponse, fallback_local_index: int) -> str:
+    """CC-037: a stable identity for one response, survivable across the batch/merge boundary
+    (client_id is content-based, not a Python object id, so it round-trips through LangGraph's
+    SQLite checkpointing correctly, unlike id(r)). `client_id` is blank for some rows
+    (clean_blank_strings turns "" into None) -- the fallback is namespaced by source field and
+    local index so it can never collide with a real client_id or with another fallback key, at
+    the cost of that particular response not being deduplicatable against itself in a different
+    batch (the safe direction: undercounting a rare duplicate, never inflating a count).
+    """
+    if r.client_id:
+        return f"client:{r.client_id}"
+    return f"__no_client_id__:{r.source_field}:{fallback_local_index}"
+
+
 def _to_verbatim(r: FreeTextResponse) -> Verbatim:
     return Verbatim(
         quote=r.text,
@@ -196,7 +210,10 @@ def theme_tag_batch(
 
     themes = []
     for assignment in raw.themes:
-        valid_all_ids = [i for i in assignment.all_response_ids if 0 <= i < n]
+        # sorted(set(...)): the model can repeat an ID within one theme's own list (nothing
+        # stops it), which would inflate this theme's own frequency before it even reaches
+        # merge_batches -- deduplicated at the earliest point the risk exists.
+        valid_all_ids = sorted({i for i in assignment.all_response_ids if 0 <= i < n})
         valid_rep_ids = [i for i in assignment.representative_response_ids if 0 <= i < n][:3]
         if not valid_all_ids:
             continue  # every ID the model gave was out of range -- drop rather than guess
@@ -207,6 +224,7 @@ def theme_tag_batch(
                 share_of_respondents=len(valid_all_ids) / n,
                 representative_verbatims=[_to_verbatim(responses[i]) for i in valid_rep_ids],
                 severity=assignment.severity,
+                response_keys=[_response_key(responses[i], i) for i in valid_all_ids],
             )
         )
     themes.sort(key=lambda t: t.frequency, reverse=True)
@@ -214,26 +232,60 @@ def theme_tag_batch(
     return QualitativeSynthesis(source_field=section_label, base_n=n, themes=themes)
 
 
+# CC-065: below this, a response isn't a usable illustrative voice, whatever its content --
+# it's an initial, a keyboard-mash, or a bare one-word non-answer. Confirmed real: a live run's
+# representative_verbatims included "B", "L", "b", "da" (2 chars, "yes" in Montenegrin, the
+# quote that corrupted 13 blocks via substring matching -- see CC-064), "we", "how", "sfs",
+# "MMMM", "Fffffgt". Deliberately lower than grounding.py's own _MIN_QUOTE_LEN=25 -- that floor
+# answers "is this substantial enough to fact-check as a claimed quote," a much higher bar than
+# this one's "is this substantial enough to name as a voice at all." 25 would also exclude real,
+# complete, citable client sentiments actually seen in production reports: "Interest is too
+# high" (21 chars), "Good service" (12), "They are older" (14). Sorting a real run's distinct
+# verbatims by length showed a clean break: every response at or under 7 characters was
+# unusable noise, and legitimate short-but-complete phrases only started appearing at 9-12
+# characters ("Todo mejora," "no comments" -- itself a non-answer, "MAS INGRESOS," "Good
+# service"). 10 sits at that break. Length alone doesn't catch every quality problem this
+# surfaced -- "9999999999" (10 digits, keyboard-mashed) and explicit non-answers like "no
+# comments" pass a length check just fine -- that's a separate, content-quality problem, not
+# addressed here.
+_MIN_VERBATIM_SELECTION_LEN = 10
+
+
 def pick_diverse_verbatims(verbatims: list, k: int = 3) -> list:
     """Prefers spreading picks across different countries over taking the first k -- this is
     what makes the final report's verbatim bank not concentrate on whichever country happened
-    to dominate a batch.
+    to dominate a batch. Never selects a response shorter than _MIN_VERBATIM_SELECTION_LEN,
+    however diverse or frequent -- see its own docstring.
     """
+    candidates = [v for v in verbatims if len(v.quote.strip()) >= _MIN_VERBATIM_SELECTION_LEN]
     picked: list = []
     seen_countries: set = set()
-    for v in verbatims:
+    for v in candidates:
         if len(picked) >= k:
             break
         if v.country not in seen_countries:
             picked.append(v)
             seen_countries.add(v.country)
     if len(picked) < k:
-        for v in verbatims:
+        for v in candidates:
             if len(picked) >= k:
                 break
             if v not in picked:
                 picked.append(v)
     return picked
+
+
+def _dedup_frequency(member_themes: list) -> tuple[int, list]:
+    """CC-037: the union (not sum) of every member theme's response_keys -- this is the actual
+    fix for the double-counting bug, pulled out as a pure function so it's testable without an
+    LLM call. A response can legitimately belong to more than one per-batch theme; if two of
+    those land in the same merge group, summing their `frequency` fields counted it twice.
+    Returns (deduplicated frequency, sorted response_keys for the merged theme).
+    """
+    keys: set = set()
+    for t in member_themes:
+        keys.update(t.response_keys)
+    return len(keys), sorted(keys)
 
 
 def _highest_severity(severities: list) -> Optional[str]:
@@ -275,7 +327,7 @@ def merge_batches(
         if not member_indices:
             continue
         member_themes = [pooled[i] for i in member_indices]
-        frequency = sum(t.frequency for t in member_themes)
+        frequency, response_keys = _dedup_frequency(member_themes)
         all_candidate_verbatims = [v for t in member_themes for v in t.representative_verbatims]
         themes.append(
             ThemeFinding(
@@ -284,6 +336,7 @@ def merge_batches(
                 share_of_respondents=(frequency / total_n if total_n else None),
                 representative_verbatims=pick_diverse_verbatims(all_candidate_verbatims, k=3),
                 severity=_highest_severity([t.severity for t in member_themes]),
+                response_keys=response_keys,
             )
         )
     themes.sort(key=lambda t: t.frequency, reverse=True)

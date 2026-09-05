@@ -15,12 +15,30 @@ def test_format_verbatim_profile_includes_country_and_segment_tags():
     )
     profile = _format_verbatim_profile(v)
     assert "Female" in profile
-    assert "ECU" in profile
     assert "age 34" in profile
     assert "loan cycle 2" in profile
     assert "Quito Branch" in profile
     assert "Caregiver" in profile
     assert "Climate-shock-affected" in profile
+
+
+def test_format_verbatim_profile_expands_the_country_code_to_a_full_name():
+    # CC-058: confirmed real, live, twice -- gender_scorecard's own insight call echoed the raw
+    # ISO code back verbatim ("a female client from ZMB") while every other section's insight
+    # call wrote out the full country name for the exact same client, from the same pool
+    # format. The pool must show the full name so there's nothing left to echo raw.
+    v = Verbatim(quote="test quote", country="ZMB", source_field="test_field")
+    profile = _format_verbatim_profile(v)
+    assert "Zambia" in profile
+    assert "ZMB" not in profile
+
+
+def test_format_verbatim_profile_falls_back_to_the_raw_code_when_unmapped():
+    # A country not in the canonical mapping must not crash or vanish -- fall back to showing
+    # whatever code is there rather than "unknown country" for a client with a real country.
+    v = Verbatim(quote="test quote", country="XYZ", source_field="test_field")
+    profile = _format_verbatim_profile(v)
+    assert "XYZ" in profile
 
 
 def test_format_verbatim_profile_handles_missing_fields_gracefully():

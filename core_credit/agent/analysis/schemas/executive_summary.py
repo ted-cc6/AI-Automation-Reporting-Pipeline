@@ -25,12 +25,14 @@ class ThemeScore(BaseModel):
         "against the others on the same scale.",
     )
     benchmark: Optional[BenchmarkComparison] = None
-    benchmark_comparable_value: Optional[float] = Field(
-        default=None,
-        description="headline_value's own figure on the SAME box-type basis as `benchmark` "
-        "(usually 'very much' only, same as MetricResult.benchmark_comparable_value elsewhere) "
-        "-- compare the benchmark against THIS, not headline_value, whenever both are present.",
-    )
+    # CC-032: there used to be a benchmark_comparable_value field here, mirroring
+    # MetricResult's -- but nothing in _theme_scores() ever wrote to it (unlike MetricResult,
+    # where individual sections DO populate it from their own stricter-box mask). It read as
+    # populated because the exec-summary table silently fell back to printing the plain Score
+    # whenever it was None. Removed rather than wired up: 5 of 7 themes are CC-011 unweighted
+    # means of several constituents on different box definitions, so there is no single
+    # "comparable basis" for the theme as a whole -- the same reasoning CC-011 already applied
+    # to `benchmark` itself. See docs/core_credit_report_spec.md CC-032 for the full reasoning.
 
 
 class ExecutiveSummarySection(BaseModel):

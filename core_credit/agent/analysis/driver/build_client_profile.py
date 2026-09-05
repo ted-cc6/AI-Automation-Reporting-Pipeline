@@ -16,6 +16,7 @@ Usage: python build_client_profile.py
 from __future__ import annotations
 
 import json
+import os
 import re
 import sys
 from datetime import datetime, timezone
@@ -62,6 +63,24 @@ UNAVAILABLE_SEGMENTS = [
 ]
 
 _OPTION_PREFIX_RE = re.compile(r"^[A-Za-z]\.\s*")
+
+
+def _ppi_status_line() -> str:
+    """CC-033: Client Profile used to tell the writer, via a free-form instruction with no
+    backing data, that "PPI and other worked scores are calculated upstream and reported
+    elsewhere as finished figures" -- true whenever Part 2 actually ran, false and misleading
+    on a degraded run where CORE_CREDIT_ALLOW_MISSING_PPI is set and Part 2 is omitted
+    entirely. Client Profile and Poverty Likelihood build concurrently with no data dependency
+    between them (see orchestrator/graph.py), so this can't be read off Poverty Likelihood's
+    own output -- it reads the same env var build_poverty_likelihood.py's guard reads, which is
+    the actual, direct cause of Part 2 being present or absent this run.
+    """
+    if os.environ.get("CORE_CREDIT_ALLOW_MISSING_PPI"):
+        return (
+            "PPI scoring is NOT available this run -- the PPI reference workbooks were absent, "
+            "so Part 2 (Poverty Likelihood) is omitted from this report, not reported elsewhere."
+        )
+    return "PPI and other worked scores are calculated upstream and reported in Part 2 as finished figures."
 
 
 def _fieldwork_date_range(df: pd.DataFrame) -> tuple[str, str] | tuple[None, None]:
@@ -144,6 +163,8 @@ def build_section(df: pd.DataFrame) -> ClientProfileSection:
             format_ranked_options("Main income source", main_income_source),
             f"Standard segments populated this wave: {', '.join(a.value for a in populated_segments)}",
             f"Segments NOT available this wave: {'; '.join(UNAVAILABLE_SEGMENTS)}",
+            f"[FACT -- state this PPI status line exactly, do not paraphrase into a different "
+            f"claim]: {_ppi_status_line()}",
         ]
     )
     acceptable = collect_acceptable_percentages(gender_split, loan_cycle_mix, household_head_status, education_level, main_income_source)

@@ -20,6 +20,7 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import json
 import sys
 import time
 from pathlib import Path
@@ -35,10 +36,39 @@ sys.path.insert(0, str(ANALYSIS_ROOT))
 load_dotenv(PROJECT_ROOT / ".env")
 
 from graph.checkpointing import sqlite_checkpointer  # noqa: E402
+from report_assembly.build_report import CROSS_CUTTING_SECTIONS, THEME_SECTIONS  # noqa: E402
 
 from orchestrator.graph import compile_graph  # noqa: E402
 
 CHECKPOINT_DB = str(Path(__file__).resolve().parent / "checkpoints.db")
+OUTPUT_DIR = Path(__file__).resolve().parent / "output"
+ALL_SECTION_IDS = THEME_SECTIONS + CROSS_CUTTING_SECTIONS
+
+
+def diagnose_failure(compiled, graph_config: dict, exc: Exception) -> dict:
+    """CC-038: best-effort summary of a graph run that raised, built from whatever the
+    checkpointer already persisted -- LangGraph writes state after each node that completes
+    (a superstep), so a node that raises partway through never gets its own write in, but
+    every node that finished before it is already there. This is what makes a "which node
+    failed" report possible without the exception itself carrying that information (it
+    doesn't -- `exc` is just whatever the failed node's own code raised).
+
+    Kept separate from main() so it's testable against a real (temp-file) checkpointer and a
+    deliberately-failing stub node, without needing a real several-minute LLM run to prove the
+    diagnosis is accurate. See orchestrator/tests/test_failure_handling.py.
+    """
+    try:
+        state = compiled.get_state(graph_config).values
+    except Exception:
+        state = {}
+    sections_done = sorted((state.get("sections") or {}).keys())
+    sections_missing = [s for s in ALL_SECTION_IDS if s not in sections_done]
+    return {
+        "sections_completed": sections_done,
+        "sections_missing": sections_missing,
+        "exception_type": type(exc).__name__,
+        "exception_message": str(exc),
+    }
 
 
 def main() -> None:
@@ -66,13 +96,30 @@ def main() -> None:
 
         existing = compiled.get_state(graph_config)
         started = time.monotonic()
-        if existing.values:
-            print(f"Found an existing checkpoint for run_id={run_id!r} (next steps: {existing.next}) -- resuming.")
-            result = compiled.invoke(None, config=graph_config)
-        else:
-            print(f"Starting fresh run: run_id={run_id!r}, raw_csv={raw_path.name}")
-            inputs = {"raw_csv_path": str(raw_path), "run_id": run_id, "benchmarks_path": benchmarks_path}
-            result = compiled.invoke(inputs, config=graph_config)
+        try:
+            if existing.values:
+                print(f"Found an existing checkpoint for run_id={run_id!r} (next steps: {existing.next}) -- resuming.")
+                result = compiled.invoke(None, config=graph_config)
+            else:
+                print(f"Starting fresh run: run_id={run_id!r}, raw_csv={raw_path.name}")
+                inputs = {"raw_csv_path": str(raw_path), "run_id": run_id, "benchmarks_path": benchmarks_path}
+                result = compiled.invoke(inputs, config=graph_config)
+        except Exception as exc:  # noqa: BLE001 -- CC-038: report which node failed, don't crash bare
+            elapsed = time.monotonic() - started
+            diagnosis = diagnose_failure(compiled, graph_config, exc)
+            OUTPUT_DIR.mkdir(exist_ok=True)
+            status_path = OUTPUT_DIR / f"run_status_{run_id}.json"
+            status_path.write_text(json.dumps(diagnosis, indent=2), encoding="utf-8")
+            print(f"\nPIPELINE CRASHED after {elapsed / 60:.1f} min: {diagnosis['exception_type']}: {diagnosis['exception_message']}")
+            print(f"Sections completed before the crash: {diagnosis['sections_completed'] or '(none)'}")
+            print(f"Sections not yet built: {diagnosis['sections_missing']}")
+            print(f"Wrote {status_path}")
+            print(
+                f"This run is checkpointed under run_id={run_id!r}. Re-run the identical command "
+                f"(same --run-id) to resume: completed sections are skipped, not recomputed -- "
+                f"only the failed node and whatever depends on it runs again."
+            )
+            sys.exit(1)
 
         elapsed = time.monotonic() - started
         print(f"\nOrchestrator run finished in {elapsed / 60:.1f} min.")

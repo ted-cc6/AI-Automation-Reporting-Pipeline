@@ -183,11 +183,12 @@ def test_render_report_produces_exactly_three_tables():
     assert len(doc.tables) == 3  # Executive Summary, Child Wellbeing 4.2, Gender scorecard
 
 
-def test_executive_summary_table_shows_comparable_value_not_just_headline():
-    # Regression test for a real incident: the table showed Resilience's loose headline
-    # (77.5%) next to the 16.0% MFI Index benchmark, while the prose below correctly used the
-    # matched-basis figure (27.8%) for the same comparison -- two different numbers for the
-    # same claim, with nothing explaining why. The table must expose the comparable figure too.
+def test_executive_summary_table_has_no_dead_comparable_basis_column():
+    # CC-032 regression: the table used to carry a "VisionFund (benchmark-comparable basis)"
+    # column that nothing ever populated (ThemeScore.benchmark_comparable_value was read but
+    # never written), so it silently repeated the Score column on every row -- removed rather
+    # than fixed, since 5+ of the themes are CC-011 means with no single comparable basis to
+    # populate it with anyway. Two columns beyond Theme now: Score, MFI Index Benchmark.
     section = ExecutiveSummarySection(
         theme_scores=[
             ThemeScore(
@@ -195,7 +196,6 @@ def test_executive_summary_table_shows_comparable_value_not_just_headline():
                 metric_label="Savings increased",
                 headline_value=0.775,
                 benchmark=BenchmarkComparison(external_mfi_index=0.16, external_mfi_index_year=2025),
-                benchmark_comparable_value=0.278,
             )
         ],
         n_respondents=100,
@@ -209,10 +209,41 @@ def test_executive_summary_table_shows_comparable_value_not_just_headline():
     table = doc.tables[0]
     header_row = [c.text for c in table.rows[0].cells]
     data_row = [c.text for c in table.rows[1].cells]
-    assert "VisionFund (benchmark-comparable basis)" in header_row  # CC-014 rename
+    assert header_row == ["Theme", "Score", "MFI Index Benchmark"]  # CC-032: no comparable-basis column
     assert "77.5%" in data_row  # headline still shown
-    assert "27.8%" in data_row  # comparable figure renders distinctly from the headline
-    assert any("16.0%" in cell for cell in data_row)  # the actual benchmark, now with a year suffix (CC-015)
+    assert any("16.0%" in cell for cell in data_row)  # the actual benchmark, with a year suffix (CC-015)
+
+
+def test_executive_summary_explains_composite_theme_scores():
+    # CC-066: nothing told a reader these are averages -- Part 3/Part 6's own figures never
+    # match the executive summary's, and with no explanation the numbers just look wrong.
+    section = ExecutiveSummarySection(
+        theme_scores=[
+            ThemeScore(theme_name="Poverty Likelihood", metric_label="Below $1.90/day (2011 PPP)", headline_value=0.124),
+            ThemeScore(
+                theme_name="Agency",
+                metric_label="Unweighted mean of goal achievement (in full or partially), household influence and community respect",
+                headline_value=0.851,
+            ),
+            ThemeScore(
+                theme_name="Business & Household Impact",
+                metric_label="Unweighted mean of business income change and quality-of-life change",
+                headline_value=0.922,
+            ),
+        ],
+        n_respondents=100, n_mfis=1, n_countries=1,
+        reporting_period="Q1 2026", generated_date="2026-01-01",
+    )
+    doc = Document()
+    render_executive_summary(doc, section)
+    text = "\n".join(p.text for p in doc.paragraphs)
+    assert "unweighted mean of its constituent indicators" in text
+    assert "Core Credit Dashboard specification" in text
+    # the averaged themes are named with their real constituents...
+    assert "Agency: Unweighted mean of goal achievement (in full or partially), household influence and community respect." in text
+    assert "Business & Household Impact: Unweighted mean of business income change and quality-of-life change." in text
+    # ...but a single-indicator theme (no "mean of" in its label) is not listed as if it were one
+    assert "Poverty Likelihood:" not in text
 
 
 def test_render_report_works_when_cross_cutting_sections_are_none():

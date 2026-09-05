@@ -36,16 +36,18 @@ ALTERNATIVE_LENDER_HARD_TO_FIND = SubsectionPrompt(
     word_cap=70,
     instructions=(
         "Report the headline figure for clients who would find it hard to find another "
-        "lender, joining very difficult and slightly difficult. Read it for the competitive "
-        "moat, for retention, and for the responsibility that comes with limited competition. "
-        "Note any pattern by gender or country."
+        "lender, joining very difficult and slightly difficult. This measures clients' "
+        "perceived ability to find an alternative, not actual market scarcity, so state it "
+        "that way -- for example, a high figure means the finding is suggesting limited "
+        "perceived alternatives, not a measured competitive position. Note any pattern by "
+        "gender or country."
     ),
 )
 
 FINANCIAL_ACCESS_INSIGHT = SubsectionPrompt(
     subsection_id="1-insight",
     title="Insight for Financial Access",
-    word_cap=120,
+    word_cap=150,  # CC-042: raised from the template's 120, see docs/core_credit_report_spec.md CC-042
     instructions=(
         "Bring the section together in three to five sentences a reader can act on, folding "
         "the headline figures into what they mean. Include two or three representative client "
@@ -61,15 +63,23 @@ FINANCIAL_ACCESS_INSIGHT = SubsectionPrompt(
 CLIENT_PROFILE_ANALYSIS = SubsectionPrompt(
     subsection_id="client-profile",
     title="Client Profile & Methodology",
-    word_cap=120,
+    # Raised from the template's 120 (CC-042): this is a fixed checklist of demographic and
+    # methodology facts (n, MFIs, countries, gender, age, household size, loan cycle mix,
+    # household head status, education, income source, populated/unavailable segments, and
+    # now the CC-033 PPI-status fact) with no verbatim or narrative content to trim -- every
+    # item is information a reader of a "client profile" page actually wants. First-pass
+    # drafts land around 150-166 words even before CC-033; the cap was fighting the content,
+    # not disciplining it. See docs/core_credit_report_spec.md CC-042.
+    word_cap=150,
     instructions=(
         "Summarise the sample: give the number of respondents and the number of MFIs and "
         "countries, the gender split, age, household size, and the loan cycle mix. Include "
         "the profile breakdown by household head status, client education level, and main "
-        "source of income. State which standard segments are populated in this wave, and "
-        "note any conventions about the base that recur later -- for example, that PPI and "
-        "other worked scores are calculated upstream and reported elsewhere as finished "
-        "figures. Flag any segment that is not available in this wave."
+        "source of income. State which standard segments are populated in this wave. State "
+        "the bracketed PPI status fact in the data exactly as given, as one of the "
+        "conventions about the base that recur later -- never assume PPI figures are "
+        "available, or that they are reported elsewhere, beyond what that fact says. Flag "
+        "any segment that is not available in this wave."
     ),
 )
 
@@ -83,11 +93,22 @@ EXECUTIVE_SUMMARY_ANALYSIS = SubsectionPrompt(
     instructions=(
         "State each theme score in the data at a glance (there are usually eight; Poverty "
         "Likelihood is absent when PPI reference data was not available for the run). Where a "
-        "benchmark exists, state how the figure compares with the external MFI Index by 60 "
-        "Decibels. Leave out any benchmark that has no data. Lead with the two or three themes "
+        "benchmark exists, state how the figure compares with the MFI Index benchmark -- call "
+        "it that exact name, \"MFI Index benchmark\", matching how every other section in this "
+        "report names it, never the fuller \"MFI Index by 60 Decibels\". Leave out any "
+        "benchmark that has no data. Lead with the two or three themes "
         "that carry the strongest impact story, and the one or two that flag a concern. The "
         "Client Satisfaction score (NPS) runs on a -100 to 100 scale, not a percentage -- "
-        "never compare it directly against the other themes' shares."
+        "never compare it directly against the other themes' shares. When you name a theme, "
+        "use its exact name as given with the data -- Financial Access, Poverty Likelihood, "
+        "Business & Household Impact, Child Wellbeing, Client Protection, Agency, Resilience, "
+        "Client Satisfaction. Never invent, abbreviate, blend, or rename one (the child-"
+        "wellbeing theme is 'Child Wellbeing', never 'Client Wellbeing' -- that name does not "
+        "exist and has shipped into a report before). Child Wellbeing's figure is measured "
+        "among caregivers only, not the whole client base like every other theme here -- say "
+        "so in the same sentence (e.g. 'Child Wellbeing is strong at 93.5% among caregivers'), "
+        "never state the number bare. A version of this shipped without the scope once, reading "
+        "as if it applied to every client."
     ),
 )
 
@@ -127,13 +148,19 @@ MFI_VS_NATIONAL_POVERTY_RATE = SubsectionPrompt(
 POVERTY_LIKELIHOOD_INSIGHT = SubsectionPrompt(
     subsection_id="2-insight",
     title="Insight for Poverty Likelihood",
-    word_cap=120,
+    word_cap=150,  # CC-042: raised from the template's 120, see docs/core_credit_report_spec.md CC-042
     instructions=(
         "Bring the section together in three to five sentences a reader can act on, covering "
         "who the portfolio reaches and what that means for targeting. Name the poverty lines "
         "used and any country that stands out. State the portfolio-wide scored base at least "
         "once (see the 'Note' line in the data). If you name a specific country's figure and "
-        "its label or row says it rests on low coverage, carry that caveat into your sentence."
+        "its label or row says it rests on low coverage, carry that caveat into your sentence. "
+        "If the $1.90/day and $2.15/day shares land on the same or a very similar percentage, "
+        "state each one's own scored base (the 'Note' lines give you both) so the two read as "
+        "genuinely distinct calculations, not a repeated number -- a real mistake this checker "
+        "has caught: \"12.4% below $1.90/day, 12.4% below $2.15/day\" stated back to back with "
+        "no coverage note reads as a copy-paste error, even though the two rest on different "
+        "scored bases and the identical figure is a genuine coincidence."
     ),
 )
 
@@ -145,12 +172,16 @@ IMPROVED_CHILD_WELLBEING = SubsectionPrompt(
     title="Improved child wellbeing and what improved",
     word_cap=90,
     instructions=(
-        "State the share of caregiver clients who report improved child wellbeing. Rank the "
+        "State the share of caregiver clients who report improved child wellbeing, and the "
+        "female and male shares by gender. This gender split is real, already-computed data "
+        "(CC-066: the gender scorecard cites a child-wellbeing gender gap that a reader could "
+        "not check against anything in this Part before, since no gender figure appeared here "
+        "at all) -- stating it here is what makes that cross-reference traceable. Rank the "
         "top items that improved, such as healthcare access, nutrition, fewer missed school "
         "days, and supplies. Where the data makes the story clearer, name the item most "
-        "associated with improvement and describe the likely pathway, for example higher "
-        "income leading to school fees and then to wellbeing -- but only draw a connection "
-        "the data actually supports, never a fabricated causal claim."
+        "associated with improvement -- but only draw a connection the data actually "
+        "supports, never a fabricated causal claim, and never assert what produced the "
+        "improvement."
     ),
 )
 
@@ -169,7 +200,7 @@ CAREGIVER_VS_OTHER = SubsectionPrompt(
         "or five sentences. Required points: (a) as observed, caregivers lead non-caregivers "
         "on most outcomes, a few gaps wide -- you may name the single widest; (b) standardising "
         "both groups to a common country mix collapses almost every gap, and loan goal "
-        "achievement and the NPS promoter rate flip from a non-caregiver lead to caregivers "
+        "achievement and the NPS promoter rate flip from favoring non-caregivers to caregivers "
         "level or slightly ahead; (c) the reason is that non-caregivers are a small group "
         "concentrated in a few countries -- Ecuador and Montenegro hold about a quarter of "
         "them, Montenegro weak on these outcomes -- so the raw comparison partly reflects "
@@ -206,10 +237,10 @@ BUSINESS_INCOME_CHANGE = SubsectionPrompt(
     instructions=(
         "Report the share whose business income increased since engaging with VisionFund "
         "(top-box), using the top two boxes (very much and slightly improved), the same basis "
-        "as quality of life. Give the gender pattern and any gradient across loan cycles -- "
-        "later cycles should show more improvement, so flag it if they do not. When a benchmark "
-        "is shown, compare the 'very much' figure specifically, since that is how the MFI Index "
-        "is scored."
+        "as quality of life. Give the gender pattern, and note any gradient across loan "
+        "cycles as a plain description of the pattern in the data, without assuming later "
+        "cycles show more improvement. When a benchmark is shown, compare the 'very much' "
+        "figure specifically, since that is how the MFI Index is scored."
     ),
 )
 
@@ -228,11 +259,11 @@ QUALITY_OF_LIFE_CHANGE = SubsectionPrompt(
 BUSINESS_HOUSEHOLD_IMPACT_INSIGHT = SubsectionPrompt(
     subsection_id="3-insight",
     title="Insight for Business and Household Impact",
-    word_cap=120,
+    word_cap=150,  # CC-042: raised from 120, see docs/core_credit_report_spec.md CC-042
     instructions=(
         "Bring the section together in three to five sentences a reader can act on, folding "
-        "the income and quality of life figures into what they mean. Include two or three "
-        "verbatims with profile (gender, age, branch, loan cycle)."
+        "the income and quality of life figures into what they mean. Include one verbatim "
+        "with profile (gender, age, branch, loan cycle)."
     ),
 )
 
@@ -255,8 +286,9 @@ LOAN_TERMS_CLEAR = SubsectionPrompt(
     word_cap=70,
     instructions=(
         "Report the share who find VisionFund fees, interest rates, and penalties easy to "
-        "understand and clear. Flag any pattern by education or country, because low clarity "
-        "carries a risk of misselling and of clients taking on too much debt."
+        "understand and clear. Flag any pattern by education or country -- a low figure there "
+        "is worth reviewing for gaps in client understanding and potential protection risks. "
+        "On its own it does not establish misselling."
     ),
 )
 
@@ -296,11 +328,14 @@ REDUCED_FOOD_INTAKE = SubsectionPrompt(
 CLIENT_PROTECTION_INSIGHT = SubsectionPrompt(
     subsection_id="5-insight",
     title="Insight for Client Protection",
-    word_cap=120,
+    word_cap=150,  # CC-042: raised from 120, see docs/core_credit_report_spec.md CC-042
     instructions=(
         "Bring the section together in three to five sentences a reader can act on. Lead with "
         "the strongest protection indicator, and with any signal of conduct that needs follow "
-        "up. Include two or three verbatims with profile if any are available."
+        "up. The data includes a per-country breakdown of client-protection indicators -- name "
+        "at most one country from it (the strongest or weakest) if it sharpens the point, do "
+        "not walk through the breakdown, since 5.1 to 5.5 already cover the indicators "
+        "individually. Include one verbatim with profile if any are available."
     ),
 )
 
@@ -345,7 +380,7 @@ COMMUNITY_RESPECT_IMPROVED = SubsectionPrompt(
 AGENCY_INSIGHT = SubsectionPrompt(
     subsection_id="6-insight",
     title="Insight for Agency",
-    word_cap=120,
+    word_cap=150,  # CC-042: raised from 120, see docs/core_credit_report_spec.md CC-042
     instructions=(
         "Bring the section together in three to five sentences a reader can act on, covering "
         "goal achievement and empowerment, and lead with the gender read. Include two or three "
@@ -362,7 +397,7 @@ SAVINGS_INCREASED = SubsectionPrompt(
     word_cap=70,
     instructions=(
         "Report the share whose savings rose since they took the loan. Note any gradient "
-        "across segments and the link to resilience below."
+        "across segments."
     ),
 )
 
@@ -406,23 +441,29 @@ VF_REDUCED_SHOCK_SEVERITY = SubsectionPrompt(
     word_cap=90,
     instructions=(
         "Report the share who said VisionFund services reduced the severity of the shock, "
-        "joining significantly and somewhat. Read it as realized preparedness, the resilience "
-        "dividend that comes with access. State the base explicitly, using the n printed beside "
+        "joining significantly and somewhat. Read it as realized preparedness among clients "
+        "who faced a shock. State the base explicitly, using the n printed beside "
         "the figure: this share is calculated only among clients who reported that a climate or "
         "economic shock affected their household, a conditional subset of respondents, not all "
         "respondents. Make clear in the same sentence that this is a different and much smaller "
-        "base than the shock-incidence figure in 7.2, which is measured over the full portfolio."
+        "base than the shock-incidence figure reported above, which is measured over the full "
+        "portfolio."
     ),
 )
 
 RESILIENCE_INSIGHT = SubsectionPrompt(
     subsection_id="7-insight",
     title="Insight for Resilience",
-    word_cap=120,
+    word_cap=150,  # CC-042: raised from 120, see docs/core_credit_report_spec.md CC-042
     instructions=(
         "Bring the section together in three to five sentences a reader can act on. Fold in "
-        "savings, the share who faced a shock, and the negative coping flag. Include two or "
-        "three verbatims with profile."
+        "savings, the share who faced a shock, and the negative coping flag. Include one "
+        "verbatim with profile. When you give the stricter-basis savings figure against the "
+        "MFI Index benchmark, name the metric explicitly (\"our own savings figure on the "
+        "stricter basis\", not a bare \"our own figure\"). A real run had this figure land on "
+        "the same number, by coincidence, as a completely unrelated figure in Part 6 (partial "
+        "loan-purpose achievement) -- an unnamed number invites a reader to wonder if the two "
+        "are the same thing."
     ),
 )
 
@@ -436,8 +477,10 @@ GENDER_SCORECARD_ANALYSIS = SubsectionPrompt(
     instructions=(
         "Summarise where women do better or worse than men, and only where the gap matters. "
         "Note significance where it makes the point clearer. Draw out what it means for equity "
-        "and the clearest action. Tie it back to first time access in Part 1 and to "
-        "satisfaction in Part 8. Every row already states which gender has the higher share as "
+        "and the clearest action. Where relevant, connect the pattern to first-time access and "
+        "to the Net Promoter Score, by name -- never by citing a Part number, which reads as an "
+        "internal cross-reference left in the text rather than finished prose. Every row "
+        "already states which gender has the higher share as "
         "a bracketed [FACT: ...] -- use that fact directly rather than comparing the two "
         "percentages yourself, and never state or imply the opposite of what it says. Use each "
         "metric's own label exactly as given; do not rename or rephrase a metric (e.g. "
@@ -448,7 +491,7 @@ GENDER_SCORECARD_ANALYSIS = SubsectionPrompt(
 GENDER_INSIGHT = SubsectionPrompt(
     subsection_id="gender-insight",
     title="Insight for Gender",
-    word_cap=120,
+    word_cap=150,  # CC-042: raised from 120, see docs/core_credit_report_spec.md CC-042
     instructions=(
         "Bring the section together in three to five sentences a reader can act on, covering "
         "the gender story for the whole report. Describe the observed pattern only, and do not "
@@ -478,22 +521,21 @@ NPS_AND_SPLIT = SubsectionPrompt(
 
 NPS_DRIVERS = SubsectionPrompt(
     subsection_id="8.2",
-    title="What drives recommendation and dissatisfaction",
+    title="Reasons clients gave for recommending or not recommending",
     word_cap=90,
     instructions=(
         "Rank the top promoter drivers and the top detractor pain points, drawing on the "
-        "theme-tagged NPS follow-up text (split by score band: 9-10, 7-8, and 0-6). Name the "
-        "single fix with the most leverage."
+        "theme-tagged NPS follow-up text (split by score band: 9-10, 7-8, and 0-6)."
     ),
 )
 
 CLIENT_SATISFACTION_INSIGHT = SubsectionPrompt(
     subsection_id="8-insight",
     title="Insight for Client Satisfaction",
-    word_cap=120,
+    word_cap=150,  # CC-042: raised from 120, see docs/core_credit_report_spec.md CC-042
     instructions=(
         "Bring the section together in three to five sentences a reader can act on. Fold in "
-        "the NPS and the top driver on each side, and name the fix with the most leverage. "
-        "Include two or three verbatims with profile."
+        "the NPS and the top driver on each side, and name the fix that could be explored as "
+        "the most impactful priority. Include one verbatim with profile."
     ),
 )

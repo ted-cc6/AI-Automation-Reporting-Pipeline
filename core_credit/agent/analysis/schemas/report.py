@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Optional
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from .agency import AgencySection
 from .business_household_impact import BusinessHouseholdImpactSection
@@ -36,6 +36,14 @@ class CoreCreditImpactReport(BaseModel):
     generated_at: str
     run_id: Optional[str] = None
     model_version: Optional[str] = None
+    data_availability_note: Optional[str] = Field(
+        default=None,
+        description="CC-033: set when a reference workbook (PPI or the MFI Index benchmark) "
+        "was unavailable for this run, so the reader sees up front which sections were "
+        "consequently omitted or reduced, and that it is an infrastructure gap this run, not a "
+        "data quality issue with the survey responses. Rendered as a note near the top of the "
+        "document, right under the title page. None when every reference workbook loaded.",
+    )
 
     client_profile: ClientProfileSection
     financial_access: FinancialAccessSection

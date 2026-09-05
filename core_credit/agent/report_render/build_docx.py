@@ -32,7 +32,12 @@ sys.path.insert(0, str(ANALYSIS_ROOT))
 load_dotenv(PROJECT_ROOT / ".env")
 
 from report_assembly.build_report import build_report  # noqa: E402
-from report_assembly.completeness import completeness_report, raise_on_meta_text_leaks  # noqa: E402
+from report_assembly.completeness import (  # noqa: E402
+    completeness_report,
+    raise_on_meta_text_leaks,
+    raise_on_missing_caregiver_scope,
+    raise_on_unknown_theme_references,
+)
 from report_assembly.translate_verbatims import translate_report_verbatims  # noqa: E402
 from report_render.qa_review import review_report  # noqa: E402
 from report_render.section_layout import render_report  # noqa: E402
@@ -53,6 +58,8 @@ def main() -> None:
 
     print("Checking for leaked meta-commentary (hard gate)...")
     raise_on_meta_text_leaks(report)  # raises MetaTextLeakError and stops the build if it finds one
+    raise_on_unknown_theme_references(report)  # stops the build on a fabricated theme name
+    raise_on_missing_caregiver_scope(report)  # stops the build if Child Wellbeing has no caregiver scope
 
     issues = completeness_report(report)
     if issues:

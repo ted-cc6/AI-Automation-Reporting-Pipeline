@@ -188,7 +188,7 @@ def _print_summary(section: ClientSatisfactionSection) -> None:
     print(f"[{section.nps_analysis.word_count} words, within_cap={section.nps_analysis.within_cap}, "
           f"ungrounded={section.nps_analysis.ungrounded_percentages}]")
 
-    print("\n8.2 What drives recommendation and dissatisfaction")
+    print("\n8.2 Reasons clients gave for recommending or not recommending")
     print(section.drivers_analysis.text)
     print(f"[{section.drivers_analysis.word_count} words, within_cap={section.drivers_analysis.within_cap}, "
           f"ungrounded={section.drivers_analysis.ungrounded_percentages}]")

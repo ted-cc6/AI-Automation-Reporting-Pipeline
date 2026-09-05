@@ -208,11 +208,6 @@ def _format_theme_scores(scores: list) -> str:
             bench = s.benchmark.external_mfi_index if not s.is_percentage else s.benchmark.external_mfi_index * 100
             unit = "" if not s.is_percentage else "%"
             line += f" [MFI Index benchmark: {bench:.1f}{unit} ({s.benchmark.external_mfi_index_year})]"
-            if s.benchmark_comparable_value is not None:
-                line += (
-                    f" -- compare against our OWN figure on the SAME basis as that benchmark "
-                    f"(use this, not the headline value above): {s.benchmark_comparable_value:.1%}"
-                )
         lines.append(line)
     return "\n".join(lines)
 
@@ -222,8 +217,6 @@ def _acceptable_percentages(scores: list) -> set:
     for s in scores:
         if s.is_percentage:
             acceptable |= {round(s.headline_value * 100), round(s.headline_value * 100, 1)}
-            if s.benchmark_comparable_value is not None:
-                acceptable |= {round(s.benchmark_comparable_value * 100), round(s.benchmark_comparable_value * 100, 1)}
             if s.benchmark and s.benchmark.external_mfi_index is not None:
                 acceptable |= {round(s.benchmark.external_mfi_index * 100), round(s.benchmark.external_mfi_index * 100, 1)}
         else:

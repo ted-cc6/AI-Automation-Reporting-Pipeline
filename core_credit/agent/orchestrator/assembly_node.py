@@ -12,7 +12,12 @@ import json
 from pathlib import Path
 
 from report_assembly.build_report import CROSS_CUTTING_SECTIONS, THEME_SECTIONS, build_report
-from report_assembly.completeness import completeness_report, raise_on_meta_text_leaks
+from report_assembly.completeness import (
+    completeness_report,
+    raise_on_meta_text_leaks,
+    raise_on_missing_caregiver_scope,
+    raise_on_unknown_theme_references,
+)
 from report_assembly.translate_verbatims import translate_report_verbatims
 
 from .state import OrchestratorState
@@ -29,6 +34,8 @@ def assemble_report_node(state: OrchestratorState) -> dict:
     run_id = state.get("run_id", "orchestrator")
     report = build_report(sections=sections, run_id=run_id)
     raise_on_meta_text_leaks(report)  # hard gate -- stops the run before spending on translation/render
+    raise_on_unknown_theme_references(report)  # hard gate -- fabricated theme name in the exec summary
+    raise_on_missing_caregiver_scope(report)  # hard gate -- Child Wellbeing stated with no caregiver scope
     translate_report_verbatims(report)  # in place -- every Verbatim gets .language/.english_gloss
     issues = completeness_report(report)
 

@@ -137,19 +137,66 @@ def build_rows(df: pd.DataFrame) -> list:
     return rows
 
 
+_QUALITATIVE_FIELD_BY_SECTION = {
+    "business_household_impact": "qol_drivers",
+    "resilience": "other_coping_qualitative",
+    "child_wellbeing": "other_improvements_qualitative",
+    # client_satisfaction is a *list* of 3 bands (nps_followup_themes) -- handled separately
+    # in _deep_pool below rather than forced into this single-field map.
+}
+
+
+def _dedup_key(v):
+    return v.client_id or v.quote.strip()
+
+
+def _deep_pool(section, section_id: str) -> list:
+    """Every representative_verbatim across a source section's own qualitative-tagging pass --
+    the full underlying candidate set its own insight_verbatims was drawn from (100+ per
+    section, typically), not just the 1-3 it already picked and rendered in its own Insight.
+    """
+    if section_id == "client_satisfaction":
+        syntheses = section.nps_followup_themes or []
+    else:
+        qs = getattr(section, _QUALITATIVE_FIELD_BY_SECTION[section_id], None)
+        syntheses = [qs] if qs is not None else []
+    verbatims = []
+    for qs in syntheses:
+        for theme in qs.themes:
+            verbatims.extend(theme.representative_verbatims)
+    return verbatims
+
+
 def _verbatim_pool(sections: Optional[dict] = None) -> QualitativeSynthesis:
-    """Pools already-computed, already-gender-tagged Verbatim objects from other sections'
-    insight_verbatims into one throwaway QualitativeSynthesis, purely so write_insight() has a
-    real, grounded pool to cite from -- nothing here is a new computation.
+    """Pools candidate Verbatim objects from each of VERBATIM_SOURCE_SECTIONS's own deeper
+    qualitative pool (see _deep_pool), preferring ones no source section's own Insight has
+    already cited -- CC-058: confirmed real, gender_scorecard's Insight independently re-cited
+    two different source sections' own insight_verbatims verbatim, on two separate runs,
+    because the old pool WAS each source's insight_verbatims (1-3 items, already spotlighted
+    elsewhere by definition). Already-cited candidates are kept as a fallback, never dropped
+    outright -- used only if the unused pool comes back completely empty, so the writer is
+    never left with nothing to cite.
 
     `sections`, when given, is an already-built {section_id: Section} map (e.g. from the
     orchestrator's graph state) -- used instead of re-reading each section's canonical output
     file. Standalone/CLI usage (sections=None) is unchanged.
     """
-    verbatims = []
+    already_cited = set()
+    candidates = []
     for section_id in VERBATIM_SOURCE_SECTIONS:
         section = sections[section_id] if sections is not None else load_section(section_id)
-        verbatims.extend(section.insight_verbatims)
+        already_cited.update(_dedup_key(v) for v in section.insight_verbatims)
+        candidates.extend(_deep_pool(section, section_id))
+
+    seen, unused, reused = set(), [], []
+    for v in candidates:
+        key = _dedup_key(v)
+        if key in seen:
+            continue
+        seen.add(key)
+        (reused if key in already_cited else unused).append(v)
+
+    verbatims = unused or reused
     theme = ThemeFinding(theme="cross-section verbatims", frequency=len(verbatims), representative_verbatims=verbatims)
     return QualitativeSynthesis(source_field="gender_scorecard_verbatim_pool", base_n=len(verbatims), themes=[theme])
 

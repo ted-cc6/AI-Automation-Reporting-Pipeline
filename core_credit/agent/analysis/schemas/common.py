@@ -144,6 +144,16 @@ class ThemeFinding(BaseModel):
     severity: Optional[str] = Field(
         default=None, description="For client-protection signals: high / medium / low"
     )
+    response_keys: list[str] = Field(
+        default_factory=list,
+        description="CC-037: stable per-response identity (client_id, or a synthetic "
+        "collision-free fallback when client_id is blank) for every response counted in "
+        "`frequency`. A response may legitimately belong to more than one per-batch theme; "
+        "qualitative_agent.agent.merge_batches() needs these to deduplicate when two of a "
+        "response's own themes get merged into one canonical theme, since summing the "
+        "already-aggregated `frequency` counts directly double-counts it in that case. Not "
+        "meant to be rendered -- computation support only.",
+    )
 
 
 class QualitativeSynthesis(BaseModel):

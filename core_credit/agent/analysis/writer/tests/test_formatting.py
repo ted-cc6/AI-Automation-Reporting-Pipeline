@@ -48,6 +48,26 @@ def test_format_metric_result_includes_benchmark_comparable_value_and_definition
     assert "SAME basis as that benchmark" in text
 
 
+def test_format_metric_result_shows_comparable_value_without_a_benchmark():
+    # CC-031 regression: benchmark_comparable_value is computed from our own survey data, not
+    # from the benchmark workbook, so it must still be reported when no external benchmark
+    # loaded this run -- previously it was nested inside `if benchmark exists`, so a degraded
+    # (no-benchmark) run silently dropped it from the writer's data entirely.
+    mr = MetricResult(
+        metric_id="business_income_change",
+        label="Business income improved",
+        overall=SegmentedValue(axis=SegmentAxis.OVERALL, value_label="Overall", share=0.915, n=5818),
+        benchmark=None,
+        benchmark_comparable_value=SegmentedValue(axis=SegmentAxis.OVERALL, value_label="Overall", share=0.48, n=5818),
+    )
+    text = format_metric_result(mr)
+    assert "91.5%" in text
+    assert "48.0%" in text
+    assert "MFI Index benchmark:" not in text  # no benchmark data line -- none loaded
+    assert "SAME basis as that benchmark" not in text  # must not claim a comparison that doesn't exist
+    assert "stricter box definition" in text  # reported as our own standalone figure instead
+
+
 def test_format_national_comparison_uses_percentage_points_not_fraction_scale():
     # portfolio_poverty_likelihood/national_poverty_rate are already percentage points
     # (21.6 means 21.6%), unlike SegmentedValue.share -- this must NOT go through ':.1%'

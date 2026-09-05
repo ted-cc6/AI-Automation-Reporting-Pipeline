@@ -166,26 +166,27 @@ def render_client_profile(doc, section) -> None:
 
 
 def render_executive_summary(doc, section) -> None:
-    """Four columns: Theme, Score, VisionFund (benchmark-comparable basis), MFI Index Benchmark.
+    """Two columns beyond Theme: Score, MFI Index Benchmark.
 
-    The third column exists because Score and the benchmark can be on different box definitions
-    (e.g. Resilience's headline 77.5% "any savings increase" vs. its 27.8% figure on the
-    benchmark's stricter "very much" basis) -- a reader comparing Score against the benchmark by
-    eye would get the wrong gap, and the prose below correctly uses the stricter figure. This
-    column carries VisionFund's own number on the benchmark's basis: the stricter-box
-    `benchmark_comparable_value` where one exists, otherwise the Score itself (the boxes match,
-    or -- for the CC-011 averaged themes -- there is no single benchmark to be comparable to).
-    It always prints a number; the earlier "same as Score" string read as a null to reviewers
-    (CC-014).
+    CC-032: this table used to carry a third "VisionFund (benchmark-comparable basis)" column
+    (CC-014), meant to show each theme's own figure on the benchmark's stricter box definition.
+    Nothing ever populated it (ThemeScore.benchmark_comparable_value was read but never written
+    in _theme_scores()), so every row silently fell back to repeating the Score column -- a
+    column that always equalled its neighbour is worse than no column, since a reviewer reads a
+    repeated number as a claim, not a gap. It is also not fixable by populating it: 5 of 7 (or
+    8, when Poverty Likelihood is present) themes are CC-011 unweighted means of several
+    constituent metrics on different box definitions, so there is no single "comparable basis"
+    for the theme as a whole -- the same reasoning CC-011 already applied to `benchmark` itself.
+    Removed rather than wired up.
 
-    After CC-011 only Client Satisfaction retains an MFI Index benchmark (the five averaged
-    themes carry benchmark=None, and Poverty Likelihood / Child Wellbeing never had one), so the
-    last two columns read "n/a" for seven of the eight rows. The benchmark year is printed on
-    the cell, not the header, so it does not imply a wave for the n/a rows (CC-015).
+    After CC-011 only Client Satisfaction retains an MFI Index benchmark (the averaged themes
+    carry benchmark=None, and Poverty Likelihood / Child Wellbeing never had one), so the
+    benchmark column reads "n/a" for all but one row. The benchmark year is printed on the
+    cell, not the header, so it does not imply a wave for the n/a rows (CC-015).
     """
     h.add_section_heading(doc, "Executive Summary")
     _visual(doc, "executive-summary")
-    headers = ["Theme", "Score", "VisionFund (benchmark-comparable basis)", "MFI Index Benchmark"]
+    headers = ["Theme", "Score", "MFI Index Benchmark"]
     rows = []
     for s in section.theme_scores:
         value = f"{s.headline_value:.0f} (NPS)" if not s.is_percentage else f"{s.headline_value:.1%}"
@@ -198,15 +199,24 @@ def render_executive_summary(doc, section) -> None:
             if s.benchmark.external_mfi_index_year is not None:
                 bench_text += f" ({s.benchmark.external_mfi_index_year})"
 
-        if s.benchmark_comparable_value is not None:
-            comparable = s.benchmark_comparable_value if not s.is_percentage else s.benchmark_comparable_value * 100
-            unit = "" if not s.is_percentage else "%"
-            comparable_text = f"{comparable:.1f}{unit}"
-        else:
-            comparable_text = value  # no stricter-box figure: the Score is already this basis
-
-        rows.append([s.theme_name, value, comparable_text, bench_text])
+        rows.append([s.theme_name, value, bench_text])
     h.add_table(doc, headers, rows)
+
+    # CC-066: nothing told a reader these are composite scores -- Part 3 reports 91.5%/92.9%,
+    # Part 6 reports 70.1%/83.5%/74.0%, neither matches this table's 92.2%/85.1%, and with no
+    # explanation the numbers just look wrong. metric_label already carries this (CC-011 wrote
+    # "Unweighted mean of X and Y" into it for exactly the themes that are composites) -- reused
+    # directly here rather than re-deriving a second copy of the same text.
+    h.add_caption(
+        doc,
+        "Each theme score above is the unweighted mean of its constituent indicators, as "
+        "defined in the Core Credit Dashboard specification; individual indicator figures for "
+        "each theme appear in the corresponding Part.",
+    )
+    averaged = [f"{s.theme_name}: {s.metric_label}." for s in section.theme_scores if "mean of" in s.metric_label.lower()]
+    if averaged:
+        h.add_caption(doc, " ".join(averaged))
+
     _prose(doc, section.analysis_text)
 
 
@@ -392,7 +402,7 @@ def render_client_satisfaction(doc, section) -> None:
     h.add_subheading(doc, "8.1 NPS and the split")
     _visual(doc, "8.1")
     _prose(doc, section.nps_analysis)
-    h.add_subheading(doc, "8.2 What drives recommendation and dissatisfaction")
+    h.add_subheading(doc, "8.2 Reasons clients gave for recommending or not recommending")
     _visual(doc, "8.2")
     _prose(doc, section.drivers_analysis)
     h.add_subheading(doc, "Insight for Client Satisfaction")
@@ -468,6 +478,12 @@ def render_report(doc, report, dashboard_visuals: Optional[dict] = None) -> None
             "a figure may be slightly lower where some respondents left that question blank -- this "
             "is expected and is not a data error.",
         )
+        if report.data_availability_note:
+            # CC-033: rendered near the top, right beside the other title-page caveat, so a
+            # reader hits it before Part 2 rather than discovering the omission on page 2 with
+            # no explanation -- and specifically NOT folded into the base-count caption above,
+            # since that one is evergreen and this one is run-specific.
+            h.add_caption(doc, report.data_availability_note)
         h.add_divider(doc)
 
         render_client_profile(doc, report.client_profile)

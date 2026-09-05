@@ -57,6 +57,24 @@ ALLOWED_CHECKPOINT_TYPES = [
     ("section_configs.config", "QualitativeConfig"),
     ("section_configs.config", "SectionConfig"),
     ("writer.section_prompts", "SubsectionPrompt"),
+    # CC-049: the orchestrator's own top-level graph (orchestrator/graph.py) reuses this same
+    # checkpointer, but its state holds several section types the section-level graphs never
+    # did -- client_profile, client_satisfaction, and poverty_likelihood are built via
+    # analysis/driver/, not analysis/graph/, and client_voices/executive_summary/
+    # gender_scorecard/DashboardVisual exist only in orchestrator state, never a section-level
+    # graph's. None of these were ever added here, so they always fell back to pickle at write
+    # time -- silently fine, since a first-time run never reads its own checkpoint back. The
+    # gap only surfaced on the first real resume of a run that had reached all 12 sections:
+    # every one of these came back as a plain dict instead of its real Pydantic type, and
+    # assemble_report_node crashed on the first attribute access. Confirmed live.
+    ("schemas.client_profile", "ClientProfileSection"),
+    ("schemas.client_satisfaction", "ClientSatisfactionSection"),
+    ("schemas.poverty_likelihood", "PovertyLikelihoodSection"),
+    ("schemas.client_voices", "ClientVoicesSection"),
+    ("schemas.executive_summary", "ExecutiveSummarySection"),
+    ("schemas.gender_scorecard", "GenderScorecardSection"),
+    ("schemas.report", "CoreCreditImpactReport"),
+    ("dashboard_visuals.lookup", "DashboardVisual"),
 ]
 
 

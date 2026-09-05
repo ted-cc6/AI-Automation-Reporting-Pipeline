@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import threading
 import time
 from typing import Optional
@@ -25,6 +26,7 @@ from pydantic import BaseModel, Field
 from llm_client import build_chat_model, extract_text, invoke_structured
 from schemas.common import QualitativeSynthesis, Verbatim, WrittenText
 
+from . import section_prompts as _section_prompts_module
 from .grounding import (
     check_banned_punctuation,
     check_grounding,
@@ -75,9 +77,15 @@ If partway through a sentence you realize you don't actually have a real quote t
 point you were about to make, do not write a placeholder, a bracketed note, or ANY comment \
 about your own drafting process (for example, never write something like "[quote placeholder \
 removed]" or "actually omitting fabricated text" -- both are real mistakes this checker has \
-caught before). Simply don't include a quote there. Rewrite the sentence as your own \
-analytical point instead, exactly as if you'd planned it that way from the start. The reader \
-must never see any trace of your own drafting or self-correction, only the finished analysis.
+caught before). This ban is not just about brackets: a full, fluent sentence that tells the \
+reader where a quote WOULD go, or that the real wording SHOULD be looked up elsewhere, is the \
+same violation with no brackets on it -- a real mistake this checker has also caught: naming \
+three clients by country and closing with "though the exact phrasing should be drawn from the \
+verbatim pool rather than summarized here without quotation." That sentence never should have \
+been written -- there is no acceptable version of it, quoted or not. Simply don't include a \
+quote there. Rewrite the sentence as your own analytical point instead, exactly as if you'd \
+planned it that way from the start. The reader must never see any trace of your own drafting \
+or self-correction, only the finished analysis.
 
 Do not write a literal bracketed number like "[3]" anywhere in your prose. The numbered list \
 you're shown is only for you to identify which quotes you used (via used_verbatim_ids where \
@@ -101,9 +109,18 @@ confirms, drives, translating into, shifts, proves, causes, mechanism behind, pa
 of, demonstrates, or leads to. Differences between segments, between loan cycles, and between \
 first-time and repeat borrowers are observational associations, never effects, levers, or \
 payoffs, because none of these groups was randomised and they differ from one another in many \
-other ways as well. A forward-looking sentence must not promise a result: write "could be \
-explored as actions to support these outcomes" or "may be a priority area to investigate", \
-never "should raise", "will improve", "carries the most leverage", or "would remove". A \
+other ways as well. Most subsections are complete once you've stated the finding -- end there. \
+A forward-looking sentence is not required, and should be the exception, not the default: add \
+one only when the data itself raises a genuine next step or open question worth naming, never \
+as a reflex closer tacked onto a block that's already said everything it needs to. A real \
+mistake a reviewer flagged: a rewrite meant to fix one over-used closing phrase produced three \
+sanctioned alternatives instead of one, and the model then used a forward-looking sentence in \
+nearly every block anyway, just spreading the habit across more phrasings rather than dropping \
+it where it wasn't earned. If you do add one, it must not promise a result, and use one of \
+these three shapes, picking whichever fits the point best rather than falling back on the same \
+one out of habit: (1) "could be explored as actions to support these outcomes"; (2) "may be a \
+priority area to investigate"; (3) "is worth watching" (alongside a related figure, when one \
+exists). Never "should raise", "will improve", "carries the most leverage", or "would remove". A \
 free-text quote gives a reason a client reported, not a verified mechanism, so call it a \
 frequently reported reason or pathway. Real mistakes reviewers flagged on an earlier draft: \
 "confirming that credit access is translating into tangible household gains", which asserts a \
@@ -138,12 +155,79 @@ own 91.6% "overall" figure and our own 72.7% "comparable" figure for the SAME me
 against, and never mentioned the real external benchmark (69.0%) at all. If you mention a \
 metric's "overall" and "comparable" figures in the same sentence, be explicit that both are our \
 own numbers on different box definitions, not a benchmark comparison -- the ONLY valid \
-benchmark comparison for that metric is comparable-figure vs. external-benchmark. The MFI \
+benchmark comparison for that metric is comparable-figure vs. external-benchmark. Never \
+describe the comparable figure as "lower" (against the overall figure) in the same breath as \
+comparing it to the benchmark -- even when both claims are individually true, stating them back \
+to back reads as the same number called both lower and higher with nothing telling the reader \
+which reference point each word points to. A real mistake this checker has caught: "our own \
+figures are lower, 45.8% for business income..., both above the MFI Index benchmarks of 23.0%..." \
+-- 45.8% is genuinely lower than the 91.5% overall figure and genuinely above the 23.0% \
+benchmark, but naming only one comparison as "lower" right before naming the other as "above" \
+reads as self-contradictory. State the comparable figure as its own value first, then compare \
+it to the benchmark alone. The MFI \
 Index comparison is descriptive only, because the two datasets differ in sample composition, \
 timing, geography, questionnaire wording, and survey context, so never reach for a competitive \
 verb: not outpaces, beats, outperforms, ahead of, or wins. Write "is higher than" or "is \
 lower than" instead. A real mistake a reviewer flagged on an earlier draft: "Our Net Promoter \
-Score of 69 outpaces the MFI Index's 58"."""
+Score of 69 outpaces the MFI Index's 58".
+
+Some runs have no "MFI Index benchmark" line at all for a metric, or for any metric -- the \
+external benchmark data was not available this run. In that case a "figure on a stricter box \
+definition" line, if given, is NOT a benchmark comparison: there is nothing on the other side \
+of it. State it as our own number on that stricter definition, standing on its own next to \
+"overall" exactly as you would report any other segment cut. Never say it is "higher than" or \
+"lower than" a benchmark, never call it "comparable" to anything, and never imply an external \
+figure exists somewhere else in the report when the data does not give you one."""
+
+# CC-035: the terms SYSTEM_PROMPT's CC-001 and CC-003 paragraphs above ban the WRITER from
+# using. Kept here as an explicit, hand-maintained list -- not derived from the prose above --
+# so it is the one place a maintainer edits when a banned-word sentence in SYSTEM_PROMPT
+# changes. Two deliberate departures from SYSTEM_PROMPT's literal wording, both because a
+# literal match would have missed a real, already-shipped violation (CC-030):
+#   - "leads to" also matches "leading to" / "lead to" (regex, not a literal string) -- the 4.1
+#     prompt used "leading to" as a worked example, which is the same banned construction.
+#   - "leverage" is banned standalone, not only in the exact phrase "carries the most leverage"
+#     -- the 8.2 prompt said "the fix with the most leverage", which contains the word but not
+#     that exact phrase.
+CC001_BANNED_TERMS = (
+    "confirms", "drives", "translating into", "shifts", "proves", "causes",
+    "mechanism behind", "payoff", "evidence of", "demonstrates",
+    "leads to", "leading to", "lead to",
+    "should raise", "will improve", "would remove", "leverage",
+)
+CC003_BANNED_TERMS = ("outpaces", "beats", "outperforms", "ahead of", "wins")
+
+
+def _banned_terms_in(text: str, terms: tuple) -> list:
+    lowered = text.lower()
+    return [term for term in terms if re.search(r"\b" + re.escape(term) + r"\b", lowered)]
+
+
+def validate_subsection_prompts(module=_section_prompts_module) -> None:
+    """CC-035: fails loudly, at import time, if any SubsectionPrompt's title or instructions
+    tells the writer to do something SYSTEM_PROMPT's own CC-001/CC-003 paragraphs forbid it
+    from doing. CC-030 found five of these by hand (1.2 "competitive moat", 7.1 "the link to
+    resilience below", 8.2's title plus "the most leverage", 4.1's "leading to" example, 7.4's
+    "resilience dividend") -- introduced because SYSTEM_PROMPT's rules were extended over time
+    without re-checking the subsection prompts already written against them. This is the check
+    that would have caught all five before a single report was generated with them in.
+    """
+    violations = []
+    for name in dir(module):
+        value = getattr(module, name)
+        if not isinstance(value, SubsectionPrompt):
+            continue
+        hits = _banned_terms_in(f"{value.title} {value.instructions}", CC001_BANNED_TERMS + CC003_BANNED_TERMS)
+        if hits:
+            violations.append(f"  {value.subsection_id} ({name}): {', '.join(sorted(set(hits)))}")
+    if violations:
+        raise ValueError(
+            "SubsectionPrompt title/instructions use a term SYSTEM_PROMPT bans the writer from "
+            "using -- fix the prompt in section_prompts.py before generating a report:\n" + "\n".join(violations)
+        )
+
+
+validate_subsection_prompts()
 
 INSIGHT_ID_INSTRUCTION = """\n\nEvery verbatim above is numbered [N]. After writing the prose, \
 report which numbered verbatims you actually quoted in used_verbatim_ids -- this must exactly \
@@ -159,10 +243,21 @@ class _NarrativeWithVerbatims(BaseModel):
 
 
 def _format_verbatim_profile(v: Verbatim) -> str:
+    # CC-058: v.country is a raw ISO code (e.g. "ZMB") -- expand it to a full name for the
+    # pool shown to the writer, same table grounding.py's own country cross-check already
+    # uses, so there's one canonical mapping rather than a second one invented here. Confirmed
+    # real, live, twice: gender_scorecard's own insight call was the one that kept echoing the
+    # raw code back verbatim ("a female client from ZMB") while every other section's insight
+    # call, given the exact same pool format, wrote out "Zambia" from its own general
+    # knowledge -- nothing told the writer the field was a code needing expansion, so it was
+    # inconsistent by chance, not by design.
+    from benchmark_module.mapping import COUNTRY_CODE_TO_NAME
+
+    country = COUNTRY_CODE_TO_NAME.get(v.country, v.country) if v.country else None
     parts = [
         v.gender or "unknown gender",
         f"age {v.age or 'unknown'}",
-        v.country or "unknown country",
+        country or "unknown country",
         f"loan cycle {v.loan_cycle or 'unknown'}",
         v.branch or "unknown branch",
     ]

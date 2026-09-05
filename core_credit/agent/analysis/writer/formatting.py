@@ -23,15 +23,32 @@ def format_metric_result(mr: MetricResult) -> str:
     lines = [f"{mr.label}: overall {_format_segmented(mr.overall)}"]
     for seg in mr.by_segment:
         lines.append(f"  - {seg.axis.value}={seg.value_label}: {_format_segmented(seg)}")
-    if mr.benchmark and mr.benchmark.external_mfi_index is not None:
+
+    has_benchmark = mr.benchmark and mr.benchmark.external_mfi_index is not None
+    if has_benchmark:
         caveat = f" [CAVEAT: {mr.benchmark.external_mfi_index_caveat}]" if mr.benchmark.external_mfi_index_caveat else ""
         definition = f' -- defined by the source as "{mr.benchmark.external_mfi_index_definition}"' if mr.benchmark.external_mfi_index_definition else ""
         lines.append(f"  - MFI Index benchmark: {mr.benchmark.external_mfi_index:.1%} ({mr.benchmark.external_mfi_index_year}){definition}{caveat}")
-        if mr.benchmark_comparable_value is not None and mr.benchmark_comparable_value.share is not None:
+
+    # CC-031: benchmark_comparable_value is computed from our own survey data (a stricter box
+    # definition), never from the benchmark workbook, so it can exist whether or not an
+    # external benchmark loaded this run -- it must not be nested under has_benchmark. When no
+    # benchmark exists, the line still gets shown, but as our own number standing alone, with an
+    # explicit instruction not to compare it to anything (see chain.py SYSTEM_PROMPT).
+    if mr.benchmark_comparable_value is not None and mr.benchmark_comparable_value.share is not None:
+        if has_benchmark:
             lines.append(
                 f"  - Our own figure on the SAME basis as that benchmark (use this one for the "
                 f"comparison, not 'overall' above): {_format_segmented(mr.benchmark_comparable_value)}"
             )
+        else:
+            lines.append(
+                f"  - Our own figure on a stricter box definition (no external MFI Index benchmark "
+                f"is available this run -- report this as our own number standing alone, like any "
+                f"other segment cut, never as something compared against a benchmark): "
+                f"{_format_segmented(mr.benchmark_comparable_value)}"
+            )
+
     if mr.notes:
         lines.append(f"  - Note: {mr.notes}")
     return "\n".join(lines)

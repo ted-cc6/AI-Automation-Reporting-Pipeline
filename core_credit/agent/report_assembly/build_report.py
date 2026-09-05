@@ -20,6 +20,7 @@ Usage: python build_report.py
 from __future__ import annotations
 
 import json
+import os
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
@@ -51,6 +52,37 @@ CROSS_CUTTING_SECTIONS = ["executive_summary", "gender_scorecard", "client_voice
 OUTPUT_DIR = Path(__file__).resolve().parent / "output"
 
 
+def _data_availability_note() -> Optional[str]:
+    """CC-033: run_for_dashboard.py sets these two env vars (and only these two, and only when
+    the corresponding reference workbook is absent) before the graph runs, so reading them here
+    is the exact, direct signal for what this run actually degraded -- not a re-derivation from
+    section output shape, which would have to guess at the no-PPI-data stub's structure instead
+    of reading the one flag that caused it. Also fires for a CLI run an operator deliberately
+    started with the flag set, which is correct: the run is degraded either way.
+    """
+    ppi_missing = bool(os.environ.get("CORE_CREDIT_ALLOW_MISSING_PPI"))
+    benchmarks_missing = bool(os.environ.get("CORE_CREDIT_ALLOW_MISSING_BENCHMARKS"))
+    if not ppi_missing and not benchmarks_missing:
+        return None
+    parts = []
+    if ppi_missing:
+        parts.append(
+            "the PPI reference workbooks (PPI_scorecards.xlsx, PPI_lookups.xlsx) were not "
+            "available, so no client could be scored and Part 2 (Poverty Likelihood) is omitted"
+        )
+    if benchmarks_missing:
+        parts.append(
+            "the External Benchmarks.xlsx workbook was not available, so no MFI Index "
+            "comparison appears anywhere in this report"
+        )
+    return (
+        "This run is missing reference data VisionFund normally provides server-side: "
+        + "; and ".join(parts)
+        + ". This is an infrastructure gap for this run, not a data quality issue with the "
+        "survey responses -- every other section reflects the full submitted dataset."
+    )
+
+
 def build_report(sections: Optional[dict] = None, run_id: Optional[str] = None) -> CoreCreditImpactReport:
     """`sections`, when given, is an already-built {section_id: Section} map covering all 12
     section_ids (e.g. from the orchestrator's graph state) -- used instead of re-reading every
@@ -75,6 +107,7 @@ def build_report(sections: Optional[dict] = None, run_id: Optional[str] = None) 
         generated_at=datetime.now(timezone.utc).strftime("%Y-%m-%d"),
         run_id=run_id,
         model_version=MODEL,
+        data_availability_note=_data_availability_note(),
         **sections,
     )
 

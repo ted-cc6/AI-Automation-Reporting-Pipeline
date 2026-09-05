@@ -41,11 +41,15 @@ VERBATIMS_PER_SIDE = 3
 OUTPUT_DIR = Path(__file__).resolve().parent / "output"
 
 
-def _pool_top_themes(themes: list, key) -> list:
+def _dedup_key(v):
+    return v.client_id or v.quote.strip()
+
+
+def _pool_top_themes(themes: list, key, exclude: set) -> list:
     top = sorted(themes, key=key, reverse=True)[:TOP_N_THEMES]
     pool = []
     for t in top:
-        pool.extend(t.representative_verbatims)
+        pool.extend(v for v in t.representative_verbatims if _dedup_key(v) not in exclude)
     return pool
 
 
@@ -58,10 +62,19 @@ def build_section(sections: Optional[dict] = None) -> ClientVoicesSection:
     client_satisfaction = sections["client_satisfaction"] if sections is not None else load_section("client_satisfaction")
     promoters, _passives, detractors = client_satisfaction.nps_followup_themes
 
-    green_pool = _pool_top_themes(promoters.themes, key=lambda t: t.frequency)
+    # CC-048: this pool IS client_satisfaction's own theme pool (see the docstring above) --
+    # confirmed live, the Zambia "wonderful services" quote independently surfaced here after
+    # client_satisfaction's own Insight had already cited it in Part 8, one section before a
+    # reader reaches this one. Excluding what client_satisfaction already rendered in its own
+    # insight_verbatims is safe, not just cosmetic: that pool is thousands of tagged responses
+    # deep and only ~2% of it is ever cited anywhere (see docs/core_credit_report_spec.md
+    # CC-048), so there is always another real candidate to fall back to.
+    already_cited = {_dedup_key(v) for v in client_satisfaction.insight_verbatims}
+
+    green_pool = _pool_top_themes(promoters.themes, key=lambda t: t.frequency, exclude=already_cited)
     green_lights = pick_diverse_verbatims(green_pool, k=VERBATIMS_PER_SIDE)
 
-    red_pool = _pool_top_themes(detractors.themes, key=lambda t: (SEVERITY_RANK.get(t.severity, 0), t.frequency))
+    red_pool = _pool_top_themes(detractors.themes, key=lambda t: (SEVERITY_RANK.get(t.severity, 0), t.frequency), exclude=already_cited)
     red_flags = pick_diverse_verbatims(red_pool, k=VERBATIMS_PER_SIDE)
 
     return ClientVoicesSection(green_lights=green_lights, red_flags=red_flags)
