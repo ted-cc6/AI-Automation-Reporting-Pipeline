@@ -3830,3 +3830,56 @@ Tests: formatting population lines, the restricted-population label, the
 HO52 flag, cc066 6.2 and Part 6 insight passing, the false-positive shapes
 passing, the restated base clearing the flag, quotes ignored, and the rewrite
 triggered. Suite: 417 passed.
+
+---
+
+## CC-073 and CC-075: implemented; CC-074 confirmed
+
+**CC-073 (HO30).** Section 3.3 now reads "What clients reported as reasons for
+the improvement". The change is in `section_layout.py` and the driver's console
+print.
+
+T1 was not settled from the questionnaire itself, because the exact question
+text is not in the repo. The rename went ahead on agreement with the spec owner,
+since the evidence points one way:
+- IMPACT03a is described as "how it improved" in both the pipeline and template
+  v2.0.
+- A "how" question yields reported reasons either way.
+
+`Core_Credit_Impact_Report_Template_v2.0.pdf` still says "What drove the
+improvement" and "keep what the loan drove". That is outside the code, flagged
+for whoever maintains the template.
+
+**CC-074.** The 8.2 heading needed no change (see above).
+
+**CC-075 (HO16).** `section_layout.BENCHMARK_CAVEAT`, a single fixed sentence:
+
+> Comparisons with the MFI Index benchmark are descriptive only. The MFI Index
+> and this survey differ in sample composition, timing, geography, questionnaire
+> wording and survey context, so a difference between the two figures does not
+> show that VisionFund performs better or worse than its peers.
+
+- `add_benchmark_caveat` renders it as a caption when the section contains any
+  `BenchmarkComparison` with a real `external_mfi_index`. A comparison carrying
+  only a `not_available_reason` does not count.
+- It is called once under the Executive Summary table and once at the end of
+  each Part, from a loop in `render_report`. That is not once per benchmarked
+  subsection, where it would repeat about 12 times.
+- SYSTEM_PROMPT now tells the writer not to compose its own caveat, since
+  local-cc066 still wrote "a comparison read cautiously given differences in
+  sample and context". No section prompt asked for one; the model was restating
+  SYSTEM_PROMPT's own explanation.
+- The LM1 column rename and year header are untouched.
+
+Rendered from local-cc066 in memory: the caveat appears under the Executive
+Summary and at the end of Parts 1, 3, 5, 6, 7 and 8, not Parts 2 or 4.
+
+Tests:
+- no caveat when only `not_available_reason` is present;
+- exactly one caveat per benchmarked Part, between that Part's insight and the
+  next Part;
+- the Executive Summary with and without a benchmark;
+- the caveat wording carries all five reasons;
+- the 3.3 heading.
+
+Suite: 422 passed.

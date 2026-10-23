@@ -137,7 +137,7 @@ def _print_summary(section: BusinessHouseholdImpactSection) -> None:
     print(f"[{section.quality_of_life_analysis.word_count} words, within_cap={section.quality_of_life_analysis.within_cap}, "
           f"ungrounded={section.quality_of_life_analysis.ungrounded_percentages}]")
 
-    print(f"\n3.3 What drove the improvement -- {len(section.qol_drivers.themes)} themes, base_n={section.qol_drivers.base_n}")
+    print(f"\n3.3 What clients reported as reasons for the improvement -- {len(section.qol_drivers.themes)} themes, base_n={section.qol_drivers.base_n}")
     for t in section.qol_drivers.themes[:5]:
         print(f"  - {t.theme} (n={t.frequency})")
     if len(section.qol_drivers.themes) > 5:

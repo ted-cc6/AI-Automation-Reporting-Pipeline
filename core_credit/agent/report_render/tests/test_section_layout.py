@@ -38,7 +38,7 @@ from schemas.poverty_likelihood import PovertyLikelihoodSection
 from schemas.report import CoreCreditImpactReport
 from schemas.resilience import ResilienceSection
 
-from report_render.section_layout import render_executive_summary, render_report
+from report_render.section_layout import BENCHMARK_CAVEAT, render_executive_summary, render_report
 
 
 def _wt(subsection_id: str) -> WrittenText:
@@ -257,3 +257,73 @@ def test_render_report_works_when_cross_cutting_sections_are_none():
     assert "Executive Summary" not in headings
     assert "Part 9 -- Gender" not in headings
     assert "Part 10 -- Client Voices" not in headings
+
+
+def _paragraph_texts(doc) -> list:
+    return [p.text for p in doc.paragraphs]
+
+
+def test_benchmark_caveat_absent_when_no_part_carries_an_mfi_index_figure():
+    # A BenchmarkComparison that only explains why no benchmark exists must not trigger it.
+    report = _full_report()
+    report.business_household_impact.business_income_change.benchmark = BenchmarkComparison(
+        not_available_reason="No MFI Index indicator"
+    )
+    doc = Document()
+    render_report(doc, report)
+    assert BENCHMARK_CAVEAT not in _paragraph_texts(doc)
+
+
+def test_benchmark_caveat_is_fixed_text_at_the_end_of_each_benchmarked_part():
+    # CC-075 / HO16: identical template wording, once per Part with an MFI Index figure,
+    # after that Part's last block and before the next Part's heading.
+    report = _full_report()
+    report.business_household_impact.business_income_change.benchmark = BenchmarkComparison(external_mfi_index=0.23)
+    report.agency.loan_purpose_achieved_fully.benchmark = BenchmarkComparison(external_mfi_index=0.32)
+    doc = Document()
+    render_report(doc, report)
+    texts = _paragraph_texts(doc)
+    positions = [i for i, t in enumerate(texts) if t == BENCHMARK_CAVEAT]
+    assert len(positions) == 2
+    expected = (
+        ("Insight for Business and Household Impact", "Part 4 -- Child Wellbeing"),
+        ("Insight for Agency", "Part 7 -- Resilience"),
+    )
+    for pos, (last_heading_of_part, next_part) in zip(positions, expected):
+        assert texts.index(last_heading_of_part) < pos < texts.index(next_part)
+
+
+def test_executive_summary_carries_the_caveat_when_a_theme_has_a_benchmark():
+    with_benchmark = ExecutiveSummarySection(
+        theme_scores=[
+            ThemeScore(
+                theme_name="Client Satisfaction", metric_label="Net Promoter Score", headline_value=69,
+                is_percentage=False, benchmark=BenchmarkComparison(external_mfi_index=58, external_mfi_index_year=2025),
+            ),
+        ],
+        n_respondents=100, n_mfis=1, n_countries=1, reporting_period="Q1 2026", generated_date="2026-01-01",
+    )
+    doc = Document()
+    render_executive_summary(doc, with_benchmark)
+    assert _paragraph_texts(doc).count(BENCHMARK_CAVEAT) == 1
+
+    without = with_benchmark.model_copy(update={"theme_scores": [with_benchmark.theme_scores[0].model_copy(update={"benchmark": None})]})
+    doc = Document()
+    render_executive_summary(doc, without)
+    assert BENCHMARK_CAVEAT not in _paragraph_texts(doc)
+
+
+def test_benchmark_caveat_states_the_comparison_is_descriptive():
+    assert "descriptive only" in BENCHMARK_CAVEAT
+    for reason in ("sample composition", "timing", "geography", "questionnaire wording", "survey context"):
+        assert reason in BENCHMARK_CAVEAT
+
+
+def test_section_3_3_heading_names_reported_reasons_not_drivers():
+    # CC-073 / HO30.
+    doc = Document()
+    render_report(doc, _full_report())
+    texts = _paragraph_texts(doc)
+    assert "3.3 What clients reported as reasons for the improvement" in texts
+    assert not any("What drove" in t for t in texts)
+

@@ -170,7 +170,10 @@ Index comparison is descriptive only, because the two datasets differ in sample 
 timing, geography, questionnaire wording, and survey context, so never reach for a competitive \
 verb: not outpaces, beats, outperforms, ahead of, or wins. Write "is higher than" or "is \
 lower than" instead. A real mistake a reviewer flagged on an earlier draft: "Our Net Promoter \
-Score of 69 outpaces the MFI Index's 58".
+Score of 69 outpaces the MFI Index's 58". Do not write your own caveat about the comparison, such \
+as "read with caution given differences in sample and context" -- the report prints one fixed \
+caveat sentence wherever an MFI Index figure appears, so a caveat of yours only repeats it in \
+different words.
 
 Some runs have no "MFI Index benchmark" line at all for a metric, or for any metric -- the \
 external benchmark data was not available this run. In that case a "figure on a stricter box \

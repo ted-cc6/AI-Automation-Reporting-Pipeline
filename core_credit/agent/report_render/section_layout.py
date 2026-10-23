@@ -8,7 +8,7 @@ a grid"), most subsections are prose-only (dashboard visual + Analysis text). On
 get a generated table, because the template itself shows one: Child Wellbeing's 4.2
 caregiver-vs-other table, and the Gender scorecard. Two subsections have no Analysis prose at
 all and are rendered straight from their structured data instead: Business & Household
-Impact's 3.3 ("What drove the improvement", theme-tagged only) and Client Voices (a pure
+Impact's 3.3 ("What clients reported as reasons for the improvement", theme-tagged only) and Client Voices (a pure
 verbatim bank, no narrative field in its schema).
 """
 
@@ -16,8 +16,10 @@ from __future__ import annotations
 
 from typing import Optional
 
+from pydantic import BaseModel
+
 from dashboard_visuals.lookup import find_dashboard_visual
-from schemas.common import QualitativeSynthesis, Verbatim, WrittenText
+from schemas.common import BenchmarkComparison, QualitativeSynthesis, Verbatim, WrittenText
 
 from . import docx_helpers as h
 
@@ -39,6 +41,37 @@ ALL_SUBSECTION_IDS = (
     "gender-scorecard",
     "client-voices",
 )
+
+
+# CC-075 (HO16): the one fixed caveat for every MFI Index comparison. Inserted by the template,
+# never written by the LLM -- SYSTEM_PROMPT tells the writer not to compose its own -- so the
+# wording is identical everywhere. Placed once under the Executive Summary table and once at the
+# end of each Part whose data carries an MFI Index figure, not under every one of the ~12
+# benchmarked subsections, where the same sentence would repeat a dozen times.
+BENCHMARK_CAVEAT = (
+    "Comparisons with the MFI Index benchmark are descriptive only. The MFI Index and this survey "
+    "differ in sample composition, timing, geography, questionnaire wording and survey context, "
+    "so a difference between the two figures does not show that VisionFund performs better or "
+    "worse than its peers."
+)
+
+
+def _cites_benchmark(obj) -> bool:
+    """True when any BenchmarkComparison anywhere inside `obj` carries a real MFI Index figure."""
+    if isinstance(obj, BenchmarkComparison):
+        return obj.external_mfi_index is not None
+    if isinstance(obj, BaseModel):
+        return any(_cites_benchmark(getattr(obj, name)) for name in type(obj).model_fields)
+    if isinstance(obj, (list, tuple)):
+        return any(_cites_benchmark(item) for item in obj)
+    if isinstance(obj, dict):
+        return any(_cites_benchmark(item) for item in obj.values())
+    return False
+
+
+def add_benchmark_caveat(doc, section) -> None:
+    if section is not None and _cites_benchmark(section):
+        h.add_caption(doc, BENCHMARK_CAVEAT)
 
 
 def _caregiver_table_labels() -> list:
@@ -216,6 +249,7 @@ def render_executive_summary(doc, section) -> None:
     averaged = [f"{s.theme_name}: {s.metric_label}." for s in section.theme_scores if "mean of" in s.metric_label.lower()]
     if averaged:
         h.add_caption(doc, " ".join(averaged))
+    add_benchmark_caveat(doc, section)
 
     _prose(doc, section.analysis_text)
 
@@ -241,8 +275,8 @@ def render_poverty_likelihood(doc, section) -> None:
     if section.na_footnote:
         # CC-016: the PPI coverage caveat used to render in small italics at the very end of
         # Part 2, well past the 2.1 figures it qualifies (Kenya on 90 of 271 clients, Zambia on
-        # 32 of 281 before CC-068 fixed their scoring). It now sits directly under 2.1, at body size. na_footnote carries its own
-        # neutral "PPI scoring coverage by country this wave" opening; this line only adds the
+        # 32 of 281 before CC-068 fixed their scoring). It now sits directly under 2.1, at body
+        # size. na_footnote carries its own neutral "PPI scoring coverage by country this wave" opening; this line only adds the
         # data-quality framing (CC-013: genuine scorecard outcomes, not estimates or omissions)
         # and ties it to the figures above.
         h.add_body_paragraph(
@@ -269,7 +303,9 @@ def render_business_household_impact(doc, section) -> None:
     h.add_subheading(doc, "3.2 Change in quality of life")
     _visual(doc, "3.2")
     _prose(doc, section.quality_of_life_analysis)
-    h.add_subheading(doc, "3.3 What drove the improvement")
+    # CC-073 (HO30): "What drove" claimed a cause. IMPACT03a asks how quality of life improved,
+    # so its free text gives reasons clients reported, not verified drivers.
+    h.add_subheading(doc, "3.3 What clients reported as reasons for the improvement")
     add_theme_list(doc, section.qol_drivers)
     h.add_subheading(doc, "Insight for Business and Household Impact")
     _prose(doc, section.insight_text)
@@ -491,22 +527,19 @@ def render_report(doc, report, dashboard_visuals: Optional[dict] = None) -> None
         if report.executive_summary is not None:
             render_executive_summary(doc, report.executive_summary)
             h.add_divider(doc)
-        render_financial_access(doc, report.financial_access)
-        h.add_divider(doc)
-        render_poverty_likelihood(doc, report.poverty_likelihood)
-        h.add_divider(doc)
-        render_business_household_impact(doc, report.business_household_impact)
-        h.add_divider(doc)
-        render_child_wellbeing(doc, report.child_wellbeing)
-        h.add_divider(doc)
-        render_client_protection(doc, report.client_protection)
-        h.add_divider(doc)
-        render_agency(doc, report.agency)
-        h.add_divider(doc)
-        render_resilience(doc, report.resilience)
-        h.add_divider(doc)
-        render_client_satisfaction(doc, report.client_satisfaction)
-        h.add_divider(doc)
+        for render_part, section in (
+            (render_financial_access, report.financial_access),
+            (render_poverty_likelihood, report.poverty_likelihood),
+            (render_business_household_impact, report.business_household_impact),
+            (render_child_wellbeing, report.child_wellbeing),
+            (render_client_protection, report.client_protection),
+            (render_agency, report.agency),
+            (render_resilience, report.resilience),
+            (render_client_satisfaction, report.client_satisfaction),
+        ):
+            render_part(doc, section)
+            add_benchmark_caveat(doc, section)  # CC-075: only where the Part carries an MFI Index figure
+            h.add_divider(doc)
         if report.gender_scorecard is not None:
             render_gender_scorecard(doc, report.gender_scorecard)
             h.add_divider(doc)
