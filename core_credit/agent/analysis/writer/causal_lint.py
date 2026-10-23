@@ -26,12 +26,15 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 
-# The handoff's CC-084 starting list, plus the R1-R8 additions from the same review round.
-# Each additional term is a real string from Test5 or local-cc066, noted beside it.
+# The handoff's CC-084 starting list, plus the R1-R8 additions from the same review round. Each
+# additional term is a real string from Test5 or local-cc066, noted beside it. Since CC-083 this
+# is also the ONE list chain.validate_subsection_prompts checks prompts against -- it absorbed
+# chain.py's old CC001_BANNED_TERMS / CC003_BANNED_TERMS (marked "CC-001/003" below).
 HARD_TERMS = (
     # R1 benchmark comparisons are descriptive
     "outpaces", "outpace", "outperform", "outperforms", "outperformed", "well ahead",
-    "comfortably ahead",
+    "comfortably ahead", "beats", "wins",  # CC-003
+    "ahead of the mfi index", "ahead of the benchmark",  # plain "ahead of" is review: cc066 4.1 "ahead of schooling"
     "far above the mfi index", "far above the benchmark",  # cc066 6.1; plain "far above" is review
     "leads the story",
     # R2 no causal claims from outcome data
@@ -41,7 +44,9 @@ HARD_TERMS = (
     "mechanism", "dividend", "payoff", "evidence of", "a sign this", "genuinely",
     "converting",  # "women are converting loan capital into..." (Test5 Agency insight)
     "can be read as",  # "can be read as realized preparedness" (cc066 7.4)
+    "shaping", "shapes", "shaped",  # "pricing ... shaping whether clients lean toward recommending" (Step 6 regen, 8 insight)
     "shifting",  # "genuinely shifting decision-making power" (Test5 6.2, HO51)
+    "shifts", "proves", "causes", "demonstrates", "leads to", "leading to", "lead to",  # CC-001
     # R3 subgroup differences are associations, never levers
     "lever",  # "a lever worth expanding" (Test5 3 insight, HO32)
     # R4 no expected patterns or causal sequences
@@ -51,12 +56,14 @@ HARD_TERMS = (
     "misselling", "mis-selling", "over-indebtedness",  # (Test5 5.2, HO42)
     # R6 poverty reach, not targeting
     "pro-poor targeting", "poverty targeting",  # (Test5 2.2 HO24, cc066 2.2)
+    "targeting the poor", "targeting of the poor",  # the 2.2 prompt itself: "shows stronger targeting of the poor"
     # R8 recommendations are exploratory
-    "should raise", "leverage", "would remove",
+    "should raise", "leverage", "would remove", "will improve",  # "will improve": CC-001
+    "should keep prioritizing",  # "VisionFund should keep prioritizing women's loans" (Test5 6 insight)
 )
 
 REVIEW_TERMS = (
-    "far above", "signaling", "signalling", "pointing to", "points to", "reflects", "reflecting",
+    "far above", "ahead of", "signaling", "signalling", "pointing to", "points to", "reflects", "reflecting",
     "targeting", "landscape", "weight", "scarce", "scarcity", "locked-in", "should",
 )
 

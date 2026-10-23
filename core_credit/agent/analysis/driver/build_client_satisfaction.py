@@ -142,8 +142,8 @@ def build_section(df: pd.DataFrame) -> ClientSatisfactionSection:
 
     nps_summary = format_nps_result(nps_result)
     drivers_summary = (
-        f"{format_ranked_options('Promoter drivers (theme-tagged)', promoter_drivers)}\n"
-        f"{format_ranked_options('Detractor pain points (theme-tagged)', detractor_pain_points)}"
+        f"{format_ranked_options('Reasons promoters gave (theme-tagged)', promoter_drivers)}\n"
+        f"{format_ranked_options('Reasons detractors gave (theme-tagged)', detractor_pain_points)}"
     )
     acceptable_8_1 = collect_acceptable_percentages(nps_result)
     acceptable_8_2 = collect_acceptable_percentages(promoter_drivers, detractor_pain_points)

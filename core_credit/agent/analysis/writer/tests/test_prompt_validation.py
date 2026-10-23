@@ -7,7 +7,10 @@ import types
 
 import pytest
 
-from writer.chain import CC001_BANNED_TERMS, CC003_BANNED_TERMS, validate_subsection_prompts
+import re
+
+from writer.causal_lint import HARD_TERMS
+from writer.chain import SYSTEM_PROMPT, validate_subsection_prompts
 from writer.section_prompts import SubsectionPrompt
 
 
@@ -90,6 +93,48 @@ def test_ignores_non_subsection_prompt_module_members():
     validate_subsection_prompts(module)  # only SubsectionPrompt instances are scanned
 
 
-def test_banned_term_lists_are_nonempty_and_disjoint():
-    assert CC001_BANNED_TERMS and CC003_BANNED_TERMS
-    assert not set(CC001_BANNED_TERMS) & set(CC003_BANNED_TERMS)
+def test_the_single_hard_list_keeps_every_old_cc001_cc003_term():
+    # CC-083 retired chain.py's own lists in favour of causal_lint.HARD_TERMS. Nothing they
+    # banned may silently drop out. "mechanism behind" is covered by "mechanism"; "ahead of" is
+    # hard only against the benchmark, since plain "ahead of schooling" (cc066 4.1) is fine.
+    old_cc001 = ("confirms", "drives", "translating into", "shifts", "proves", "causes", "payoff",
+                 "evidence of", "demonstrates", "leads to", "leading to", "lead to", "should raise",
+                 "will improve", "would remove", "leverage", "mechanism")
+    old_cc003 = ("outpaces", "beats", "outperforms", "wins", "ahead of the mfi index")
+    missing = [t for t in old_cc001 + old_cc003 if t not in HARD_TERMS]
+    assert missing == []
+
+
+@pytest.mark.parametrize(
+    "instructions, term",
+    [
+        # Real prompt wording from before this round, each the source of a reviewed violation.
+        ("Note where the client base is poorer, which shows stronger targeting of the poor.", "targeting of the poor"),  # 2.2 -> HO24
+        ("Rank the top promoter drivers and the top detractor pain points.", "drivers"),  # 8.2 -> HO54
+        ("Fold in the NPS and the top driver on each side.", "driver"),  # 8-insight
+        ("Quantify those who did, a core over-indebtedness flag.", "over-indebtedness"),  # 5.5
+    ],
+)
+def test_catches_the_prompt_wording_behind_this_rounds_violations(instructions, term):
+    module = _module_with(BAD=SubsectionPrompt(subsection_id="x.1", title="A clean title", word_cap=80, instructions=instructions))
+    with pytest.raises(ValueError, match=re.escape(term)):
+        validate_subsection_prompts(module)
+
+
+def test_a_quoted_or_negated_banned_example_is_allowed():
+    module = _module_with(
+        OK=SubsectionPrompt(
+            subsection_id="x.1", title="A clean title", word_cap=80,
+            instructions='A reviewer flagged "a strong competitive moat". On its own it does not establish misselling.',
+        ),
+    )
+    validate_subsection_prompts(module)  # must not raise
+
+
+def test_system_prompt_has_rules_r1_to_r8_each_with_a_replacement():
+    # CC-076 to CC-083: every rule pairs a banned example with an approved replacement.
+    for n in range(1, 9):
+        start = SYSTEM_PROMPT.index(f"R{n} ")
+        end = SYSTEM_PROMPT.index(f"R{n + 1} ") if n < 8 else SYSTEM_PROMPT.index("Do not assert that two figures")
+        assert "Instead of" in SYSTEM_PROMPT[start:end], f"R{n} has no 'Instead of' replacement"
+    assert "R9" not in SYSTEM_PROMPT  # CC-084 stays on hold until Henry confirms

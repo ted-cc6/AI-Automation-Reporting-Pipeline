@@ -96,8 +96,11 @@ EXECUTIVE_SUMMARY_ANALYSIS = SubsectionPrompt(
         "benchmark exists, state how the figure compares with the MFI Index benchmark -- call "
         "it that exact name, \"MFI Index benchmark\", matching how every other section in this "
         "report names it, never the fuller \"MFI Index by 60 Decibels\". Leave out any "
-        "benchmark that has no data. Lead with the two or three themes "
-        "that carry the strongest impact story, and the one or two that flag a concern. The "
+        "benchmark that has no data. Lead with the two or three highest-scoring themes, and the "
+        "one or two lowest. Describe what each theme measures, not what a low score implies "
+        "about the market: Financial Access combines first-time access with how hard clients "
+        "say it would be to find another lender, both client reports, so a low score is not a "
+        "gap in access to lenders. The "
         "Client Satisfaction score (NPS) runs on a -100 to 100 scale, not a percentage -- "
         "never compare it directly against the other themes' shares. When you name a theme, "
         "use its exact name as given with the data -- Financial Access, Poverty Likelihood, "
@@ -121,9 +124,9 @@ POVERTY_LIKELIHOOD_ACROSS_LINES = SubsectionPrompt(
     word_cap=90,
     instructions=(
         "Report the share of clients below the $1.90/day, $2.15/day, and $3.20/day poverty "
-        "lines. Interpret what the poverty profile says about who the portfolio reaches, and "
-        "compare to the regional/global figures where available. Note any country or segment "
-        "concentration worth flagging. State the portfolio-wide scored base (the 'Note' line "
+        "lines and compare them across regions and countries. Describe the profile only: how it "
+        "compares with national poverty rates, and any reading of client reach, belongs in 2.2. "
+        "Note any country or segment concentration worth flagging. State the portfolio-wide scored base (the 'Note' line "
         "gives you this) at least once. If you cite any country's figure whose label says "
         '"only N of M clients scored," you must include that coverage caveat right next to the '
         "figure, in the same sentence -- a headline number resting on a small fraction of a "
@@ -137,9 +140,9 @@ MFI_VS_NATIONAL_POVERTY_RATE = SubsectionPrompt(
     word_cap=70,
     instructions=(
         "Compare the poverty likelihood of the client base with the national rate for each "
-        "country served. Note where VisionFund reaches a client base that is poorer than the "
-        "national average, which shows stronger targeting of the poor, and where the opposite "
-        "holds. Any row marked [LOW COVERAGE: ...] must carry that same caveat when you cite "
+        "country served. Note where clients' poverty likelihood is higher than the national "
+        "rate, which is consistent with relatively pro-poor client reach (never call it "
+        "targeting), and where it is lower. Any row marked [LOW COVERAGE: ...] must carry that same caveat when you cite "
         "its figure -- do not state a low-coverage country's number as if it were as reliable "
         "as the others."
     ),
@@ -151,13 +154,13 @@ POVERTY_LIKELIHOOD_INSIGHT = SubsectionPrompt(
     word_cap=150,  # CC-042: raised from the template's 120, see docs/core_credit_report_spec.md CC-042
     instructions=(
         "Bring the section together in three to five sentences a reader can act on, covering "
-        "who the portfolio reaches and what that means for targeting. Name the poverty lines "
+        "the poverty profile and how it compares with national rates. Name the poverty lines "
         "used and any country that stands out. State the portfolio-wide scored base at least "
         "once (see the 'Note' line in the data). If you name a specific country's figure and "
         "its label or row says it rests on low coverage, carry that caveat into your sentence. "
         "If the $1.90/day and $2.15/day shares land on the same or a very similar percentage, "
         "state each one's own scored base (the 'Note' lines give you both) so the two read as "
-        "genuinely distinct calculations, not a repeated number -- a real mistake this checker "
+        "distinct calculations, not a repeated number -- a real mistake this checker "
         "has caught: \"12.4% below $1.90/day, 12.4% below $2.15/day\" stated back to back with "
         "no coverage note reads as a copy-paste error, even though the two rest on different "
         "scored bases and the identical figure is a genuine coincidence."
@@ -321,7 +324,7 @@ REDUCED_FOOD_INTAKE = SubsectionPrompt(
     instructions=(
         "Report the share who did NOT reduce household food to make repayments (top-box), and "
         "quantify those who did (reduced meals, portion sizes, borrowed food) -- a core "
-        "over-indebtedness / client-protection flag; note any segment concentration."
+        "client-protection red flag; note any segment concentration."
     ),
 )
 
@@ -441,8 +444,8 @@ VF_REDUCED_SHOCK_SEVERITY = SubsectionPrompt(
     word_cap=90,
     instructions=(
         "Report the share who said VisionFund services reduced the severity of the shock, "
-        "joining significantly and somewhat. Read it as realized preparedness among clients "
-        "who faced a shock. State the base explicitly, using the n printed beside "
+        "joining significantly and somewhat. Report it as what these clients said about "
+        "VisionFund's role, not as measured resilience or preparedness. State the base explicitly, using the n printed beside "
         "the figure: this share is calculated only among clients who reported that a climate or "
         "economic shock affected their household, a conditional subset of respondents, not all "
         "respondents. Make clear in the same sentence that this is a different and much smaller "
@@ -476,8 +479,7 @@ GENDER_SCORECARD_ANALYSIS = SubsectionPrompt(
     word_cap=100,
     instructions=(
         "Summarise where women do better or worse than men, and only where the gap matters. "
-        "Note significance where it makes the point clearer. Draw out what it means for equity "
-        "and the clearest action. Where relevant, connect the pattern to first-time access and "
+        "Note which gaps are statistically significant. Where relevant, connect the pattern to first-time access and "
         "to the Net Promoter Score, by name -- never by citing a Part number, which reads as an "
         "internal cross-reference left in the text rather than finished prose. Every row "
         "already states which gender has the higher share as "
@@ -524,8 +526,9 @@ NPS_DRIVERS = SubsectionPrompt(
     title="Reasons clients gave for recommending or not recommending",
     word_cap=90,
     instructions=(
-        "Rank the top promoter drivers and the top detractor pain points, drawing on the "
-        "theme-tagged NPS follow-up text (split by score band: 9-10, 7-8, and 0-6)."
+        "Rank the most common reasons promoters gave and the most common reasons detractors "
+        "gave, drawing on the theme-tagged NPS follow-up text (split by score band: 9-10, 7-8, "
+        "and 0-6). These are reasons clients reported, not measured drivers of their score."
     ),
 )
 
@@ -535,7 +538,7 @@ CLIENT_SATISFACTION_INSIGHT = SubsectionPrompt(
     word_cap=150,  # CC-042: raised from 120, see docs/core_credit_report_spec.md CC-042
     instructions=(
         "Bring the section together in three to five sentences a reader can act on. Fold in "
-        "the NPS and the top driver on each side, and name the fix that could be explored as "
-        "the most impactful priority. Include one verbatim with profile."
+        "the NPS and the most commonly cited reason on each side, and name one area that may "
+        "be a priority to investigate. Include one verbatim with profile."
     ),
 )

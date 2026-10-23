@@ -27,6 +27,7 @@ from llm_client import build_chat_model, extract_text, invoke_structured
 from schemas.common import QualitativeSynthesis, Verbatim, WrittenText
 
 from . import section_prompts as _section_prompts_module
+from .causal_lint import lint_text
 from .grounding import (
     check_banned_punctuation,
     check_grounding,
@@ -49,6 +50,80 @@ headers or bullet points. Treat the word cap as a real ceiling, not a suggestion
 well past it means you included too much, not that the topic needed more room; if you're over, \
 cut before you finish rather than relying on a rewrite pass to fix it later. Concise and \
 complete beats short and thin, but under the cap beats both.
+
+What this data can and cannot support. The survey is self-reported and cross-sectional, with \
+no counterfactual and no group that went without a loan, so describe what clients report, \
+never what caused it. Each rule below names a real mistake a reviewer flagged on an earlier \
+draft and what to write instead.
+
+R1 Benchmarks are descriptive. Compare with the MFI Index using "is higher than" or "is lower \
+than" only, never a competitive or intensity word: outpaces, outperforms, beats, ahead of, \
+well ahead, comfortably ahead, far above, leads, wins. The two datasets differ in sample \
+composition, timing, geography, questionnaire wording and survey context, and the report \
+prints one fixed caveat sentence saying so wherever an MFI Index figure appears, so do not \
+write a caveat of your own (such as "read with caution given differences in sample and \
+context"). Instead of "Our Net Promoter Score of 69 outpaces the MFI Index's 58", write "Our \
+Net Promoter Score of 69 is higher than the MFI Index benchmark of 58".
+
+R2 No causal claims from outcome data. Never say one thing produced, drove, lifted or explains \
+another, and never call a reported outcome a dividend, payoff, mechanism, confirmation, or a \
+sign that the programme works. Avoid confirms, confirming, drives, driving, lifts, translating \
+into, converting, shifting, shifts, shaping, proves, causes, mechanism, payoff, dividend, \
+evidence of, demonstrates, leads to, can be read as, and genuinely. Instead of "confirming \
+that credit access is translating into tangible household gains at scale", write "showing that \
+many clients report tangible household gains".
+
+R3 Subgroup differences are associations. Gaps between women and men, caregivers and \
+non-caregivers, clients with and without other services, loan cycles, or first-time and \
+prior-access clients are observational, because none of these groups was randomised and they \
+differ in many other ways. State the gap, never explain it (by tenure, experience, \
+relationship depth or payoff), and never call a group a lever. Instead of "suggesting the \
+loan's social payoff for caregivers runs deeper than the wellbeing metric alone captures", \
+write "showing larger reported differences for caregivers on these measures".
+
+R4 No expected patterns or causal sequences. Never say a gradient runs "as expected", or that \
+one improvement came first and freed resources for another. Instead of "loans first ease \
+household food security, which frees resources toward keeping children enrolled", report the \
+most frequently reported improvements in order.
+
+R5 Perceptions are not market facts. Finding it hard to find another lender is a perception of \
+limited alternatives, not a competitive moat, market scarcity, lock-in or a lender \
+"landscape". Low clarity of loan terms signals a need to review client understanding and \
+potential protection risks, not misselling or over-indebtedness. A theme score describes what \
+clients reported, not a gap in the market. Instead of "signaling a strong competitive moat and \
+retention lever", write "suggesting limited perceived alternatives".
+
+R6 Poverty reach, not targeting. Only a client poverty likelihood HIGHER than the national \
+rate is consistent with relatively pro-poor client reach. Where it is lower, say it is lower \
+than the national rate and nothing more, and a poverty share on its own, without the national \
+comparison, says nothing about reach at all. Never call any of it targeting or evidence of \
+targeting. Instead of "evidence of strong pro-poor targeting", write "consistent with \
+relatively pro-poor client reach" -- and only about a country whose rate is above the national \
+one.
+
+R7 Reported reasons stay reported reasons. Free-text themes and the reasons promoters and \
+detractors give are reasons clients reported, never drivers, what drove an outcome, the weight \
+an issue carries, or a verified mechanism. Call a free-text quote a frequently reported reason \
+or pathway. Instead of "showing that service quality and speed drive loyalty as much as \
+pricing", write "good service and fast disbursement are commonly cited reasons for \
+recommendation".
+
+R8 Recommendations are exploratory. Most subsections are complete once you've stated the \
+finding, so end there. A forward-looking sentence is not required, and should be the \
+exception, not the default: add one only when the data itself raises a genuine next step or \
+open question worth naming, never as a reflex closer tacked onto a block that's already said \
+everything it needs to. A real mistake a reviewer flagged: a rewrite meant to fix one \
+over-used closing phrase produced three sanctioned alternatives instead of one, and the model \
+then used a forward-looking sentence in nearly every block anyway, just spreading the habit \
+across more phrasings rather than dropping it where it wasn't earned. If you do add one, it \
+must not promise a result, and use one of these three shapes, picking whichever fits the point \
+best rather than falling back on the same one out of habit: (1) "could be explored as actions \
+to support these outcomes"; (2) "may be a priority area to investigate"; (3) "is worth \
+watching" (alongside a related figure, when one exists). Never "should raise", "will improve", \
+"carries the most leverage", "would remove the single largest driver", or "should keep \
+prioritizing". Instead of "revisiting interest rate structure carries the most leverage for \
+lifting detractor scores", write "interest rate structure may be a priority area to \
+investigate".
 
 Never use an em dash ("—") or a semicolon (";") anywhere in your response. Use a period, a \
 comma, or a plain "and"/"but" instead -- there is always a plain-punctuation way to say the \
@@ -103,32 +178,6 @@ for that segment when the data said 18.2%. If you want to talk about the complem
 figure yourself and say explicitly that's what you're doing -- never relabel the original \
 number with the opposite word.
 
-This survey is self-reported and cross-sectional, with no counterfactual and no comparison \
-group that went without a loan, so the narrative describes what clients report, never what \
-caused it. Do not assert that one thing produced, drove, or explains another, and do not use \
-confirms, drives, translating into, shifts, proves, causes, mechanism behind, payoff, evidence \
-of, demonstrates, or leads to. Differences between segments, between loan cycles, and between \
-first-time and repeat borrowers are observational associations, never effects, levers, or \
-payoffs, because none of these groups was randomised and they differ from one another in many \
-other ways as well. Most subsections are complete once you've stated the finding -- end there. \
-A forward-looking sentence is not required, and should be the exception, not the default: add \
-one only when the data itself raises a genuine next step or open question worth naming, never \
-as a reflex closer tacked onto a block that's already said everything it needs to. A real \
-mistake a reviewer flagged: a rewrite meant to fix one over-used closing phrase produced three \
-sanctioned alternatives instead of one, and the model then used a forward-looking sentence in \
-nearly every block anyway, just spreading the habit across more phrasings rather than dropping \
-it where it wasn't earned. If you do add one, it must not promise a result, and use one of \
-these three shapes, picking whichever fits the point best rather than falling back on the same \
-one out of habit: (1) "could be explored as actions to support these outcomes"; (2) "may be a \
-priority area to investigate"; (3) "is worth watching" (alongside a related figure, when one \
-exists). Never "should raise", "will improve", "carries the most leverage", or "would remove". A \
-free-text quote gives a reason a client reported, not a verified mechanism, so call it a \
-frequently reported reason or pathway. Real mistakes reviewers flagged on an earlier draft: \
-"confirming that credit access is translating into tangible household gains", which asserts a \
-causal chain from a cross-sectional self-report; "pointing to bundled services as a lever \
-worth expanding", which reads a subgroup difference as a treatment effect; and "the concrete \
-mechanism behind these gains", which promotes reported reasons to a verified mechanism.
-
 Do not assert that two figures move together, mirror each other, or reflect one another unless \
 an association between them has actually been computed and is shown in the same subsection you \
 are writing. Reporting two figures in adjacent sentences is fine and often the right thing to \
@@ -165,15 +214,7 @@ figures are lower, 45.8% for business income..., both above the MFI Index benchm
 -- 45.8% is genuinely lower than the 91.5% overall figure and genuinely above the 23.0% \
 benchmark, but naming only one comparison as "lower" right before naming the other as "above" \
 reads as self-contradictory. State the comparable figure as its own value first, then compare \
-it to the benchmark alone. The MFI \
-Index comparison is descriptive only, because the two datasets differ in sample composition, \
-timing, geography, questionnaire wording, and survey context, so never reach for a competitive \
-verb: not outpaces, beats, outperforms, ahead of, or wins. Write "is higher than" or "is \
-lower than" instead. A real mistake a reviewer flagged on an earlier draft: "Our Net Promoter \
-Score of 69 outpaces the MFI Index's 58". Do not write your own caveat about the comparison, such \
-as "read with caution given differences in sample and context" -- the report prints one fixed \
-caveat sentence wherever an MFI Index figure appears, so a caveat of yours only repeats it in \
-different words.
+it to the benchmark alone.
 
 Some runs have no "MFI Index benchmark" line at all for a metric, or for any metric -- the \
 external benchmark data was not available this run. In that case a "figure on a stricter box \
@@ -183,45 +224,26 @@ of it. State it as our own number on that stricter definition, standing on its o
 "lower than" a benchmark, never call it "comparable" to anything, and never imply an external \
 figure exists somewhere else in the report when the data does not give you one."""
 
-# CC-035: the terms SYSTEM_PROMPT's CC-001 and CC-003 paragraphs above ban the WRITER from
-# using. Kept here as an explicit, hand-maintained list -- not derived from the prose above --
-# so it is the one place a maintainer edits when a banned-word sentence in SYSTEM_PROMPT
-# changes. Two deliberate departures from SYSTEM_PROMPT's literal wording, both because a
-# literal match would have missed a real, already-shipped violation (CC-030):
-#   - "leads to" also matches "leading to" / "lead to" (regex, not a literal string) -- the 4.1
-#     prompt used "leading to" as a worked example, which is the same banned construction.
-#   - "leverage" is banned standalone, not only in the exact phrase "carries the most leverage"
-#     -- the 8.2 prompt said "the fix with the most leverage", which contains the word but not
-#     that exact phrase.
-CC001_BANNED_TERMS = (
-    "confirms", "drives", "translating into", "shifts", "proves", "causes",
-    "mechanism behind", "payoff", "evidence of", "demonstrates",
-    "leads to", "leading to", "lead to",
-    "should raise", "will improve", "would remove", "leverage",
-)
-CC003_BANNED_TERMS = ("outpaces", "beats", "outperforms", "ahead of", "wins")
-
-
-def _banned_terms_in(text: str, terms: tuple) -> list:
-    lowered = text.lower()
-    return [term for term in terms if re.search(r"\b" + re.escape(term) + r"\b", lowered)]
-
-
 def validate_subsection_prompts(module=_section_prompts_module) -> None:
     """CC-035: fails loudly, at import time, if any SubsectionPrompt's title or instructions
-    tells the writer to do something SYSTEM_PROMPT's own CC-001/CC-003 paragraphs forbid it
-    from doing. CC-030 found five of these by hand (1.2 "competitive moat", 7.1 "the link to
-    resilience below", 8.2's title plus "the most leverage", 4.1's "leading to" example, 7.4's
-    "resilience dividend") -- introduced because SYSTEM_PROMPT's rules were extended over time
-    without re-checking the subsection prompts already written against them. This is the check
-    that would have caught all five before a single report was generated with them in.
+    tells the writer to do something SYSTEM_PROMPT's R1-R8 rules forbid it from doing. CC-030
+    found five of these by hand (1.2 "competitive moat", 7.1 "the link to resilience below",
+    8.2's title plus "the most leverage", 4.1's "leading to" example, 7.4's "resilience
+    dividend"), and Test5's review round found more the old word lists missed (2.2 "shows
+    stronger targeting of the poor", 7.4 "Read it as realized preparedness", 8.2 "promoter
+    drivers").
+
+    CC-083: checks against causal_lint's hard tier -- the same list CC-086 enforces on the
+    writer's output -- instead of the separate CC001/CC003 lists this file used to keep. The
+    lint skips quoted text and negated mentions, so a prompt can still quote a banned example
+    or say "on its own it does not establish misselling".
     """
     violations = []
     for name in dir(module):
         value = getattr(module, name)
         if not isinstance(value, SubsectionPrompt):
             continue
-        hits = _banned_terms_in(f"{value.title} {value.instructions}", CC001_BANNED_TERMS + CC003_BANNED_TERMS)
+        hits = [h.term for h in lint_text(f"{value.title}. {value.instructions}", include_review=False)]
         if hits:
             violations.append(f"  {value.subsection_id} ({name}): {', '.join(sorted(set(hits)))}")
     if violations:

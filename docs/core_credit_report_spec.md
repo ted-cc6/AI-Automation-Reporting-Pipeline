@@ -3883,3 +3883,114 @@ Tests:
 - the 3.3 heading.
 
 Suite: 422 passed.
+
+---
+
+## CC-076 to CC-083: implemented; CC-070: Part 2 regenerated
+
+**Why the CC-001 to CC-004 rules half-worked.**
+- They held for every sentence they quoted. In local-cc066, 18 of Henry's 21
+  sentences are gone.
+- The new shapes came mostly from the section prompts themselves:
+  - 2.2: "which shows stronger targeting of the poor"
+  - Part 2 insight: "what that means for targeting"
+  - 7.4: "Read it as realized preparedness"
+  - 8.2: "Rank the top promoter drivers", plus the payload label "Promoter drivers"
+  - Part 8 insight: "the top driver on each side ... the most impactful priority"
+  - Executive Summary: "the strongest impact story"
+  - Gender: "the clearest action"
+  - 5.5: "over-indebtedness flag"
+
+  `validate_subsection_prompts` could not catch them, because its word lists
+  did not contain those words.
+- Three areas had no rule at all: perceptions stated as facts, poverty reach,
+  and reported reasons.
+- The benchmark rule banned competitive verbs but not intensity words.
+
+**SYSTEM_PROMPT.** A numbered "What this data can and cannot support" block (R1
+to R8) now sits directly after the style paragraph. Each rule carries a banned
+example and Henry's replacement as an "Instead of ... write ..." pair.
+- It replaces the old CC-001 paragraph and the benchmark-verb sentences.
+- The CC-061 closer guidance moved into R8 unchanged.
+- The CC-002 (linking) and CC-004 (subgroup base) paragraphs are unchanged.
+- R9 (CC-084) is not added.
+
+**Section prompts.**
+- 2.1 describes the profile only; reach belongs in 2.2.
+- 2.2 says "consistent with relatively pro-poor client reach (never call it
+  targeting)".
+- The Part 2 insight drops "targeting".
+- 5.5 drops "over-indebtedness". This is the spec owner's default choice: cutting
+  food to repay is a common over-indebtedness indicator, but R5 bans the word.
+- 7.4 reads "what these clients said about VisionFund's role, not as measured
+  resilience or preparedness".
+- 8.2 says "most common reasons promoters gave / detractors gave ... not
+  measured drivers".
+- The Part 8 insight says "most commonly cited reason on each side ... one area
+  that may be a priority to investigate".
+- The Executive Summary leads with the highest and lowest themes, and explains
+  that a low Financial Access score is client reports, not a gap in access to
+  lenders.
+- Gender: "note which gaps are statistically significant".
+- In `build_client_satisfaction.py`, the payload labels now read "Reasons
+  promoters gave" and "Reasons detractors gave".
+
+**One banned-terms list.**
+- `chain.py`'s `CC001_BANNED_TERMS` / `CC003_BANNED_TERMS` are gone.
+- `validate_subsection_prompts` runs `causal_lint.lint_text` (hard tier), which
+  skips quoted and negated mentions.
+- `HARD_TERMS` absorbed every old term, plus: beats, wins, "ahead of the MFI
+  Index" / "ahead of the benchmark", shifts, proves, causes, demonstrates, leads
+  to / leading to / lead to, will improve, should keep prioritizing, targeting
+  (of) the poor, shaping / shapes / shaped.
+- Plain "ahead of" is review-tier, because "ahead of schooling" (cc066 4.1) is
+  fine.
+
+The validator immediately caught 4 then-current prompts (8.2 "drivers", the
+Part 8 insight "driver", the Part 2 insight "genuinely", 5.5
+"over-indebtedness").
+
+**Regeneration (LLM calls).**
+- Part 2 driver, run twice, 3 calls each.
+- 7.4, 8.2 and the Part 8 insight: 3 calls, from local-cc066's saved facts via a
+  scratch script, with no re-tagging.
+
+The first Part 2 run exposed two defects:
+- R6 had become a stock phrase: "lower than their national rate, consistent
+  with relatively pro-poor client reach" says the opposite of the comparison.
+  2.1 also attached it to absolute poverty shares.
+- One garbled insight sentence.
+
+R6 now says only a rate above the national one supports the reach reading, and
+2.1 and the Part 2 insight no longer ask for a reach interpretation.
+
+Second run (`driver/output/poverty_likelihood_20261023T183843Z.json`):
+- 2.2 names Honduras, Senegal and Vietnam as higher than national, "consistent
+  with relatively pro-poor client reach", and the other eleven, including Kenya,
+  Malawi and Zambia, as lower than national.
+- No stale Kenya (35.0%, "90 of 271") or Zambia (0.4%, "32 of 281") figure
+  remains, and the coverage note carries only Myanmar.
+- 0 ungrounded percentages; lint 0 hard and 0 review hits.
+
+That meets the CC-070 acceptance criteria.
+
+The 7.4, 8.2 and Part 8 insight regenerations fixed their target sentences:
+- "not a separate measure of household resilience or preparedness"
+- "most frequently reported reasons"
+- no "carries as much weight"
+
+But the Part 8 insight produced a new causal verb: "staff conduct and pricing
+sit on both sides of the ledger, shaping whether clients lean toward
+recommending". "Shaping" is now in R2 and the hard tier, and is a CC-086 test
+case.
+
+This is the pattern this round keeps showing: the model finds a synonym for
+each banned frame. That is why output enforcement (CC-086) is necessary and the
+word list alone is not sufficient.
+
+Tests: one test per old-list term confirms nothing dropped, plus:
+- the validator catching each prompt phrase behind this round's violations;
+- quoted or negated examples passing;
+- SYSTEM_PROMPT R1 to R8 each carrying "Instead of", and no R9.
+
+Suite: 428 passed.
