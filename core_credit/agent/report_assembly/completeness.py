@@ -19,6 +19,7 @@ from typing import get_args
 from pydantic import BaseModel
 
 from schemas.common import WrittenText
+from writer.causal_lint import lint_text
 
 
 def _is_written_text_field(annotation) -> bool:
@@ -68,6 +69,7 @@ def completeness_report(report) -> list[str]:
         if value.misattributed_quotes:
             issues.append(f"{path}: real quote(s) with a wrong profile attribution {value.misattributed_quotes}")
     issues.extend(find_dangling_attributions(report))  # CC-058: soft, see its own docstring
+    issues.extend(find_causal_language(report, tier="review"))  # CC-086: soft, never fails a run
     return issues
 
 
@@ -289,4 +291,47 @@ def raise_on_missing_caregiver_scope(report) -> None:
         raise MissingCaregiverScopeError(
             f"{len(issues)} Child Wellbeing reference(s) in the executive summary missing "
             f"their caregiver scope:\n" + "\n".join(issues)
+        )
+
+
+# CC-086 (HO16-HO57): the causal-language lint (writer/causal_lint.py, CC-085) as a gate. The
+# writer already gets one corrective rewrite naming any hard-tier phrase (chain._writer_violations);
+# a hard-tier phrase still present in the assembled report means that rewrite failed, so the
+# build stops here rather than shipping it. The review tier (signaling, pointing to, reflects...)
+# is interpretive wording that is often fine -- it goes into completeness_report for a human to
+# read and never stops a build.
+class CausalLanguageError(Exception):
+    """Raised when assembled narrative still carries hard-tier causal or overclaiming wording --
+    see find_causal_language.
+    """
+
+
+def find_causal_language(report, tier: str = "hard") -> list[str]:
+    """One line per `tier` hit ("hard" or "review") across every WrittenText in the report, with
+    the field path, subsection id, the phrase, and its sentence. Quoted client words are never
+    counted. Empty list means none.
+    """
+    issues = []
+    for path, value in _walk(report):
+        if value is None:
+            continue
+        for hit in lint_text(value.text, include_review=(tier == "review")):
+            if hit.tier != tier:
+                continue
+            label = "causal wording" if tier == "hard" else "review wording"
+            issues.append(f"{path} ({value.subsection_id}): {label} [{hit.term}] -- {hit.sentence!r}")
+    return issues
+
+
+def raise_on_causal_language(report) -> None:
+    """Hard gate: raises CausalLanguageError if any hard-tier phrase survived the writer's
+    rewrite. Meant to be called alongside raise_on_meta_text_leaks and the other gates.
+    """
+    issues = find_causal_language(report, tier="hard")
+    if issues:
+        raise CausalLanguageError(
+            f"{len(issues)} causal or overclaiming phrase(s) survived the writer's rewrite "
+            f"(rules R1-R8 in writer/chain.py SYSTEM_PROMPT; phrase list in writer/causal_lint.py). "
+            f"Regenerate the affected subsection(s), or if a hit is a reviewed false positive, "
+            f"allowlist its context in causal_lint.ALLOWED_CONTEXTS:\n" + "\n".join(issues)
         )

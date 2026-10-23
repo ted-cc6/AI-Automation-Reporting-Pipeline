@@ -110,6 +110,7 @@ def test_quoted_client_words_are_ignored():
 
 def test_mismatch_triggers_the_writer_rewrite():
     violations = _writer_violations(TEST5_6_2, word_cap=200, pool=[], data_summary=PAYLOAD_6_2)
-    assert len(violations) == 1
-    assert "restate the base" in violations[0]
+    # The same paragraph also trips CC-086's causal check ("a sign this", "genuinely shifting").
+    population = [v for v in violations if "restate the base" in v]
+    assert len(population) == 1
     assert _writer_violations(CC066_6_2, word_cap=200, pool=[], data_summary=PAYLOAD_6_2) == []

@@ -34,6 +34,7 @@ load_dotenv(PROJECT_ROOT / ".env")
 from report_assembly.build_report import build_report  # noqa: E402
 from report_assembly.completeness import (  # noqa: E402
     completeness_report,
+    raise_on_causal_language,
     raise_on_meta_text_leaks,
     raise_on_missing_caregiver_scope,
     raise_on_unknown_theme_references,
@@ -60,6 +61,7 @@ def main() -> None:
     raise_on_meta_text_leaks(report)  # raises MetaTextLeakError and stops the build if it finds one
     raise_on_unknown_theme_references(report)  # stops the build on a fabricated theme name
     raise_on_missing_caregiver_scope(report)  # stops the build if Child Wellbeing has no caregiver scope
+    raise_on_causal_language(report)  # stops the build on causal/overclaiming wording (CC-086)
 
     issues = completeness_report(report)
     if issues:

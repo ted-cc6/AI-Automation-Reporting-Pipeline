@@ -355,6 +355,19 @@ def _writer_violations(text: str, word_cap: int, pool: list[Verbatim], data_summ
     if orphans:
         violations.append(f"literal citation marker(s) that must be removed: {orphans}")
 
+    # CC-086: hard-tier causal or overclaiming wording (causal_lint.py, rules R1-R8). Named
+    # phrase by phrase so the rewrite fixes exactly these; assembly's raise_on_causal_language
+    # fails the run if one survives.
+    causal = lint_text(text, include_review=False)
+    if causal:
+        listed = " | ".join(f'"{h.term}" in: {h.sentence}' for h in causal)
+        violations.append(
+            f"causal or overclaiming wording that rules R1-R8 ban -- rewrite each flagged sentence "
+            f"with the rule's approved wording (for example 'is higher than', 'clients report', "
+            f"'commonly cited reasons', 'may be a priority area to investigate'), keeping every "
+            f"figure: {listed}"
+        )
+
     # CC-072: figures for all clients (or another split) narrated as describing women or men.
     for mismatch in check_population_mismatch(text, data_summary):
         violations.append(

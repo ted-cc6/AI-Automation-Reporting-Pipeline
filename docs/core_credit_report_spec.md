@@ -3994,3 +3994,44 @@ Tests: one test per old-list term confirms nothing dropped, plus:
 - SYSTEM_PROMPT R1 to R8 each carrying "Instead of", and no R9.
 
 Suite: 428 passed.
+
+---
+
+## CC-086: implemented, lint enforcing
+
+**Writer side (`chain._writer_violations`).** Every hard-tier `lint_text` hit is
+listed phrase by phrase, each with its sentence, as one violation. That feeds
+the existing single corrective rewrite: it is not a loop, the same bounded-retry
+design as CC-044/CC-072. The violation text points the writer at the rules'
+approved wordings and tells it to keep every figure.
+
+**Assembly side (`completeness.py`).**
+- `find_causal_language(report, tier)` and `raise_on_causal_language(report)`
+  raise `CausalLanguageError` when a hard-tier phrase survived the rewrite.
+- The error message says to regenerate the subsection, or, for a reviewed false
+  positive, to allowlist its context in `causal_lint.ALLOWED_CONTEXTS`.
+- It is wired next to the other hard gates in `orchestrator/assembly_node.py` and
+  `report_render/build_docx.py`, so a run stops before translation and render.
+- The review tier is appended to `completeness_report` as "review wording [term]"
+  lines, as a soft check like CC-058's dangling attributions. It reaches
+  `done_node`'s printout and `run_for_dashboard`'s `completeness_issues`, and
+  never stops a run.
+
+**Gate run against the real saved reports:**
+- Test5 fails on 41 hard phrases: the CC-085 baseline of 40 plus "should keep
+  prioritizing", added in CC-083. It also has 20 review lines.
+- local-cc066 fails on its 3 real hard phrases (2.2 "poverty targeting", 6.1 "far
+  above the MFI Index", 7.4 "can be read as"). It also has 17 review lines.
+
+So no report produced before this round would pass. That is intended: those
+three cc066 sentences are the ones the Step 6 prompt fixes target.
+
+Tests:
+- the three cc066 hits fail the gate, by subsection;
+- approved wording passes, quoted client words included;
+- the review tier lands in `completeness_report` without raising;
+- the Step 6 "shaping" sentence triggers the writer rewrite, naming the phrase;
+- review-tier words and quotes do not trigger it.
+
+The CC-072 HO52 test now allows the causal violation that the same paragraph
+also triggers. Suite: 433 passed.
