@@ -3599,3 +3599,109 @@ unscored clients trace to scorecard label typos (see CC-068). The rescore that
 produced the split kept the colliding key last-write-wins, which still could not
 match the survey's correct `I` (Kenya) and `D` (Zambia) codes, so those clients
 were counted as incomplete.
+
+---
+
+## CC-085 baseline: lint built, Test5 and local-cc066 scanned, HO status against local-cc066
+
+**Built.** `analysis/writer/causal_lint.py` (`lint_text`, the term lists) and
+`report_assembly/causal_lint.py` (`lint_report`, CLI). The text-level half lives
+under `writer/` so CC-086 can call it from `chain.py` without `analysis/`
+importing `report_assembly`. The report walker reads the saved JSON as plain
+dicts, so it can scan Test5, whose JSON predates later schema changes.
+
+- Hard tier: the handoff's list plus the R1 to R8 additions, each traced to a
+  real Test5 or local-cc066 string in a comment.
+- Review tier (never enforced): far above, signaling, pointing to, points to,
+  reflects, reflecting, targeting, landscape, weight, scarce, scarcity,
+  locked-in, should.
+- Quoted client words are skipped.
+- Allowlisted contexts: complaints, coping, grievance, reporting and feedback
+  "mechanism".
+- A hit preceded within six words by a negation is skipped, except "as expected"
+  (HO27's sentence is itself negated).
+- Plain "far above" is review-only, because Test5 7.3 uses it for a harmless
+  country comparison. Against the benchmark ("far above the MFI Index", "far
+  above the benchmark") it is hard.
+- The sentence splitter does not break after "vs.".
+
+Run: `python -m report_assembly.causal_lint <report json> [--hard-only]` from
+`core_credit/agent/`.
+
+**Baseline.**
+
+| Run | Hard | Review | Hard-tier false positives |
+|---|---|---|---|
+| Test5 | 40 | 17 | 0 |
+| local-cc066 | 3 | 16 | 0 |
+
+The three local-cc066 hard hits are all real:
+- "Stronger-than-national poverty targeting appears" (2.2, R6)
+- "far above the MFI Index benchmark of 32.0%" (6.1, R1)
+- "This can be read as realized preparedness" (7.4, R2)
+
+The review tier in local-cc066 surfaces the remaining new-shape problems:
+- "an easier alternative-lender landscape" (gender analysis, R5)
+- "staff conduct carries roughly as much weight" (Part 8 insight, R7)
+- "pointing to gaps in access to alternative lenders" (executive summary, R5)
+- "its lead reflects a clean conduct record" (Part 5 insight, R2)
+
+The rest are acceptable on reading, e.g. "should be read cautiously" and "a
+measured scarcity of lenders" negated.
+
+**Henry's comments against local-cc066** (current code, not yet changed by this round):
+
+| HO | Where | Status in local-cc066 |
+|---|---|---|
+| 16 | Exec summary | Fixed: "69, which is higher than the MFI Index benchmark of 58.0" |
+| 17 | 1.2 | Fixed: "suggesting limited perceived alternatives ... rather than a measured scarcity of lenders" |
+| 18 | 1.2 | Fixed: stewardship and scarcity sentence gone |
+| 24 | 2.2 | **Still present, new wording**: "Stronger-than-national poverty targeting appears in ..." (R6) |
+| 26 | Part 2 insight | **Partly**: "For targeting, ... pointing to client bases skewed toward greater need" (R6) |
+| 27 | 3.1 | Fixed: "Across loan cycles the pattern is uneven" |
+| 28 | 3.2 | Fixed by CC-002: quality of life reported alone, no link to income. R9 (CC-084) still awaits Henry |
+| 30 | 3.3 heading | **Still present**: template heading, CC-073 waits on T1 |
+| 31 | Part 3 insight | Fixed |
+| 32 | Part 3 insight | Fixed: no bundled-services claim |
+| 33 | Part 3 insight | Fixed: "one of several reported pathways behind these numbers" |
+| 34 | Part 3 insight | Fixed: "may be a priority area to investigate" |
+| 35 | 4.1 | Fixed: "the item most commonly reported alongside overall improvement" |
+| 41 | Part 4 insight | Fixed: gaps explicitly called associations after standardisation |
+| 42 | 5.2 | Fixed: "gaps worth reviewing for client understanding and protection risks" |
+| 51 | 6.2 | Fixed: "women reporting this slightly more often at 84.2% compared with 82.2% of men" |
+| 52 | 6.2 | Fixed by CC-004 in this run (all-client figures moved to the Part 6 insight with bases restated), but nothing checks it: CC-071/CC-072 still needed |
+| 53 | 6.2 | Fixed: no "build steadily" claim |
+| 54 | 8.2 | Fixed in 8.2 ("tops the list"). **New shape** in the Part 8 insight: "staff conduct carries roughly as much weight in dissatisfaction as pricing does" (R7) |
+| 55 | 8.2 | Fixed: Part 8 insight uses "could be explored as a priority area to investigate" |
+| 57 | Gender insight | Fixed: descriptive only. **New shape** in the gender analysis: "face an easier alternative-lender landscape" (R5) |
+
+**The nine unflagged Test5 sentences against local-cc066:**
+
+| # | Pattern | Status |
+|---|---|---|
+| 1 | Exec summary "leads the story", "also outperform" | Fixed |
+| 2 | 7.4 "a genuine resilience dividend" | **New shape**: "This can be read as realized preparedness" (R2) |
+| 3 | 7.1 "reinforcing the resilience gains discussed below" | Fixed |
+| 4 | Agency insight "lifts household influence to 89.2%" | Fixed: "report higher household influence, 89.2% ... a pattern worth watching" |
+| 5 | Agency insight "women are converting loan capital" | Fixed |
+| 6 | Child insight "Caregivers overwhelmingly link their loans" | Fixed |
+| 7 | 4.2 "caregivers reach buffer-need households well" | Fixed: now stated as unsupported |
+| 8 | Satisfaction insight "driven mostly by", "would remove the single largest driver" | Fixed; see HO54 for the new shape |
+| 9 | Gender insight "Women consistently outperform men" | Fixed |
+
+**Additional residuals in local-cc066 that no reviewer flagged:**
+- 6.1 "far above the MFI Index benchmark" (R1).
+- Exec summary "pointing to gaps in access to alternative lenders": the
+  Financial Access score is first-time access plus perceived difficulty
+  finding a lender, so this states a perception as a market fact (R5).
+- Part 5 insight "suggesting the basic protection infrastructure is
+  functioning" and "its lead reflects a clean conduct record" (R2/R5).
+
+**What this means for the rest of the round:**
+- Most of Henry's comments are already closed in the current code.
+- The work that remains targets the shapes no word list or rule caught: R5
+  (perception as fact), R6 (targeting), R7 (reported reasons weighed as
+  drivers) and benchmark intensity.
+- It also needs a guard on HO52, which is fixed but unchecked.
+- Henry may want to see local-cc066-era text before Test6, since he reviewed
+  a draft that predates CC-001 to CC-004.
