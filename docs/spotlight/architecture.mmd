@@ -1,0 +1,23 @@
+%%{init: {'themeVariables': {'fontFamily': 'Segoe UI, Helvetica, Arial, sans-serif'}}}%%
+flowchart LR
+    classDef startNode fill:#FFFFFF,stroke:#F3661F,stroke-width:4px,color:#2B2B2B,font-weight:bold,font-size:26px
+    classDef endNode fill:#F3661F,stroke:#F3661F,stroke-width:4px,color:#FFFFFF,font-weight:bold,font-size:26px
+    classDef team fill:#FFF3EA,stroke:#F3661F,stroke-width:2.5px,color:#2B2B2B,font-size:22px
+    classDef footnote fill:#FFFFFF,stroke:#BBBBBB,stroke-width:1px,color:#6B6B6B,font-size:15px,stroke-dasharray: 4 3
+
+    IN(["Survey Responses<br/>raw field data"]):::startNode
+    ANALYST["The Data Analyst<br/>cleans data, crunches the numbers"]:::team
+    RESEARCHER["The Researcher<br/>tags themes &amp; sentiment in every comment"]:::team
+    WRITER["The Writer<br/>drafts each section in VisionFund's voice"]:::team
+    EDITOR["The Editor<br/>fact-checks every line against the data"]:::team
+    OUT(["Finished Impact Report"]):::endNode
+
+    IN --> ANALYST
+    IN --> RESEARCHER
+    ANALYST --> WRITER
+    RESEARCHER --> WRITER
+    WRITER --> EDITOR
+    EDITOR -. sends back for fixes .-> WRITER
+    EDITOR -- cleared --> OUT
+
+    FOOT["Stack: Python/pandas analysis &bull; Gemini 2.5 Pro tagging + drafting &bull; python-docx assembly"]:::footnote
