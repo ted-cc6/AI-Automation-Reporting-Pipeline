@@ -241,14 +241,14 @@ def render_poverty_likelihood(doc, section) -> None:
     if section.na_footnote:
         # CC-016: the PPI coverage caveat used to render in small italics at the very end of
         # Part 2, well past the 2.1 figures it qualifies (Kenya on 90 of 271 clients, Zambia on
-        # 32 of 281). It now sits directly under 2.1, at body size. na_footnote carries its own
+        # 32 of 281 before CC-068 fixed their scoring). It now sits directly under 2.1, at body size. na_footnote carries its own
         # neutral "PPI scoring coverage by country this wave" opening; this line only adds the
         # data-quality framing (CC-013: genuine scorecard outcomes, not estimates or omissions)
         # and ties it to the figures above.
         h.add_body_paragraph(
             doc,
-            "These are genuine scorecard outcomes, not estimates or omissions -- incomplete PPI "
-            "answers, a guide or survey-version gap, or a country where PPI was not collected. "
+            "These are genuine scorecard outcomes, not estimates or omissions -- an unanswered PPI "
+            "question, a guide or survey-version gap, or a country where PPI was not collected. "
             "Read the 2.1 figures alongside them.",
             italic=True,
         )

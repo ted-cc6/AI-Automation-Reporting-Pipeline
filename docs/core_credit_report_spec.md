@@ -3705,3 +3705,73 @@ measured scarcity of lenders" negated.
 - It also needs a guard on HO52, which is fixed but unchecked.
 - Henry may want to see local-cc066-era text before Test6, since he reviewed
   a draft that predates CC-001 to CC-004.
+
+---
+
+## CC-068 and CC-069: implemented
+
+**CC-068, `ppi_module/scoring.py`.**
+- A new pure function `index_options` builds the (question, answer letter) ->
+  points index. For positions 1 to 26 with a single-letter label, the key is the
+  position letter (`_option_key`). Past 26, the label prefix stays.
+- Every overridden label is returned as a `LabelOrderMismatch` and raised once
+  per guide as a `ScorecardLabelWarning`, so the workbook still gets corrected
+  upstream. `find_label_order_mismatches` lists them.
+- A key two options still share with different points is still dropped, kept as
+  a safety net. `find_ambiguous_options` is now empty for every guide.
+- `_scorecard_index_and_ambiguous` was removed.
+
+The real workbook has exactly three mislabels on scored guides:
+- KEN2021 v2 Q3 option 9: G -> I
+- ZMB2017 v2 Q2 option 4: C -> D
+- ZMB2017 v2 Q4 option 2: C -> B
+
+Still to send to Lorenz:
+- The same correction applies to IND2023 v2 Q2 (India is excluded by policy).
+- 33 Mexico clients answer Q1 with codes (`AC`, `AD`) that the Mexico
+  scorecard lacks. Latent, because Mexico's scorecard has no poverty-line
+  columns.
+
+**CC-069.**
+- `pipeline.py::score_country` now computes one reason per unscored client on
+  the best-covered line (`unscored_reason`). The reasons are: question left
+  unanswered, answer not on the scorecard, option shared by two scorecard
+  options, or score missing from the lookup.
+- The partial-status sentence is built from those counts.
+- `CountryPovertyResult.n_unscored_label_conflict` / `n_unscored_incomplete`
+  are replaced by `unscored_reasons`. Old JSON with the removed fields still
+  loads, because pydantic ignores extra keys.
+- `country_policy._footnote_entry` states the status reason as-is. The CC-025
+  rewrite and its regex are gone.
+- The 2.1 render caption says "an unanswered PPI question" instead of
+  "incomplete PPI answers".
+
+Tests: synthetic two-options-one-label, wrong-letter-without-collision,
+double-letter and true-collision cases; the real three mislabels each scoring
+with their own option's points; Kenya and Zambia fully scored with no reason;
+Myanmar's reason; and `unscored_reason`'s four branches. Suite: 408 passed.
+
+**Before / after, local-cc066 data, deterministic facts only (no LLM):**
+
+| | Before | After |
+|---|---|---|
+| Kenya scored | 90 / 271 | 271 / 271 |
+| Zambia scored | 32 / 281 | 281 / 281 |
+| Portfolio, $1.90 and $3.20 lines | 3,209 / 3,642 (88%) | 3,639 / 3,642 |
+| Portfolio, $2.15 line | 1,836 / 2,266 (81%) | 2,266 / 2,266 |
+| Portfolio share below $1.90 / $2.15 / $3.20 | 12.4% / 12.4% / 29.8% | 12.3% / 12.2% / 30.3% |
+| Kenya vs national (33.6%) | 35.0%, poorer than national | 19.6%, less poor than national |
+| Zambia vs national (52.9%) | 0.4% | 9.7% |
+| Countries poorer than national | HND, SEN, VNM, KEN | HND, SEN, VNM |
+
+The 2.1 coverage note no longer names Kenya or Zambia. Myanmar now reads
+"3 of 272 clients could not be scored: 3 left PPI question 1 unanswered."
+(Before, it said "incomplete PPI answers".)
+
+The dropped clients were not random. Kenya's 130 had concrete or cement floors.
+So the old Kenya and Zambia figures came from skewed subsets, not just small
+ones.
+
+CC-070, regenerating the Part 2 narrative, is deferred until after the R1 to R8
+prompt changes (Step 6). Regenerating it now would reproduce the "targeting"
+wording in 2.2.

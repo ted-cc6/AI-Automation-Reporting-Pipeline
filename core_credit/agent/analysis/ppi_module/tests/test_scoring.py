@@ -1,5 +1,17 @@
-from ppi_module.reference_data import load_scorecard, load_lookup
-from ppi_module.scoring import build_scorecard_index, find_ambiguous_options, score_client, score_to_likelihood
+import warnings
+
+import pytest
+
+from ppi_module.reference_data import ScorecardOption, load_lookup, load_scorecard
+from ppi_module.scoring import (
+    ScorecardLabelWarning,
+    build_scorecard_index,
+    find_ambiguous_options,
+    find_label_order_mismatches,
+    index_options,
+    score_client,
+    score_to_likelihood,
+)
 
 
 def _first_option_per_question(country: str, guide_id: str, survey_version: int, scorecard_path: str) -> dict:
@@ -95,22 +107,68 @@ def test_rwanda_district_30_scores_via_doubled_letter_not_padded_id(scorecard_pa
     assert result.score == round(expected_total)
 
 
-def test_kenya_q3_conflicting_option_labels_are_excluded_not_silently_merged(scorecard_path):
-    # Kenya's scorecard mislabels option_order 9 ("Concrete or cement or terrazo") with prefix
-    # "G", which option_order 7 ("Ceramic tiles", points=14) already uses; option_order 9's
-    # points (10) differ. Without a guard, whichever loads last would silently win.
-    ambiguous = find_ambiguous_options("KEN", "KEN2021", 2, scorecard_path)
-    assert (3, "G") in ambiguous
+def _opt(question, order, label, points):
+    from ppi_module.reference_data import parse_option_prefix
 
-    index = build_scorecard_index("KEN", "KEN2021", 2, scorecard_path)
-    assert (3, "G") not in index  # dropped entirely, not resolved to either option's points
+    return ScorecardOption(
+        guide_id="TEST", survey_version=1, question=question, option_order=order,
+        option_prefix=parse_option_prefix(label), option_label=label, points={"L": points},
+    )
 
 
-def test_zambia_q2_conflicting_option_labels_are_excluded(scorecard_path):
-    # Zambia's scorecard mislabels option_order 4 ("Six or more") with prefix "C", which
-    # option_order 3 ("Four or five") already uses, with different points.
-    ambiguous = find_ambiguous_options("ZMB", "ZMB2017", 2, scorecard_path)
-    assert (2, "C") in ambiguous
+def test_two_options_sharing_a_label_are_keyed_by_position_not_dropped():
+    # CC-068, the Kenya Q3 shape on synthetic options: the 9th option's label wrongly reuses
+    # the 7th option's letter. Each must keep its own points, under its own position letter.
+    options = [_opt(3, 7, "G. Ceramic tiles", 14), _opt(3, 8, "H. Carpet", 12), _opt(3, 9, "G. Concrete", 10)]
+    index, ambiguous, mismatches = index_options(options)
+    assert index[(3, "G")] == {"L": 14}
+    assert index[(3, "I")] == {"L": 10}
+    assert ambiguous == set()
+    assert [(m.question, m.option_order, m.label_prefix, m.keyed_as) for m in mismatches] == [(3, 9, "G", "I")]
+
+
+def test_wrong_letter_without_a_collision_is_also_corrected():
+    # The Zambia Q4 shape: "A. Yes" / "C. No" -- no duplicate, but the survey records B for "No".
+    index, _, mismatches = index_options([_opt(4, 1, "A. Yes", 0), _opt(4, 2, "C. No", 5)])
+    assert set(index) == {(4, "A"), (4, "B")}
+    assert len(mismatches) == 1
+
+
+def test_double_letter_positions_keep_their_label_prefix():
+    # Past 26 the guides' own conventions differ (Rwanda "bb)" at 28), so the label wins there.
+    index, _, mismatches = index_options([_opt(1, 28, "bb) Kirehe", 3), _opt(1, 29, "cc) Ngoma", 4)])
+    assert set(index) == {(1, "BB"), (1, "CC")}
+    assert mismatches == []
+
+
+def test_a_collision_the_position_cannot_explain_is_still_dropped():
+    # Safety net: two options at the SAME position with different points stay ambiguous.
+    index, ambiguous, _ = index_options([_opt(2, 1, "A. One", 1), _opt(2, 1, "A. Uno", 2)])
+    assert (2, "A") in ambiguous
+
+
+def test_real_workbook_mislabels_are_exactly_the_known_three(scorecard_path):
+    ken = find_label_order_mismatches("KEN", "KEN2021", 2, scorecard_path)
+    zmb = find_label_order_mismatches("ZMB", "ZMB2017", 2, scorecard_path)
+    assert [(m.question, m.option_order, m.label_prefix, m.keyed_as) for m in ken] == [(3, 9, "G", "I")]
+    assert sorted((m.question, m.option_order, m.label_prefix, m.keyed_as) for m in zmb) == [(2, 4, "C", "D"), (4, 2, "C", "B")]
+    assert find_ambiguous_options("KEN", "KEN2021", 2, scorecard_path) == []
+    assert find_ambiguous_options("ZMB", "ZMB2017", 2, scorecard_path) == []
+
+
+@pytest.mark.parametrize(
+    "country, guide, question, letter, order",
+    [("KEN", "KEN2021", 3, "G", 7), ("KEN", "KEN2021", 3, "I", 9), ("ZMB", "ZMB2017", 2, "D", 4), ("ZMB", "ZMB2017", 4, "B", 2)],
+)
+def test_real_mislabeled_options_score_with_their_own_points(scorecard_path, country, guide, question, letter, order):
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", ScorecardLabelWarning)
+        index = build_scorecard_index(country, guide, 2, scorecard_path)
+    expected = next(
+        o for o in load_scorecard(country, scorecard_path)
+        if o.guide_id == guide and o.survey_version == 2 and o.question == question and o.option_order == order
+    )
+    assert index[(question, letter)] == expected.points
 
 
 def test_score_to_likelihood_resolves_duplicate_rows_by_most_recent_modification(scorecard_path, lookup_path):

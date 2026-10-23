@@ -33,17 +33,12 @@ class CountryPovertyResult(BaseModel):
     )
     n_scored: int = 0
     n_total: int = 0
-    n_unscored_label_conflict: int = Field(
-        default=0,
-        description="CC-025: of the unscored clients, how many are attributable ONLY to a "
-        "scorecard label typo (a fixable PPI_scorecards.xlsx defect). 0 unless the guide has a "
-        "conflicting-option-label question this wave (Kenya, Zambia).",
-    )
-    n_unscored_incomplete: int = Field(
-        default=0,
-        description="CC-025: of the unscored clients, how many failed on ordinary incomplete PPI "
-        "responses rather than the label typo. Together with n_unscored_label_conflict this sums "
-        "to n_total - n_scored. 0 unless the label-conflict split was computed.",
+    unscored_reasons: dict[str, int] = Field(
+        default_factory=dict,
+        description="CC-069: why each unscored client could not be scored, computed per client "
+        "on the best-covered line, e.g. {'left PPI question 1 unanswered': 3}. Sums to "
+        "n_total - n_scored. Replaces CC-025's label-conflict/incomplete split, which misreported "
+        "every unscored Kenya and Zambia client.",
     )
 
 
