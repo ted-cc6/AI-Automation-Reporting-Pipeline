@@ -3384,3 +3384,218 @@ still present, unchanged from CC-057's original disclosure -- neither is
 new, and neither was asked about this round.
 
 Full test suite: **348 passed.** Report: `Core_Credit_Impact_Report_local-cc066.docx`.
+
+---
+
+# Review round: Henry (HO16 to HO57) and Kenya/Zambia PPI coverage (LM19, LM23, LM25)
+
+Source: `core_credit/CC_Handoff_Henry_Feedback_and_PPI.md` and the reviewed
+`Core_Credit_Impact_Report_Test5_Feedback.pdf`. The handoff numbered this round
+CC-067 to CC-087, but CC-067 was already taken (local-cc066 completion), so every
+ID below is the handoff's number plus one. The handoff number is shown in
+brackets, e.g. CC-068 [h067], so the two documents can be cross-referenced.
+
+**Context recorded before any change.** Test5 is the baseline artifact for
+CC-001 to CC-004, so the causal-language rules those added did not exist when
+Test5 was generated. A scan of the generated narrative with the CC-085 phrase
+list finds 30 hits in Test5 and 3 in local-cc066, all three false positives
+("complaints mechanism", "coping mechanism", and a negated "not ... evidence
+of"). What survives in local-cc066 is a different shape: interpretive framings
+with no causal keyword, for example "Stronger-than-national poverty targeting"
+(2.2), "can be read as realized preparedness" (7.4), "an easier alternative-lender
+landscape" (gender analysis), "staff conduct carries roughly as much weight"
+(Part 8 insight), and "far above the MFI Index benchmark" (6.1). The causal rules
+have only ever been checked against prompts (`validate_subsection_prompts`),
+never against writer output, and the facts payload itself labels a
+poorer-than-national country as "(targeting the poor)" (`formatting.py`).
+
+---
+
+## CC-068 [h067] (open): PPI scoring must not drop clients because of scorecard label typos
+
+Source: LM19, LM23, LM25 and Henry's follow-up. Kenya scored 90 of 271 clients
+and Zambia 32 of 281, reported as "incomplete PPI answers". Reviewers confirm
+every client answered all ten questions.
+
+**Diagnosis (data and code inspection).** The survey export carries each
+answer's letter code in `PPIxx_resp_value` and ingest keeps it. Scoring joins
+that code to a key parsed from the scorecard's `OptionValues` label prefix
+(`reference_data.parse_option_prefix`). Three labels in `PPI_scorecards.xlsx`
+carry the wrong letter, all within one country's own guide, not a collision
+across MFIs:
+
+- KEN2021 v2, Q3: option 9 "G. Concreteor cement or terrazo" should be I. The
+  survey holds 51 x `G` (dropped as ambiguous) and 130 x `I` (no matching key).
+  51 + 130 = 181, every unscored Kenya client.
+- ZMB2017 v2, Q2: option 4 "C. Six or more" should be D (180 x `D`, 65 x `C`).
+- ZMB2017 v2, Q4: option 2 "C. No" should be B (43 x `B`). Not previously known.
+  Clients hit by any of the three Zambia defects: 249, every unscored Zambia client.
+- IND2023 v2, Q2: same defect, latent while India is policy-excluded.
+
+None of the unscored Kenya or Zambia clients had an incomplete answer.
+
+**Fix.** When a single-letter label prefix collides with another option or
+disagrees with the letter implied by `QuestionOptionOrder`, key that option on
+the order-derived letter (1 = A ... 26 = Z). Double-letter options above 26 keep
+the label prefix, since guides use different conventions there (RWA `BB`, MEX v2
+`AC`). Every disagreement is reported as a warning so the workbook is still
+corrected upstream.
+
+Acceptance: Kenya and Zambia coverage rises to near full; a unit test covers a
+question with two options sharing a label; the portfolio scored count (3,209 of
+3,642) is recomputed and the before/after is recorded here.
+
+---
+
+## CC-069 [h068] (open): "Not available this wave" note states only real reasons
+
+Kenya and Zambia must no longer be described as having "incomplete PPI answers"
+or conflicting labels once CC-068 lands. `pipeline.py::score_country` hard-codes
+"(incomplete PPI answers)" for any partial country, and the CC-025 split
+(`n_unscored_label_conflict` / `n_unscored_incomplete`) misclassified the
+typo-driven drops as incomplete, because its last-write-wins rescore could never
+match `I` or `D`. Replace both with per-client unscored reasons computed from the
+data, and have `country_policy.py::_footnote_entry` state only those.
+
+Acceptance: the note reflects real coverage and real reasons only.
+
+---
+
+## CC-070 [h069] (open): PPI narrative regression check
+
+After CC-068, Kenya's 35.0% and Zambia's 0.4% figures change. Regenerate 2.1,
+2.2 and the Poverty Likelihood insight from updated facts and recheck each
+country's position against its national rate.
+
+Acceptance: no stale Kenya or Zambia figure or coverage caveat remains anywhere
+in the report.
+
+---
+
+## CC-071 [h070] (open): population label on every figure in the facts payload
+
+Every figure passed to the writer carries an explicit population, for example
+"all clients, split by prior access" or "caregivers only". Also remove the
+interpretive "(targeting the poor)" label from `format_national_comparison`.
+
+Acceptance: the writer can always see who a figure describes.
+
+---
+
+## CC-072 [h071] (open): grounding check for population mismatch
+
+Flag a sentence whose subject is a gender-restricted population ("women") while
+the figures it cites describe a different population. Wired into
+`_writer_violations` so it triggers the existing single rewrite.
+
+Acceptance: the Test5 6.2 sentence (HO52, prior-access 81.1% vs 86.7% and
+caregiver 86.2% vs 69.9%, all-client figures attributed to women) is flagged.
+
+---
+
+## CC-073 [h072] (open, conditional on T1): rename heading 3.3
+
+To "What clients reported as reasons for the improvement". Waits on confirming
+whether the questionnaire asked clients what caused the improvement (HO30).
+
+---
+
+## CC-074 [h073] (verified, no change needed): heading 8.2
+
+Already reads "Reasons clients gave for recommending or not recommending" in
+both `section_layout.py` and the 8.2 `SubsectionPrompt` title (CC-030). Test5
+predates that change.
+
+---
+
+## CC-075 [h074] (open): fixed benchmark caveat
+
+Wherever a benchmark comparison appears, the template inserts one fixed sentence
+stating that the comparison is descriptive and the datasets differ in sample
+composition, timing, geography, questionnaire wording and survey context. The
+writer is told not to compose its own caveat.
+
+Acceptance: the caveat wording is identical everywhere and never LLM generated.
+
+---
+
+## CC-076 to CC-083 [h075 to h082] (open): writer rules R1 to R8
+
+Extend the existing SYSTEM_PROMPT causal paragraphs (CC-001 to CC-003) into
+numbered rules, each with a banned example and an approved replacement taken
+from Henry's wording, and extend `CC001_BANNED_TERMS` in step.
+
+- **CC-076 R1** benchmark comparisons are descriptive: no "outpaces",
+  "outperforms", "well ahead", "comfortably ahead", "far above", "leads the
+  story". Use "is higher than" / "is lower than". (HO16)
+- **CC-077 R2** no causal claims from outcome data: no "confirming",
+  "translating into", "mechanism", "dividend", "a sign this program is",
+  "shifting", "lifts", "converting", "can be read as". Use "clients report",
+  "consistent with". (HO31, HO33, HO35, HO51)
+- **CC-078 R3** subgroup differences are associations: state the gap, never
+  explain it with tenure, experience, relationship depth or payoff, never call a
+  subgroup a lever. (HO27, HO32, HO41, HO53, HO57)
+- **CC-079 R4** no "as expected" gradients and no "first X, which frees Y"
+  sequences. (HO27, HO35)
+- **CC-080 R5** perceptions are not facts: difficulty finding a lender is
+  perceived alternatives, not a moat, market scarcity or a lender "landscape";
+  low clarity signals a need for review, not misselling. (HO17, HO18, HO42)
+- **CC-081 R6** poverty reach: "consistent with relatively pro-poor client
+  reach", never "evidence of targeting". (HO24, HO26)
+- **CC-082 R7** reported reasons stay reported reasons: "commonly cited
+  reasons", never "drivers", "what drove" or "carries as much weight". (HO54)
+- **CC-083 R8** recommendations are exploratory: no "should raise", "carries the
+  most leverage", "would remove the largest driver". (HO34, HO55)
+
+---
+
+## CC-084 [h083] (on hold): R9, no linking sentence between two outcome metrics
+
+Pending Henry's confirmation that side-by-side figures replace the correlation
+he asked for in HO28. CC-002 already forbids asserting an uncomputed
+relationship. Not implemented until confirmed.
+
+---
+
+## CC-085 [h084] (open): causal-language lint, report-only
+
+A deterministic scan of a generated report's narrative that prints each hit
+with section, field and sentence. Hard tier: the handoff's phrase list plus the
+R1 to R8 additions. Review tier (never fails a run): signaling, pointing to,
+reflects, targeting, landscape, weight. Allowlist for known false positives.
+
+Acceptance: run on Test5 and local-cc066, baselines recorded here.
+
+---
+
+## CC-086 [h085] (open): lint as an enforcing quality gate
+
+A hard-tier hit sends the block back to the writer once with the phrase named,
+through the existing `_writer_violations` rewrite. A hit that survives fails the
+run at assembly.
+
+Acceptance: a fresh run passes with zero hard-tier hits, or each remaining hit
+is a reviewed false positive.
+
+---
+
+## CC-087 [h086] (backlog, pending Henry): adjusted models for gender and caregiver gaps
+
+Adjusted models or stratification by loan cycle and tenure (HO57). Log only.
+
+---
+
+## CC-088 [h087] (backlog): longitudinal analysis of loan-cycle pathways
+
+HO53. The report may recommend it in text. Log only, no build.
+
+---
+
+## Correction to CC-021 and CC-025
+
+Their split of Kenya's 181 unscored clients into 51 label-conflict and 130
+incomplete (Zambia 56 + 193) was wrong. All 181 Kenya and all 249 Zambia
+unscored clients trace to scorecard label typos (see CC-068). The rescore that
+produced the split kept the colliding key last-write-wins, which still could not
+match the survey's correct `I` (Kenya) and `D` (Zambia) codes, so those clients
+were counted as incomplete.
