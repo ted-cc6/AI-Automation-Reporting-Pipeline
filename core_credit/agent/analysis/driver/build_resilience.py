@@ -145,6 +145,7 @@ def build_section(df: pd.DataFrame) -> ResilienceSection:
         _negative_coping_mask(df),
         base=impacted,
         segments=segments,
+        population="clients who faced a shock that affected their household",
     )
 
     vf_severity_series = clean_blank_strings(df[VF_SEVERITY_COL])
@@ -154,6 +155,7 @@ def build_section(df: pd.DataFrame) -> ResilienceSection:
         top_box_mask(vf_severity_series, VF_SEVERITY_TOP_2),
         base=impacted,
         segments=segments,
+        population="clients who faced a shock that affected their household",
         benchmark=get_mfi_index_benchmark("vf_reduced_shock_severity", BENCHMARKS_PATH),
     )
     print("Step 1/3 done: metrics computed (no LLM).")

@@ -106,6 +106,7 @@ def compute_metric_node(payload: MetricBatchInput) -> dict:
         segments=segments,
         benchmark=benchmark,
         benchmark_comparable_mask=benchmark_comparable_mask,
+        population=metric_config.population,
     )
     return {"metric_results": {metric_config.metric_id: result}}
 

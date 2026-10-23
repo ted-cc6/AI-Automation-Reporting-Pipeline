@@ -86,6 +86,13 @@ class MetricResult(BaseModel):
 
     metric_id: str = Field(..., description="Stable key, e.g. 'first_time_access_share'")
     label: str = Field(..., description="Human-readable description of what this measures")
+    population: str = Field(
+        default="all clients",
+        description="CC-071: who `overall` describes, e.g. 'caregivers only'. Every segment cut "
+        "is this same population split by one axis, never a narrower one -- the writer is shown "
+        "it on every line so a figure for all clients split by caregiver status can't be "
+        "narrated as describing women (HO52).",
+    )
     overall: SegmentedValue
     by_segment: list[SegmentedValue] = Field(default_factory=list)
     benchmark: Optional[BenchmarkComparison] = None

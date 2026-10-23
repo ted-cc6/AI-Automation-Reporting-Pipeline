@@ -83,8 +83,37 @@ def test_format_national_comparison_uses_percentage_points_not_fraction_scale():
     text = format_national_comparison(rows)
     assert "30.2%" in text
     assert "2160" not in text  # would appear if ':.1%' were used by mistake
-    assert "POORER than the national rate" in text
-    assert "LESS poor than the national rate" in text
+    assert "poverty likelihood is HIGHER than the national rate" in text
+    assert "poverty likelihood is LOWER than the national rate" in text
+    assert "targeting" not in text  # CC-081: the payload must not hand the writer "targeting"
+
+
+def test_format_metric_result_labels_every_line_with_its_population():
+    # CC-071 / HO52: a caregiver split of an all-client metric must say it covers all clients.
+    mr = MetricResult(
+        metric_id="household_influence_improved", label="Household influence improved",
+        overall=SegmentedValue(axis=SegmentAxis.OVERALL, value_label="Overall", share=0.835, n=5818),
+        by_segment=[
+            SegmentedValue(axis=SegmentAxis.GENDER, value_label="Female", share=0.842, n=3825),
+            SegmentedValue(axis=SegmentAxis.CAREGIVER, value_label="Caregiver", share=0.862, n=4851),
+        ],
+    )
+    lines = format_metric_result(mr).splitlines()
+    assert lines[1] == "  - Population: all clients"
+    assert lines[2] == "  - all clients, split by gender: Female: 84.2% (n=3825)"
+    assert lines[3] == "  - all clients, split by caregiver status: Caregiver: 86.2% (n=4851)"
+
+
+def test_format_metric_result_shows_a_restricted_population():
+    mr = MetricResult(
+        metric_id="improved_child_wellbeing", label="Caregivers reporting improved child wellbeing",
+        population="caregivers only",
+        overall=SegmentedValue(axis=SegmentAxis.OVERALL, value_label="Overall", share=0.935, n=4851),
+        by_segment=[SegmentedValue(axis=SegmentAxis.GENDER, value_label="Male", share=0.938, n=1000)],
+    )
+    text = format_metric_result(mr)
+    assert "  - Population: caregivers only" in text
+    assert "  - caregivers only, split by gender: Male: 93.8% (n=1000)" in text
 
 
 def test_format_national_comparison_handles_missing_national_rate():

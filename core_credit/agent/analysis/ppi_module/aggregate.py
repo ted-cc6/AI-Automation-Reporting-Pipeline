@@ -131,6 +131,7 @@ def aggregate_poverty_line_shares(
             MetricResult(
                 metric_id=f"poverty_likelihood_{line_code}",
                 label=f"Below {LINE_LABELS.get(line_code, line_code)}",
+                population="PPI-scored clients",
                 overall=SegmentedValue(
                     axis=SegmentAxis.OVERALL,
                     value_label="Overall",

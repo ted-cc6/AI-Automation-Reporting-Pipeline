@@ -290,6 +290,7 @@ def build_section(df: pd.DataFrame) -> ChildWellbeingSection:
         child_wellbeing_improved_mask(df),
         base=caregivers,
         segments=segments,
+        population="caregivers only",
     )
 
     improved_base = child_wellbeing_improved_mask(df)

@@ -80,6 +80,7 @@ CLIENT_PROTECTION_CONFIG = SectionConfig(
         MetricConfig(
             metric_id="reported_when_unfair",
             label="Reported the unfair treatment they experienced",
+            population="clients who experienced unfair treatment",
             source_column="Client Protection/CP05a_resp_en",
             base_column="Client Protection/CP05_resp_en",
             base_values=frozenset({"a. Regularly", "b. Sometimes", "c. Rarely (1 or 2 times)"}),

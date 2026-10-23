@@ -269,3 +269,52 @@ def check_banned_punctuation(text: str) -> list:
     count itself is visible in a completeness report, not just whether any exist.
     """
     return [_EM_DASH for _ in range(text.count(_EM_DASH))] + [";" for _ in range(text.count(";"))]
+
+
+# CC-072: population-mismatch check. HO52 (Test5 6.2): "The gain is strongest among caregivers
+# (86.2% versus 69.9% for non-caregivers) and those with prior access ... (81.1%) than
+# first-timers (86.7%), suggesting influence gains build steadily as women gain both program
+# experience and caregiving responsibility" -- four all-client figures attributed to women.
+# Reads the formatted facts payload the writer was given (formatting.py labels every gender
+# split "split by gender", and the synthesis tables name Female/Male on their own lines), so a
+# figure counts as gender-scoped when any payload line carrying it is about gender.
+_GENDER_SUBJECT_RE = re.compile(r"\b(women|men|female (?:clients|borrowers)|male (?:clients|borrowers))\b", re.IGNORECASE)
+_ALL_CLIENTS_MARKER_RE = re.compile(r"\b(all clients|overall|among all|across all|portfolio-wide)\b", re.IGNORECASE)
+_GENDER_LINE_RE = re.compile(r"split by gender|\b(female|male|women|men)\b", re.IGNORECASE)
+_SENTENCE_RE = re.compile(r"(?<=[.!?])(?<!\bvs\.)\s+")
+
+
+def _payload_percentages_by_scope(data_summary: str) -> tuple[set, set]:
+    gender, other = set(), set()
+    for line in data_summary.splitlines():
+        values = {round(float(v), 1) for v in _PERCENT_RE.findall(line)}
+        (gender if _GENDER_LINE_RE.search(line) else other).update(values)
+    return gender, other
+
+
+def check_population_mismatch(text: str, data_summary: str) -> list:
+    """Every sentence that names women or men as its subject while citing ONLY figures the
+    payload holds for a different population (overall, or another split such as caregiver
+    status), and never restates that base ("all clients", "overall"). One entry per sentence.
+    Empty list means no mismatch. Quoted client words are ignored.
+
+    "Only" is deliberate. A sentence that gives women's and men's own figures and then compares
+    another, explicitly named subgroup ("women (72.6%) than men (65.2%), and among clients with
+    prior access (72.6%) versus first-time access (66.7%)", local-cc066 6.1) is legitimate, and
+    flagging it produced six false positives across Test5 and local-cc066. HO52's sentence cites
+    no gender figure at all -- it re-reads four all-client figures as being about women. Known
+    limitation: a sentence mixing real gender figures with a misattributed one is not caught.
+    """
+    gender, other = _payload_percentages_by_scope(data_summary or "")
+    flagged = []
+    for sentence in _SENTENCE_RE.split(text or ""):
+        scan = _QUOTED_SPAN_RE.sub("", sentence)
+        if not _GENDER_SUBJECT_RE.search(scan) or _ALL_CLIENTS_MARKER_RE.search(scan):
+            continue
+        cited = [round(float(v), 1) for v in _PERCENT_RE.findall(scan)]
+        mismatched = [v for v in cited if v in other and v not in gender]
+        if mismatched and not any(v in gender for v in cited):
+            figures = ", ".join(f"{v:g}%" for v in mismatched)
+            flagged.append(f"{figures} describe(s) a population other than women or men, in: {sentence.strip()}")
+    return flagged
+

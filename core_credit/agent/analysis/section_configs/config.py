@@ -32,6 +32,9 @@ class MetricConfig:
     e.g. Child Wellbeing's 4.1 is only asked of caregivers, and Client Protection's "reported
     when unfair" is only asked of clients who experienced unfair treatment at all. None means
     the whole survey population is the base, which is true for most metrics."""
+    population: str = "all clients"
+    """CC-071: who the metric describes, shown to the writer on every line. Required whenever
+    base_column narrows the base -- __post_init__ refuses a restricted base left on the default."""
     benchmark_comparable_values: Optional[frozenset] = None
     """Set when the MFI Index benchmark is scored on a different (usually narrower) box than
     top_box_values -- e.g. our own headline is "very much + slightly improved" but the
@@ -41,6 +44,13 @@ class MetricConfig:
     """False for metrics with no MFI Index indicator at all (per benchmark_module's
     DELIBERATELY_EXCLUDED_METRICS or a blank cell in the source sheet) -- the lookup already
     returns not_available_reason gracefully either way, so this mainly documents intent."""
+
+    def __post_init__(self):
+        if self.base_column and self.population == "all clients":
+            raise ValueError(
+                f"MetricConfig {self.metric_id!r} restricts its base via base_column but leaves "
+                f"population at 'all clients' -- name the subgroup it describes (CC-071)."
+            )
 
 
 @dataclass(frozen=True)

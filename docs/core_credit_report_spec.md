@@ -3775,3 +3775,58 @@ ones.
 CC-070, regenerating the Part 2 narrative, is deferred until after the R1 to R8
 prompt changes (Step 6). Regenerating it now would reproduce the "targeting"
 wording in 2.2.
+
+---
+
+## CC-071, CC-072 and the CC-081 payload fix: implemented
+
+**CC-071: population labels.**
+- `MetricResult.population` defaults to "all clients". `metric_result()` and
+  `MetricConfig` pass it through.
+- `MetricConfig.__post_init__` refuses a `base_column` left on the default, so a
+  restricted metric cannot go unlabelled.
+- Set explicitly on the five metrics with a narrower base:
+  - `improved_child_wellbeing`: "caregivers only"
+  - `reported_when_unfair`: "clients who experienced unfair treatment"
+  - `negative_coping_share` and `vf_reduced_shock_severity`: "clients who faced
+    a shock that affected their household" (the 1,178, not all 2,103
+    shock-affected)
+  - PPI poverty lines: "PPI-scored clients"
+- `formatting.py` prints `- Population: <population>` under every metric. Every
+  segment line reads `- <population>, split by <axis>: <value>: x% (n=...)`
+  instead of `axis=value`. NPS too.
+
+**CC-081, at the source.** `format_national_comparison` no longer tells the
+writer "portfolio is POORER than the national rate (targeting the poor)". It
+reads "clients' poverty likelihood is HIGHER (or LOWER) than the national
+rate". That parenthesis is where Test5's "evidence of strong pro-poor
+targeting" (HO24) originated.
+
+**CC-072: `grounding.check_population_mismatch(text, data_summary)`.**
+- Flags a sentence that names women or men as its subject, cites only figures
+  the payload holds for another population, and never restates the base ("all
+  clients", "overall").
+- Reads the formatted payload, so no call-site signatures changed. A figure is
+  gender-scoped when any payload line carrying it says "split by gender" or
+  names Female/Male (the gender scorecard rows).
+- Wired into `chain._writer_violations`, so it triggers the existing single
+  rewrite with the instruction to restate the base.
+
+The first version flagged any gender sentence that also carried a non-gender
+figure. That raised six false positives across Test5 and local-cc066: sentences
+giving women's and men's own figures and then a separately named subgroup. The
+check now requires that the sentence cites no gender figure at all. Known
+limitation: a sentence mixing real gender figures with a misattributed one is
+not caught.
+
+**Scan of both full reports**, payload rebuilt from each section's saved
+MetricResults:
+- Test5: 2 hits, both real. One is the HO52 sentence (acceptance met). The other
+  is the Agency insight that justifies "prioritizing women's loans" with
+  all-client other-services figures (89.2%, 82.7%), the section 5 sentence 4.
+- local-cc066: 0 hits.
+
+Tests: formatting population lines, the restricted-population label, the
+HO52 flag, cc066 6.2 and Part 6 insight passing, the false-positive shapes
+passing, the restated base clearing the flag, quotes ignored, and the rewrite
+triggered. Suite: 417 passed.

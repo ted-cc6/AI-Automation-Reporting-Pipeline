@@ -7,8 +7,32 @@ just gives it a clean, unambiguous view of the real numbers so it has nothing to
 from __future__ import annotations
 
 from schemas.client_satisfaction import NPSResult
-from schemas.common import MetricResult, RankedOptions, SegmentedValue
+from schemas.common import MetricResult, RankedOptions, SegmentAxis, SegmentedValue
 from schemas.poverty_likelihood import CountryVsNationalRate
+
+# CC-071: how each segment line names its split, so the writer reads "all clients, split by
+# caregiver status: Caregiver" rather than a bare "caregiver=Caregiver" it can attach to
+# whatever subject the paragraph opened on (HO52: all-client caregiver and prior-access figures
+# narrated as describing women). grounding.check_population_mismatch relies on the gender line
+# reading "split by gender".
+AXIS_PHRASES = {
+    SegmentAxis.FIRST_TIME_ACCESS: "prior access to credit",
+    SegmentAxis.LOAN_CYCLE: "loan cycle",
+    SegmentAxis.CAREGIVER: "caregiver status",
+    SegmentAxis.GENDER: "gender",
+    SegmentAxis.FEMALE_HH_HEAD: "female household head status",
+    SegmentAxis.PWD_HOUSEHOLD: "PWD household status",
+    SegmentAxis.CLIMATE_SHOCK: "climate shock exposure",
+    SegmentAxis.OTHER_SERVICES: "receipt of other services",
+    SegmentAxis.SAVINGS_USER: "savings use",
+    SegmentAxis.COUNTRY: "country",
+    SegmentAxis.REGION: "region",
+}
+
+
+def _segment_line(population: str, seg: SegmentedValue) -> str:
+    split = AXIS_PHRASES.get(seg.axis, seg.axis.value.replace("_", " "))
+    return f"  - {population}, split by {split}: {seg.value_label}: {_format_segmented(seg)}"
 
 
 def _format_segmented(sv: SegmentedValue) -> str:
@@ -20,9 +44,9 @@ def _format_segmented(sv: SegmentedValue) -> str:
 
 
 def format_metric_result(mr: MetricResult) -> str:
-    lines = [f"{mr.label}: overall {_format_segmented(mr.overall)}"]
+    lines = [f"{mr.label}: overall {_format_segmented(mr.overall)}", f"  - Population: {mr.population}"]
     for seg in mr.by_segment:
-        lines.append(f"  - {seg.axis.value}={seg.value_label}: {_format_segmented(seg)}")
+        lines.append(_segment_line(mr.population, seg))
 
     has_benchmark = mr.benchmark and mr.benchmark.external_mfi_index is not None
     if has_benchmark:
@@ -74,9 +98,13 @@ def format_national_comparison(rows: list[CountryVsNationalRate]) -> str:
         national = f"{row.national_poverty_rate:.1f}%" if row.national_poverty_rate is not None else "no national rate on file"
         verdict = ""
         if row.poorer_than_national is True:
-            verdict = " -- portfolio is POORER than the national rate (targeting the poor)"
+            # CC-081: states the comparison only. "(targeting the poor)" here was where 2.2's
+            # "evidence of strong pro-poor targeting" (HO24) came from -- a higher poverty
+            # likelihood than the national rate is consistent with pro-poor reach, not proof of
+            # targeting.
+            verdict = " -- clients' poverty likelihood is HIGHER than the national rate"
         elif row.poorer_than_national is False:
-            verdict = " -- portfolio is LESS poor than the national rate"
+            verdict = " -- clients' poverty likelihood is LOWER than the national rate"
         coverage = ""
         if row.n_scored is not None and row.n_total and row.n_scored < row.n_total * _LOW_COVERAGE_THRESHOLD:
             coverage_pct = round(100 * row.n_scored / row.n_total)
@@ -97,8 +125,9 @@ def format_nps_result(nps: NPSResult) -> str:
         f"NPS: {nps.score:.0f} (promoters {nps.promoter_share:.1%}, passives {nps.passive_share:.1%}, "
         f"detractors {nps.detractor_share:.1%}, n={nps.n})"
     ]
+    lines.append("  - Population: all clients")
     for seg in nps.by_segment:
-        lines.append(f"  - {seg.axis.value}={seg.value_label}: {_format_segmented(seg)}")
+        lines.append(_segment_line("all clients", seg))
     if nps.benchmark and nps.benchmark.external_mfi_index is not None:
         caveat = f" [CAVEAT: {nps.benchmark.external_mfi_index_caveat}]" if nps.benchmark.external_mfi_index_caveat else ""
         lines.append(f"  - MFI Index benchmark: {nps.benchmark.external_mfi_index:.0f} ({nps.benchmark.external_mfi_index_year}){caveat}")

@@ -32,6 +32,7 @@ from .grounding import (
     check_grounding,
     check_orphan_markers,
     check_partial_quotes,
+    check_population_mismatch,
     check_profile_grounding,
     check_quote_grounding,
 )
@@ -289,7 +290,7 @@ def _format_verbatim_pool(pool: list[Verbatim]) -> str:
     return "\n".join(lines)
 
 
-def _writer_violations(text: str, word_cap: int, pool: list[Verbatim]) -> list[str]:
+def _writer_violations(text: str, word_cap: int, pool: list[Verbatim], data_summary: str = "") -> list[str]:
     """Every enforceable violation in `text`: house style (word cap, banned punctuation) AND
     grounding (fabricated quotes, invented profile attribution on an otherwise-real quote,
     orphan citation markers). Drives one bounded corrective rewrite in write_subsection()/
@@ -328,6 +329,14 @@ def _writer_violations(text: str, word_cap: int, pool: list[Verbatim]) -> list[s
     orphans = check_orphan_markers(text)
     if orphans:
         violations.append(f"literal citation marker(s) that must be removed: {orphans}")
+
+    # CC-072: figures for all clients (or another split) narrated as describing women or men.
+    for mismatch in check_population_mismatch(text, data_summary):
+        violations.append(
+            f"a sentence attributes figures to women or men that the data gives for a different "
+            f"population -- restate the base it describes (for example 'among all clients') or "
+            f"drop the gender subject: {mismatch}"
+        )
 
     return violations
 
@@ -405,7 +414,7 @@ def write_subsection(
     text = extract_text(response)
     pool = _pool_verbatims(qualitative) if qualitative else []
 
-    first_pass_violations = _writer_violations(text, prompt_config.word_cap, pool)
+    first_pass_violations = _writer_violations(text, prompt_config.word_cap, pool, data_summary)
     if first_pass_violations:
         revise_task = _revise_instruction(text, first_pass_violations, prompt_config.word_cap)
         response = llm.invoke([("system", SYSTEM_PROMPT), ("human", revise_task)])
@@ -453,7 +462,7 @@ def write_insight(
     )
     text = raw.text.strip()
 
-    first_pass_violations = _writer_violations(text, prompt_config.word_cap, pool)
+    first_pass_violations = _writer_violations(text, prompt_config.word_cap, pool, data_summary)
     if first_pass_violations:
         revise_task = (
             _revise_instruction(text, first_pass_violations, prompt_config.word_cap)

@@ -125,8 +125,12 @@ def metric_result(
     benchmark: Optional[BenchmarkComparison] = None,
     benchmark_comparable_mask: Optional[pd.Series] = None,
     notes: Optional[str] = None,
+    population: str = "all clients",
 ) -> MetricResult:
     """Overall share plus every requested segment cut, packaged as one MetricResult.
+
+    `population`: who the figures describe -- pass it whenever `base` narrows the metric to a
+    subgroup (CC-071), e.g. "caregivers only".
 
     `benchmark_comparable_mask`: pass this when `benchmark` is on a different box definition
     than `mask` (e.g. mask is top-2-box "very much + slightly improved" for the report's own
@@ -145,6 +149,7 @@ def metric_result(
     return MetricResult(
         metric_id=metric_id,
         label=label,
+        population=population,
         overall=overall,
         by_segment=by_segment,
         benchmark=benchmark,
