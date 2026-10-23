@@ -185,7 +185,11 @@ def _theme_scores(sections: Optional[dict] = None) -> list:
         ),
         _mean_theme(
             "Resilience",
-            "Unweighted mean of savings increase and realized preparedness",
+            # Step 8 (Test6): was "... and realized preparedness" -- the same overclaim CC-083
+            # removed from the 7.4 prompt, reaching the writer and the rendered caption through
+            # this label instead. The constituent is clients' own report that VisionFund services
+            # reduced a shock's severity.
+            "Unweighted mean of savings increase and VisionFund reducing shock severity (among clients affected by a shock)",
             [resilience.savings_increased, resilience.vf_reduced_shock_severity],
         ),
         ThemeScore(

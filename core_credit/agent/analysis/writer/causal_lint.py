@@ -44,6 +44,7 @@ HARD_TERMS = (
     "mechanism", "dividend", "payoff", "evidence of", "a sign this", "genuinely",
     "converting",  # "women are converting loan capital into..." (Test5 Agency insight)
     "can be read as",  # "can be read as realized preparedness" (cc066 7.4)
+    "realized preparedness", "realised preparedness",  # Resilience theme label -> Test6 executive summary
     "shaping", "shapes", "shaped",  # "pricing ... shaping whether clients lean toward recommending" (Step 6 regen, 8 insight)
     "shifting",  # "genuinely shifting decision-making power" (Test5 6.2, HO51)
     "shifts", "proves", "causes", "demonstrates", "leads to", "leading to", "lead to",  # CC-001

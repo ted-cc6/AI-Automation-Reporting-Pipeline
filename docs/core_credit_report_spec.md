@@ -4035,3 +4035,95 @@ Tests:
 
 The CC-072 HO52 test now allows the causal violation that the same paragraph
 also triggers. Suite: 433 passed.
+
+---
+
+## Step 8: Test6 full regeneration and review
+
+**The run.**
+- `python orchestrator/run_orchestrator.py <Credit_Impact_Survey_..._2026-08-03-18-49-13.csv> --run-id Test6`.
+  This is the same raw export as Test5.
+- It finished in 11.1 min, exit 0. It passed every hard gate, including CC-086,
+  so no hard-tier phrase survived its rewrite.
+- Outputs: `report_assembly/output/core_credit_impact_report_Test6.json` and
+  `orchestrator/output/Core_Credit_Impact_Report_Test6.docx`.
+
+**Lint.**
+
+| Run | Hard | Review |
+|---|---|---|
+| Test5 | 40 | 17 |
+| local-cc066 | 3 | 16 |
+| Test6 | 0 | 6 |
+
+The 6 review lines read fine on inspection: "pointing to broad reported gains",
+two "reflects", a negated "should", and two "ahead of" comparing reported
+shares.
+
+**Henry's comments (HO16 to HO57) and the nine unflagged Test5 patterns.** All
+are absent from Test6's narrative, with quotes excluded. This was checked by one
+regex per item, covering competitive verbs, moat/scarcity/landscape, targeting,
+"as expected", linking verbs, confirming/mechanism, lever/lifts, should
+raise/leverage, causal sequences, payoff, misselling, "a sign this"/shifting,
+drive/driver/weight, tenure, dividend/preparedness, reinforcing, converting,
+"overwhelmingly link", buffer-need and "would remove". Also checked:
+- HO52: 6.2 opens "Among all clients, 83.5% ...", and the Part 6 insight places
+  the caregiver figures "within the full client base".
+- HO30: 3.3 reads "What clients reported as reasons for the improvement".
+- HO16: the fixed caveat appears under the Executive Summary and at the end of
+  Parts 1, 3, 5, 6, 7 and 8.
+
+**One exception, found and fixed at its source.** The Executive Summary says
+"Resilience, covering savings increase and realized preparedness". That
+wording came from the Resilience theme label in `build_executive_summary.py`,
+which the writer echoed and the caption printed verbatim. It bypassed the
+prompt rules and the gate. Fixes:
+- The label now reads "... savings increase and VisionFund reducing shock
+  severity (among clients affected by a shock)".
+- "realized preparedness" / "realised preparedness" joined the hard tier.
+- `synthesis/tests/test_theme_labels.py` lints every theme label from source.
+
+Test6 itself is left as generated, so the fix applies from the next run.
+Overlap note: this is only a label change. The Resilience score and LM9's 45%
+question are out of scope and untouched.
+
+**Part 2 (CC-070) in Test6.**
+- Kenya is 271/271 and Zambia 281/281, both OK.
+- The coverage note carries only Myanmar: "3 left PPI question 1 unanswered".
+- Lines: 12.3% (n=3,639), 12.2% (n=2,266), 30.3% (n=3,639).
+- Higher than national: Honduras, Senegal and Vietnam only. Kenya is described
+  as lower than national.
+- No stale Kenya or Zambia figure anywhere. An apparent "0.4%" match was a
+  substring of "10.4%".
+
+**R9 spot check (manual: Parts 3, 6, 7 and 8 insights, Executive Summary,
+gender insight).**
+- No sentence asserts a relationship between two outcome metrics. The Part 3
+  insight's linking language appears only in describing a client's own quote.
+- One mild interpretive phrase: the Part 7 insight's "Alongside this financial
+  cushion". It juxtaposes rather than links, so it is left alone.
+- The gender insight closes "These patterns are observational and describe what
+  was reported, not why."
+
+**Regression: word caps.**
+- Both local-cc066 and Test6 have 11 of 34 blocks over cap.
+- local-cc066 had none more than 20% over. Test6 has 4: client-profile 190/150
+  (+27%), the Part 5 insight 193/150 (+29%), the Part 7 insight 189/150 (+26%),
+  and the gender insight 203/150 (+35%).
+- Not diagnosed: `CC_WRITER_TRACE` was off for this run. Candidates are (a) more
+  corrective rewrites, now that CC-072 and CC-086 add triggers, or (b) the
+  longer SYSTEM_PROMPT diluting the cap instruction.
+- client-profile has no rule-relevant content and still overran, which leans
+  toward (b), but that is not established.
+- Next step: rerun the four affected blocks with `CC_WRITER_TRACE` set.
+
+**Other observations, not caused by this round.**
+- Theme tagging of the NPS free text is unstable between runs:
+  - local-cc066: the top detractor reason was staff attitude, 40.8%, with
+    interest 38.4%.
+  - Test6 (and Test5): interest 54.3%, with staff 20.0%.
+
+  The Part 8 narrative's lead finding therefore depends on the run. This
+  belongs with the qualitative agent, not this round.
+- Known-class grounding flags carried over: "100%" coverage rounding and "7.4
+  percent" (CC-008 class), plus one partial quote in the gender insight.

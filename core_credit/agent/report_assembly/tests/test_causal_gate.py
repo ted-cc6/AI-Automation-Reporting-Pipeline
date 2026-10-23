@@ -42,11 +42,13 @@ def _cc066_report() -> _Report:
 
 def test_the_three_real_cc066_hits_fail_the_gate():
     issues = find_causal_language(_cc066_report())
-    assert len(issues) == 3
+    # 7.4's sentence carries two hard phrases since "realized preparedness" joined the list (Step 8).
+    assert len(issues) == 4
     assert any("[poverty targeting]" in i and "(2.2)" in i for i in issues)
     assert any("[far above the mfi index]" in i and "(6.1)" in i for i in issues)
     assert any("[can be read as]" in i and "(7.4)" in i for i in issues)
-    with pytest.raises(CausalLanguageError, match="3 causal or overclaiming phrase"):
+    assert any("[realized preparedness]" in i and "(7.4)" in i for i in issues)
+    with pytest.raises(CausalLanguageError, match="4 causal or overclaiming phrase"):
         raise_on_causal_language(_cc066_report())
 
 
