@@ -180,7 +180,7 @@ class WrittenText(BaseModel):
     subsection_id: str = Field(..., description="e.g. '3.1', '3-insight' -- matches SubsectionPrompt.subsection_id")
     text: str
     word_count: int
-    within_cap: bool = Field(..., description="Whether word_count is at or under the template's target -- a guideline, not a hard requirement")
+    within_cap: bool = Field(..., description="CC-090: whether word_count (client quotes not counted) is within 10% of the template's cap -- a guideline, not a hard requirement")
     ungrounded_percentages: list[str] = Field(
         default_factory=list, description="Percentage claims in `text` that didn't match any value in the input data"
     )

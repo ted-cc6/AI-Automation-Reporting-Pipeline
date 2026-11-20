@@ -4190,3 +4190,41 @@ repeated by the same client). Tests: 453 passed.
 Note: shares are lower than open coding gave (interest 54.3% in Test6),
 because each answer now counts once per code it really raises, not per
 batch theme. Test7 will show the new figures in the report.
+
+---
+
+## CC-090 (done): word caps — quotes not counted, 10% tolerance, shorten pass
+
+**Diagnosis (writer trace on Test6 inputs, 18 calls before the fix).** The
+Step 8 candidates were (a) more corrective rewrites from the CC-072/CC-086
+checks and (b) first drafts that were already too long. The trace showed (b).
+The causal-lint and population checks did not fire once in these blocks.
+Every rewrite made the text shorter, but only by about 10%, while the
+150-word insights started 20% to 55% over (Part 5 insight 206 to 227
+words). The rewrite instruction itself held content back ("keep every fact,
+number and quote exactly as before"), so the model could only squeeze words.
+Quotes mattered only for the gender insight (about 150 narrative words of a
+200-word total). 10 of 18 blocks ended more than 10% over.
+
+**Change** (`writer/chain.py`).
+- Caps count the writer's own words. Pool quotes and their quote marks are
+  left out (`narrative_word_count`), so `word_count` is now that count.
+- The length violation names the cut ("cut at least N words"). The rewrite
+  may drop the least important sentence or secondary figure but must keep
+  what the subsection instructions require.
+- If a block is still more than 10% over, one length-only shorten pass runs
+  with the subsection instructions attached. It is kept only if it is shorter
+  and breaks no other rule; otherwise the longer clean draft stays.
+- `within_cap` and the completeness flag now mean "within 10% of the cap".
+- Trace records first-draft length, whether the shorten pass ran, and why a
+  shortened draft was rejected.
+- Cap raise: Part 5 insight 150 to 180. It folds five indicators, the
+  per-country breakdown and the protection signals into one block; first
+  drafts ran 229 to 256 words on every try, and at 150 the shorten pass was
+  rejected for cutting a long quote. No other cap changed. Client profile
+  (CC-042's concern) now lands at 153 to 160.
+
+**After the fix (same inputs).** 20 of 22 blocks within tolerance, then 3 of 3
+Part 7 insights (132 to 164 of 150) and, at the new cap, 3 of 3 Part 5
+insights (180 to 195 of 180). Gender insight 135 to 148 of 150. Tests: 466
+passed (`writer/tests/test_word_caps.py`, 13 new).

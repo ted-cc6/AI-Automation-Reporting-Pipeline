@@ -55,7 +55,7 @@ def completeness_report(report) -> list[str]:
             issues.append(f"{path}: MISSING -- expected a WrittenText, found none")
             continue
         if not value.within_cap:
-            issues.append(f"{path}: {value.word_count} words, over the template's target cap")
+            issues.append(f"{path}: {value.word_count} words, more than 10% over the template's target cap")
         if value.ungrounded_percentages:
             issues.append(f"{path}: ungrounded percentages {value.ungrounded_percentages}")
         if value.ungrounded_quotes:

@@ -331,7 +331,10 @@ REDUCED_FOOD_INTAKE = SubsectionPrompt(
 CLIENT_PROTECTION_INSIGHT = SubsectionPrompt(
     subsection_id="5-insight",
     title="Insight for Client Protection",
-    word_cap=150,  # CC-042: raised from 120, see docs/core_credit_report_spec.md CC-042
+    # CC-090: raised from 150. It folds five indicators, the per-country breakdown and the
+    # protection signals into one block; first drafts ran 229-240 words on every traced try and
+    # the shorten pass could not bring them in without cutting a quote. See CC-090.
+    word_cap=180,
     instructions=(
         "Bring the section together in three to five sentences a reader can act on. Lead with "
         "the strongest protection indicator, and with any signal of conduct that needs follow "

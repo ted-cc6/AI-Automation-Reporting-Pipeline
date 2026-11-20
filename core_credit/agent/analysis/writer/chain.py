@@ -315,7 +315,29 @@ def _format_verbatim_pool(pool: list[Verbatim]) -> str:
     return "\n".join(lines)
 
 
-def _writer_violations(text: str, word_cap: int, pool: list[Verbatim], data_summary: str = "") -> list[str]:
+# CC-090: a cap counts the writer's own words. Client quotes taken from the pool are left out,
+# so asking for two or three verbatims never pushes a block over. A block is flagged only when
+# it ends more than CAP_TOLERANCE over its cap; anything over the cap still gets the rewrite.
+CAP_TOLERANCE = 0.10
+
+
+def narrative_word_count(text: str, pool: list[Verbatim] = ()) -> int:
+    """Words in `text` with every pool quote (and its quote marks) taken out."""
+    for v in pool:
+        quote = v.quote.strip()
+        if len(quote) >= 10 and quote in text:
+            text = re.sub(r'["\u201c]?\s*' + re.escape(quote) + r'\s*["\u201d]?', " ", text)
+    # a full stop or dash left standing alone where a quote was is not a word
+    return sum(1 for token in text.split() if re.search(r"\w", token))
+
+
+def within_tolerance(word_count: int, word_cap: int) -> bool:
+    return word_count <= word_cap * (1 + CAP_TOLERANCE)
+
+
+def _writer_violations(
+    text: str, word_cap: int, pool: list[Verbatim], data_summary: str = "", include_length: bool = True
+) -> list[str]:
     """Every enforceable violation in `text`: house style (word cap, banned punctuation) AND
     grounding (fabricated quotes, invented profile attribution on an otherwise-real quote,
     orphan citation markers). Drives one bounded corrective rewrite in write_subsection()/
@@ -328,9 +350,12 @@ def _writer_violations(text: str, word_cap: int, pool: list[Verbatim], data_summ
     of 9 insights over cap.
     """
     violations = []
-    word_count = len(text.split())
-    if word_count > word_cap:
-        violations.append(f"{word_count} words -- over the {word_cap}-word cap")
+    word_count = narrative_word_count(text, pool)
+    if include_length and word_count > word_cap:
+        violations.append(
+            f"{word_count} words, not counting client quotes -- over the {word_cap}-word cap, "
+            f"so cut at least {word_count - word_cap} words"
+        )
 
     banned = check_banned_punctuation(text)
     if banned:
@@ -382,7 +407,16 @@ def _writer_violations(text: str, word_cap: int, pool: list[Verbatim], data_summ
 _TRACE_LOCK = threading.Lock()
 
 
-def _trace_writer_pass(subsection_id: str, kind: str, first_pass_violations: list[str], final_word_count: int, word_cap: int) -> None:
+def _trace_writer_pass(
+    subsection_id: str,
+    kind: str,
+    first_pass_violations: list[str],
+    final_word_count: int,
+    word_cap: int,
+    first_pass_word_count: Optional[int] = None,
+    shortened: bool = False,
+    shorten_rejected: Optional[list[str]] = None,
+) -> None:
     """Observability only -- appends one JSONL record per subsection to $CC_WRITER_TRACE when
     that env var is set. Records whether the first draft cleared the checks or triggered the
     single corrective rewrite, and the final word count vs cap. No effect on control flow.
@@ -395,10 +429,14 @@ def _trace_writer_pass(subsection_id: str, kind: str, first_pass_violations: lis
         "subsection_id": subsection_id,
         "kind": kind,  # "subsection" | "insight"
         "needed_rewrite": bool(first_pass_violations),
+        "first_pass_word_count": first_pass_word_count,
+        "shortened": shortened,
+        "shorten_rejected": shorten_rejected,
         "first_pass_violations": first_pass_violations,
         "final_word_count": final_word_count,
         "word_cap": word_cap,
         "final_within_cap": final_word_count <= word_cap,
+        "final_within_tolerance": within_tolerance(final_word_count, word_cap),
         "final_pct_over": round((final_word_count - word_cap) / word_cap * 100, 1) if final_word_count > word_cap else 0.0,
     }
     with _TRACE_LOCK:
@@ -418,8 +456,27 @@ def _revise_instruction(text: str, violations: list[str], word_cap: int) -> str:
         "your own analytical point instead. Do not keep any trace of it, do not explain that "
         "you removed or changed something, do not write a placeholder or any comment about your "
         "own drafting process. A reader must not be able to tell anything was ever removed.\n\n"
-        "Keep every fact, number, and correctly-grounded quote exactly as before -- only change "
-        "length, punctuation, and the specific content flagged above."
+        "If the draft is over the word cap, cut it to the cap: drop the least important "
+        "sentence, clause or secondary figure rather than squeezing words, but keep everything "
+        "the subsection instructions require. Client quotes do not count toward the cap. Every "
+        "number you keep stays exactly as given and every correctly-grounded quote stays word "
+        "for word. Change nothing else beyond what is flagged above."
+    )
+
+
+def _shorten_instruction(text: str, word_count: int, prompt_config: SubsectionPrompt) -> str:
+    """CC-090: the second, length-only pass, used when a block is still more than
+    CAP_TOLERANCE over after the corrective rewrite. The trace showed one rewrite trims only
+    about 10%, while 150-word insights start 20% to 50% over."""
+    cap = prompt_config.word_cap
+    return (
+        f"This draft has {word_count} words, not counting client quotes. The ceiling is {cap}. "
+        f"Rewrite it at {cap} words or fewer, so cut at least {word_count - cap} words. Drop the "
+        "least important sentence, clause or secondary figure; do not just trim words. Keep "
+        "everything the subsection instructions below require, keep every number you keep "
+        "exactly as given, and keep any client quote word for word. Change nothing else.\n\n"
+        f"Subsection instructions:\n{prompt_config.instructions}\n\n"
+        f"Draft:\n{text}"
     )
 
 
@@ -430,6 +487,18 @@ def _task_preamble(prompt_config: SubsectionPrompt, data_summary: str) -> str:
         f"{prompt_config.instructions}\n\n"
         f"Computed statistics:\n{data_summary}"
     )
+
+
+def _shorten_rejection(candidate: str, previous_word_count: int, word_cap: int, pool: list[Verbatim], data_summary: str) -> list[str]:
+    """Why a shortened draft can't replace the previous one; empty means accept. It must be
+    actually shorter and break no rule other than length. A shorten pass that invents a quote
+    or adds causal wording is thrown away, and the longer, clean draft is kept."""
+    if not candidate.strip():
+        return ["empty"]
+    n = narrative_word_count(candidate, pool)
+    if n >= previous_word_count:
+        return [f"not shorter ({n} words)"]
+    return _writer_violations(candidate, word_cap, pool, data_summary, include_length=False)
 
 
 def write_subsection(
@@ -452,20 +521,32 @@ def write_subsection(
     text = extract_text(response)
     pool = _pool_verbatims(qualitative) if qualitative else []
 
+    first_pass_word_count = narrative_word_count(text, pool)
     first_pass_violations = _writer_violations(text, prompt_config.word_cap, pool, data_summary)
     if first_pass_violations:
         revise_task = _revise_instruction(text, first_pass_violations, prompt_config.word_cap)
         response = llm.invoke([("system", SYSTEM_PROMPT), ("human", revise_task)])
         text = extract_text(response)
 
-    word_count = len(text.split())
-    _trace_writer_pass(prompt_config.subsection_id, "subsection", first_pass_violations, word_count, prompt_config.word_cap)
+    word_count = narrative_word_count(text, pool)
+    shortened, shorten_rejected = False, None
+    if not within_tolerance(word_count, prompt_config.word_cap):
+        response = llm.invoke([("system", SYSTEM_PROMPT), ("human", _shorten_instruction(text, word_count, prompt_config))])
+        candidate = extract_text(response)
+        shorten_rejected = _shorten_rejection(candidate, word_count, prompt_config.word_cap, pool, data_summary)
+        if not shorten_rejected:
+            text, shortened = candidate, True
+            word_count = narrative_word_count(text, pool)
+    _trace_writer_pass(
+        prompt_config.subsection_id, "subsection", first_pass_violations, word_count, prompt_config.word_cap,
+        first_pass_word_count, shortened, shorten_rejected,
+    )
 
     return WrittenText(
         subsection_id=prompt_config.subsection_id,
         text=text,
         word_count=word_count,
-        within_cap=word_count <= prompt_config.word_cap,
+        within_cap=within_tolerance(word_count, prompt_config.word_cap),
         ungrounded_percentages=check_grounding(text, acceptable_percentages or set()),
         ungrounded_quotes=check_quote_grounding(text, pool),
         partial_quotes=check_partial_quotes(text, pool),
@@ -500,6 +581,7 @@ def write_insight(
     )
     text = raw.text.strip()
 
+    first_pass_word_count = narrative_word_count(text, pool)
     first_pass_violations = _writer_violations(text, prompt_config.word_cap, pool, data_summary)
     if first_pass_violations:
         revise_task = (
@@ -511,8 +593,21 @@ def write_insight(
         raw = invoke_structured(llm, _NarrativeWithVerbatims, [("system", SYSTEM_PROMPT), ("human", revise_task)])
         text = raw.text.strip()
 
-    word_count = len(text.split())
-    _trace_writer_pass(prompt_config.subsection_id, "insight", first_pass_violations, word_count, prompt_config.word_cap)
+    word_count = narrative_word_count(text, pool)
+    shortened, shorten_rejected = False, None
+    if not within_tolerance(word_count, prompt_config.word_cap):
+        shorten_task = (
+            _shorten_instruction(text, word_count, prompt_config) + "\n\n" + _format_verbatim_pool(pool) + INSIGHT_ID_INSTRUCTION
+        )
+        candidate = invoke_structured(llm, _NarrativeWithVerbatims, [("system", SYSTEM_PROMPT), ("human", shorten_task)])
+        shorten_rejected = _shorten_rejection(candidate.text.strip(), word_count, prompt_config.word_cap, pool, data_summary)
+        if not shorten_rejected:
+            raw, text, shortened = candidate, candidate.text.strip(), True
+            word_count = narrative_word_count(text, pool)
+    _trace_writer_pass(
+        prompt_config.subsection_id, "insight", first_pass_violations, word_count, prompt_config.word_cap,
+        first_pass_word_count, shortened, shorten_rejected,
+    )
 
     used_verbatims = []
     for i in raw.used_verbatim_ids:
@@ -523,7 +618,7 @@ def write_insight(
         subsection_id=prompt_config.subsection_id,
         text=text,
         word_count=word_count,
-        within_cap=word_count <= prompt_config.word_cap,
+        within_cap=within_tolerance(word_count, prompt_config.word_cap),
         ungrounded_percentages=check_grounding(text, acceptable_percentages or set()),
         ungrounded_quotes=check_quote_grounding(text, pool),
         partial_quotes=check_partial_quotes(text, pool),
