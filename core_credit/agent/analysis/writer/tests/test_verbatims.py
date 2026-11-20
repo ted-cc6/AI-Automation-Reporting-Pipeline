@@ -82,3 +82,20 @@ def test_shorten_keeps_quotes_but_is_not_asked_to_add_one(monkeypatch):
     written, used = chain.write_insight(CFG, "data", qual)
     assert written.word_count == 50 and written.within_cap
     assert [v.quote for v in used] == [SECOND]
+
+
+def test_literal_backslash_n_is_cleaned_and_the_quote_matches(monkeypatch):
+    # Test7: the model wrote a quote's line break as the two characters \\n
+    multi = "PROCESSING FEE IS VERY HIGH KINDLY REDUCE\nINTEREST RATE IS VERY HIGH KINLDY REDUCE."
+    qual = QualitativeSynthesis(
+        source_field="f", base_n=1, themes=[ThemeFinding(theme="t", frequency=1, representative_verbatims=_pool(multi))]
+    )
+    written_by_model = 'A client wrote "PROCESSING FEE IS VERY HIGH KINDLY REDUCE\\nINTEREST RATE IS VERY HIGH KINLDY REDUCE."'
+    monkeypatch.setattr(chain, "build_chat_model", lambda **k: object())
+    monkeypatch.setattr(
+        chain, "invoke_structured",
+        lambda llm, schema, messages: chain._NarrativeWithVerbatims(text=written_by_model, used_verbatim_ids=[0]),
+    )
+    written, used = chain.write_insight(CFG, "data", qual)
+    assert "\\n" not in written.text and "\n" not in written.text
+    assert written.ungrounded_quotes == [] and [v.quote for v in used] == [multi]

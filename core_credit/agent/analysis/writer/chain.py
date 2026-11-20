@@ -334,6 +334,13 @@ def narrative_word_count(text: str, pool: list[Verbatim] = ()) -> int:
     return sum(1 for token in text.split() if re.search(r"\w", token))
 
 
+def _clean_output(text: str) -> str:
+    """CC-091: the model sometimes writes a quote's line break as the two characters "\\n"
+    (Test7's Part 8 insight did). That is never prose: it showed in the report and stopped the
+    real quote matching the pool. Turn it, and any real line break, into a space."""
+    return re.sub(r"\s*(?:\\n|\n)\s*", " ", text).strip()
+
+
 def within_tolerance(word_count: int, word_cap: int) -> bool:
     return word_count <= word_cap * (1 + CAP_TOLERANCE)
 
@@ -560,7 +567,7 @@ def write_subsection(
         task += f"\n\n{_format_qualitative_block(qualitative)}"
 
     response = llm.invoke([("system", SYSTEM_PROMPT), ("human", task)])
-    text = extract_text(response)
+    text = _clean_output(extract_text(response))
     pool = _pool_verbatims(qualitative) if qualitative else []
 
     first_pass_word_count = narrative_word_count(text, pool)
@@ -568,13 +575,13 @@ def write_subsection(
     if first_pass_violations:
         revise_task = _revise_instruction(text, first_pass_violations, prompt_config.word_cap)
         response = llm.invoke([("system", SYSTEM_PROMPT), ("human", revise_task)])
-        text = extract_text(response)
+        text = _clean_output(extract_text(response))
 
     word_count = narrative_word_count(text, pool)
     shortened, shorten_rejected = False, None
     if not within_tolerance(word_count, prompt_config.word_cap):
         response = llm.invoke([("system", SYSTEM_PROMPT), ("human", _shorten_instruction(text, word_count, prompt_config))])
-        candidate = extract_text(response)
+        candidate = _clean_output(extract_text(response))
         shorten_rejected = _shorten_rejection(candidate, word_count, prompt_config.word_cap, pool, data_summary)
         if not shorten_rejected:
             text, shortened = candidate, True
@@ -621,7 +628,7 @@ def write_insight(
     raw: _NarrativeWithVerbatims = invoke_structured(
         llm, _NarrativeWithVerbatims, [("system", SYSTEM_PROMPT), ("human", task)]
     )
-    text = raw.text.strip()
+    text = _clean_output(raw.text)
 
     min_quotes = required_quotes(pool)
     first_pass_word_count = narrative_word_count(text, pool)
@@ -634,7 +641,7 @@ def write_insight(
             + INSIGHT_ID_INSTRUCTION
         )
         raw = invoke_structured(llm, _NarrativeWithVerbatims, [("system", SYSTEM_PROMPT), ("human", revise_task)])
-        text = raw.text.strip()
+        text = _clean_output(raw.text)
 
     word_count = narrative_word_count(text, pool)
     shortened, shorten_rejected = False, None
@@ -646,11 +653,11 @@ def write_insight(
         # The shorten pass may not lose a quote, but it isn't asked to add one: demanding the
         # full count here rejected every shortened draft of an insight already one quote short.
         shorten_rejected = _shorten_rejection(
-            candidate.text.strip(), word_count, prompt_config.word_cap, pool, data_summary,
+            _clean_output(candidate.text), word_count, prompt_config.word_cap, pool, data_summary,
             min(min_quotes, quotes_used(text, pool)),
         )
         if not shorten_rejected:
-            raw, text, shortened = candidate, candidate.text.strip(), True
+            raw, text, shortened = candidate, _clean_output(candidate.text), True
             word_count = narrative_word_count(text, pool)
     _trace_writer_pass(
         prompt_config.subsection_id, "insight", first_pass_violations, word_count, prompt_config.word_cap,

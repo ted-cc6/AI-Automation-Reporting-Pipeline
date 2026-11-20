@@ -4266,3 +4266,42 @@ passed (`writer/tests/test_word_caps.py`, 13 new).
 two over-tolerance results in that check came from the shorten pass
 demanding the full quote count; fixed after the check. Parts 3, 4, 8 and the
 8.2 block are checked in Test7. Tests: 476 passed.
+
+---
+
+## Test7: full regeneration after CC-089 to CC-091
+
+**The run.** `run_orchestrator.py <..._2026-08-03-18-49-13.csv> --run-id Test7`,
+the same raw export as Test5 and Test6, with `CC_WRITER_TRACE` on. 10.3 min,
+exit 0, every hard gate passed. All 5,816 NPS answers came from the CC-089
+cache (0 coded). Outputs: `report_assembly/output/core_credit_impact_report_Test7.json`,
+`orchestrator/output/Core_Credit_Impact_Report_Test7.docx`,
+`orchestrator/output/writer_trace_Test7.jsonl`.
+
+| | Test6 | Test7 |
+|---|---|---|
+| Blocks flagged over cap | 11 of 34 | 0 of 34 (more than 10% over) |
+| Insights with 2 quotes | 0 | 4 (Parts 3, 4, 7, gender) plus Part 5 in text |
+| Hard lint hits | 0 | 0 |
+| Review lint lines | 6 | 9 |
+| Ungrounded quotes | 0 | 1 (Part 8, fixed below) |
+| Lead detractor reason | interest 54.3% (open coding) | interest 25.4% (codebook) |
+
+- Part 5 quotes two clients in its text; `insight_verbatims` is empty because
+  CC-058 drops quotes already listed under the protection signals.
+- Part 8 quotes one: its second quote was written with a literal "\\n" for
+  the client's line break, so it did not match the pool and showed the
+  characters in the report. Fixed in `writer/chain.py` (`_clean_output`); Test7
+  is left as generated.
+- 8.2 block renders the top promoter quote (Kosovo, glossed from Albanian) and
+  the top detractor quote (Zambia, interest rates).
+- Known-class flags carried over: "100%" rounding in Part 2 (CC-008 class),
+  one partial quote in the gender insight.
+
+**Found, not fixed (pre-existing).** In the graph-built sections without a
+quote pool (financial access, agency) `write_insight_node` runs twice, once
+from `metrics_ready_node` and once from `skip_qualitative_node`; the second
+write wins. Costs one extra call per section. The QA reviewer also noted mixed
+country names and ISO codes in the narrative, a 21 vs 14 country count in
+Part 2 without a reason given, four uses of "may be a priority area to
+investigate", and a doubled closing quote mark in the gender insight.
