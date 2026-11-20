@@ -4342,3 +4342,39 @@ message.** Since CC-068 the pipeline scores by option position and prints a
 `ScorecardLabelWarning` per typo, so the report is correct whatever the
 workbook says (Kenya 271/271, Zambia 281/281). The warnings stay as the
 record. Revisit only if a new scorecard version arrives.
+
+---
+
+## Readability fixes from the Test7 QA notes; Test8 (2026-11-20)
+
+**Changes.**
+- Country names. `benchmark_module/mapping.py` gains `COUNTRY_DISPLAY_NAMES`
+  (the benchmark map plus Kosovo and Montenegro, which it lacked) and
+  `country_display_name`. Writer inputs use names: country segment lines,
+  the 2.2 table, the Part 5 country block, 2.1 labels, quote profiles, and
+  the profile-grounding check. `chain._clean_output` expands any survey code
+  left outside client quotes.
+- 2.2 country count. The table header carries a FACT naming the survey
+  countries with no PPI-scored clients this wave (Dominican Republic, India,
+  Kosovo, Mexico, Mali, Montenegro, Mongolia), and the prompt asks the writer
+  to say why the comparison covers fewer countries.
+- R8 repetition. Only Insights may carry a forward-looking sentence; analysis
+  subsections state the finding and stop. Each Insight is assigned one of the
+  three R8 shapes in a fixed rotation (three Insights per shape), since no
+  block can see the others. The Part 8 prompt no longer hard-codes "may be a
+  priority to investigate".
+- Doubled quote marks (a straight and a curly mark side by side) collapse
+  to one in `_clean_output`.
+- Tests: `writer/tests/test_readability.py`. 485 passed.
+
+**Test8** (same export, 9.7 min, exit 0, all gates). 0 of 34 blocks over cap;
+no country codes in the narrative; "priority area to investigate" in 3
+Insights, "worth watching" in 2, none in analysis blocks; no doubled marks;
+no fabricated quotes; Part 8 now quotes two clients. 2.2 was then fixed for
+the reason clause and rechecked alone: "The comparison covers 14 of 21 survey
+countries, 7 have no PPI-scored clients this wave."
+
+Still flagged for review, not gated: two complement figures in Part 5
+analyses (7.6% = 100 - 92.4, 9.8% = 100 - 90.2) the writer derived itself,
+and "100%" rounding in Part 2 (CC-008 class). "Dashboard visuals missing 26 of
+26" is the separately fetched dashboard images, as in Test7.

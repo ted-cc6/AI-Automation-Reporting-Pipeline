@@ -242,9 +242,9 @@ def check_profile_grounding(text: str, pool: list[Verbatim]) -> list:
         not a flat 200-character lookback, which bled a neighbouring (also correct) quote's
         country in.
     """
-    from benchmark_module.mapping import COUNTRY_CODE_TO_NAME, COUNTRY_NAME_TO_CODE
+    from benchmark_module.mapping import COUNTRY_DISPLAY_NAMES, country_display_name
 
-    all_country_names = set(COUNTRY_NAME_TO_CODE.keys())
+    all_country_names = set(COUNTRY_DISPLAY_NAMES.values())
     normalized = _normalize_quote_marks(text)
     flagged = []
     for v in pool:
@@ -261,7 +261,7 @@ def check_profile_grounding(text: str, pool: list[Verbatim]) -> list:
         for boundary in _CLAUSE_BOUNDARY_RE.finditer(intro):
             clause_start = max(clause_start, boundary.end())
         window = intro[clause_start:]
-        correct_name = COUNTRY_CODE_TO_NAME.get(v.country, v.country)
+        correct_name = country_display_name(v.country)
         wrong = {name for name in all_country_names if name in window} - {correct_name}
         if wrong:
             flagged.append(f"quote attributed near {sorted(wrong)} but the real record is {correct_name!r}")

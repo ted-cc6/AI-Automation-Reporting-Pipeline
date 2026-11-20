@@ -38,7 +38,7 @@ load_dotenv(PROJECT_ROOT / ".env")
 import pandas as pd  # noqa: E402
 
 from benchmark_module.lookup import build_national_comparison  # noqa: E402
-from benchmark_module.mapping import COUNTRY_CODE_TO_NAME  # noqa: E402
+from benchmark_module.mapping import COUNTRY_DISPLAY_NAMES  # noqa: E402
 from ppi_module.aggregate import aggregate_poverty_line_shares, country_to_region_map  # noqa: E402
 from ppi_module.country_policy import na_footnote  # noqa: E402
 from ppi_module.pipeline import COUNTRY_COL, score_dataframe  # noqa: E402
@@ -115,13 +115,14 @@ def build_section(df: pd.DataFrame) -> PovertyLikelihoodSection:
         )
 
     country_to_region = country_to_region_map(df, COUNTRY_COL, REGION_COL)
-    poverty_line_shares = aggregate_poverty_line_shares(country_results, country_to_region, COUNTRY_CODE_TO_NAME)
+    poverty_line_shares = aggregate_poverty_line_shares(country_results, country_to_region, COUNTRY_DISPLAY_NAMES)
     national_comparison = build_national_comparison(country_results, BENCHMARKS_PATH)
     footnote = na_footnote(country_results)
     print(f"Step 1/3 done: {len(country_results)} countries scored (no LLM).")
 
     lines_summary = "\n".join(format_metric_result(m) for m in poverty_line_shares)
-    national_summary = format_national_comparison(national_comparison)
+    unscored = tuple(sorted(c.country_code for c in country_results if not c.n_scored))
+    national_summary = format_national_comparison(national_comparison, unscored)
     acceptable_2_1 = collect_acceptable_percentages(*poverty_line_shares)
     acceptable_2_2 = collect_acceptable_percentages(*national_comparison)
 

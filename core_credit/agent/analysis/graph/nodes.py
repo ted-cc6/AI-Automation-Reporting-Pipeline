@@ -26,6 +26,7 @@ import pandas as pd
 from langgraph.types import Send
 
 from benchmark_module.lookup import get_mfi_index_benchmark
+from benchmark_module.mapping import country_display_name
 from metrics_engine.engine import metric_result, multiselect_distribution, top_box_mask
 from metrics_engine.segments import clean_blank_strings, standard_categorical_segments
 from qualitative_agent.agent import merge_batches, theme_tag_batch
@@ -319,9 +320,9 @@ def _format_client_protection_country_block(rows: list) -> str:
             notes.append(f"no cell: {_cp_labels(r['absent'])}")
         note = f" ({'; '.join(notes)})" if notes else ""
         flag = "" if r["rankable"] else "  [coverage too thin to rank]"
-        lines.append(f"  - {r['country']}: {pct} over {r['k']} of {r['n_ind']} indicators{note}{flag}")
+        lines.append(f"  - {country_display_name(r['country'])}: {pct} over {r['k']} of {r['n_ind']} indicators{note}{flag}")
 
-    full = [r["country"] for r in rows if r["k"] == r["n_ind"]]
+    full = [country_display_name(r["country"]) for r in rows if r["k"] == r["n_ind"]]
     n_ind = rows[0]["n_ind"] if rows else 6
     lines.append(
         f"State in the Insight that only {', '.join(full) if full else 'no country'} "
@@ -335,7 +336,7 @@ def _format_client_protection_country_block(rows: list) -> str:
     if rankable:
         top = rankable[0]
         line = (
-            f"Highest client-protection score among adequately-covered countries: {top['country']} at "
+            f"Highest client-protection score among adequately-covered countries: {country_display_name(top['country'])} at "
             f"{top['avg']:.1%} (mean of {top['k']} of {top['n_ind']} indicators). Name THIS country as the "
             f"strongest on client protection in the Insight, and describe the score as a multi-indicator "
             f"average, not a single figure."

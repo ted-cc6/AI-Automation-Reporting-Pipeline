@@ -91,6 +91,16 @@ COUNTRY_NAME_TO_CODE = {
 }
 COUNTRY_CODE_TO_NAME = {v: k for k, v in COUNTRY_NAME_TO_CODE.items()}
 
+# Names for report text. COUNTRY_NAME_TO_CODE only lists countries the benchmark tabs carry, so
+# Kosovo and Montenegro (in the survey, not in those tabs) reached the narrative as "KOS" and
+# "MNE" (Test7 QA). Kept separate so benchmark lookups are unchanged.
+COUNTRY_DISPLAY_NAMES = {**COUNTRY_CODE_TO_NAME, "KOS": "Kosovo", "MNE": "Montenegro"}
+
+
+def country_display_name(code):
+    """Full country name for a survey country code; anything unknown comes back unchanged."""
+    return COUNTRY_DISPLAY_NAMES.get(code, code) if code else code
+
 # --- Region name (60 DB Benchmarks tab) <-> our SegmentAxis region values ---------
 
 # Our survey data's region field is "LACRO"; the benchmark sheet spells it "LAC". MEER has

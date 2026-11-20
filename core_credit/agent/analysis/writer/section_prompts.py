@@ -142,7 +142,10 @@ MFI_VS_NATIONAL_POVERTY_RATE = SubsectionPrompt(
         "Compare the poverty likelihood of the client base with the national rate for each "
         "country served. Note where clients' poverty likelihood is higher than the national "
         "rate, which is consistent with relatively pro-poor client reach (never call it "
-        "targeting), and where it is lower. Any row marked [LOW COVERAGE: ...] must carry that same caveat when you cite "
+        "targeting), and where it is lower. Say how many countries the comparison covers and "
+        "why, using the bracketed FACT (countries without PPI-scored clients, or without a national "
+        "rate, are not compared), so "
+        "a reader does not take it for the full country count. Any row marked [LOW COVERAGE: ...] must carry that same caveat when you cite "
         "its figure -- do not state a low-coverage country's number as if it were as reliable "
         "as the others."
     ),
@@ -541,7 +544,7 @@ CLIENT_SATISFACTION_INSIGHT = SubsectionPrompt(
     word_cap=150,  # CC-042: raised from 120, see docs/core_credit_report_spec.md CC-042
     instructions=(
         "Bring the section together in three to five sentences a reader can act on. Fold in "
-        "the NPS and the most commonly cited reason on each side, and name one area that may "
-        "be a priority to investigate. Include two verbatims with profile."
+        "the NPS and the most commonly cited reason on each side, and name one area to look "
+        "into further. Include two verbatims with profile."
     ),
 )

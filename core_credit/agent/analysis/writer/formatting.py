@@ -6,6 +6,7 @@ just gives it a clean, unambiguous view of the real numbers so it has nothing to
 
 from __future__ import annotations
 
+from benchmark_module.mapping import country_display_name
 from schemas.client_satisfaction import NPSResult
 from schemas.common import MetricResult, RankedOptions, SegmentAxis, SegmentedValue
 from schemas.poverty_likelihood import CountryVsNationalRate
@@ -32,7 +33,8 @@ AXIS_PHRASES = {
 
 def _segment_line(population: str, seg: SegmentedValue) -> str:
     split = AXIS_PHRASES.get(seg.axis, seg.axis.value.replace("_", " "))
-    return f"  - {population}, split by {split}: {seg.value_label}: {_format_segmented(seg)}"
+    label = country_display_name(seg.value_label) if seg.axis == SegmentAxis.COUNTRY else seg.value_label
+    return f"  - {population}, split by {split}: {label}: {_format_segmented(seg)}"
 
 
 def _format_segmented(sv: SegmentedValue) -> str:
@@ -81,7 +83,7 @@ def format_metric_result(mr: MetricResult) -> str:
 _LOW_COVERAGE_THRESHOLD = 0.9
 
 
-def format_national_comparison(rows: list[CountryVsNationalRate]) -> str:
+def format_national_comparison(rows: list[CountryVsNationalRate], unscored_countries: tuple = ()) -> str:
     """Note: unlike SegmentedValue.share (a 0-1 fraction), portfolio_poverty_likelihood and
     national_poverty_rate are already percentage points (e.g. 21.6 means 21.6%) -- see
     benchmark_module/reference_data.py's own docstring on this -- so these are formatted with
@@ -92,7 +94,17 @@ def format_national_comparison(rows: list[CountryVsNationalRate]) -> str:
     caveat anywhere nearby -- the coverage flag below is deliberately inline with the number
     it qualifies, the same fix as aggregate_poverty_line_shares' country labels for 2.1.
     """
-    lines = ["MFI poverty likelihood vs. national poverty rate, by country:"]
+    # Test7/Test8 QA: "fourteen countries" after a 21-country profile read as a contradiction.
+    # The gap is countries with no PPI-scored clients, so the fact names them.
+    n_compared = sum(1 for r in rows if r.national_poverty_rate is not None)
+    n_survey = len(rows) + len(unscored_countries)
+    fact = f"{n_compared} of the {n_survey} survey countries are compared"
+    if unscored_countries:
+        names = ", ".join(country_display_name(c) for c in unscored_countries)
+        fact += f"; {len(unscored_countries)} have no PPI-scored clients this wave ({names})"
+    if n_compared < len(rows):
+        fact += f"; {len(rows) - n_compared} scored countries have no national poverty rate on file"
+    lines = [f"MFI poverty likelihood vs. national poverty rate, by country [FACT: {fact}]:"]
     for row in rows:
         portfolio = f"{row.portfolio_poverty_likelihood:.1f}%" if row.portfolio_poverty_likelihood is not None else "no data"
         national = f"{row.national_poverty_rate:.1f}%" if row.national_poverty_rate is not None else "no national rate on file"
@@ -109,7 +121,7 @@ def format_national_comparison(rows: list[CountryVsNationalRate]) -> str:
         if row.n_scored is not None and row.n_total and row.n_scored < row.n_total * _LOW_COVERAGE_THRESHOLD:
             coverage_pct = round(100 * row.n_scored / row.n_total)
             coverage = f" [LOW COVERAGE: only {row.n_scored} of {row.n_total} clients scored, {coverage_pct}%]"
-        lines.append(f"  - {row.country_code}: portfolio {portfolio} vs. national {national}{verdict}{coverage}")
+        lines.append(f"  - {country_display_name(row.country_code)}: portfolio {portfolio} vs. national {national}{verdict}{coverage}")
     return "\n".join(lines)
 
 

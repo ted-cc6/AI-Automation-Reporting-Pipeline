@@ -110,8 +110,9 @@ or pathway. Instead of "showing that service quality and speed drive loyalty as 
 pricing", write "good service and fast disbursement are commonly cited reasons for \
 recommendation".
 
-R8 Recommendations are exploratory. Most subsections are complete once you've stated the \
-finding, so end there. A forward-looking sentence is not required, and should be the \
+R8 Recommendations are exploratory. Only an Insight may carry a forward-looking sentence: an \
+analysis subsection states its finding and stops. Most Insights are complete once you've \
+stated the finding, so end there. A forward-looking sentence is not required, and should be the \
 exception, not the default: add one only when the data itself raises a genuine next step or \
 open question worth naming, never as a reflex closer tacked onto a block that's already said \
 everything it needs to. A real mistake a reviewer flagged: a rewrite meant to fix one \
@@ -279,9 +280,9 @@ def _format_verbatim_profile(v: Verbatim) -> str:
     # call, given the exact same pool format, wrote out "Zambia" from its own general
     # knowledge -- nothing told the writer the field was a code needing expansion, so it was
     # inconsistent by chance, not by design.
-    from benchmark_module.mapping import COUNTRY_CODE_TO_NAME
+    from benchmark_module.mapping import country_display_name
 
-    country = COUNTRY_CODE_TO_NAME.get(v.country, v.country) if v.country else None
+    country = country_display_name(v.country) if v.country else None
     parts = [
         v.gender or "unknown gender",
         f"age {v.age or 'unknown'}",
@@ -338,7 +339,29 @@ def _clean_output(text: str) -> str:
     """CC-091: the model sometimes writes a quote's line break as the two characters "\\n"
     (Test7's Part 8 insight did). That is never prose: it showed in the report and stopped the
     real quote matching the pool. Turn it, and any real line break, into a space."""
-    return re.sub(r"\s*(?:\\n|\n)\s*", " ", text).strip()
+    text = re.sub(r"\s*(?:\\n|\n)\s*", " ", text).strip()
+    # Test7 QA: a straight and a curly mark side by side ('accident.\u201d"') closing one quote
+    text = re.sub(r'["\u201c\u201d]{2,}', '"', text)
+    return _expand_country_codes(text)
+
+
+_QUOTED_RE = re.compile(r'"[^"]*"|\u201c[^\u201d]*\u201d')
+
+
+def _expand_country_codes(text: str) -> str:
+    """Test7 QA: survey country codes ("MNE", "MLI") reached the narrative next to full names
+    elsewhere. Writer inputs now carry names; this catches any code that still slips through.
+    Client quotes are left exactly as written."""
+    from benchmark_module.mapping import COUNTRY_DISPLAY_NAMES
+
+    code_re = re.compile(r"\b(" + "|".join(sorted(COUNTRY_DISPLAY_NAMES)) + r")\b")
+    out, last = [], 0
+    for m in _QUOTED_RE.finditer(text):
+        out.append(code_re.sub(lambda c: COUNTRY_DISPLAY_NAMES[c.group(1)], text[last : m.start()]))
+        out.append(m.group(0))
+        last = m.end()
+    out.append(code_re.sub(lambda c: COUNTRY_DISPLAY_NAMES[c.group(1)], text[last:]))
+    return "".join(out)
 
 
 def within_tolerance(word_count: int, word_cap: int) -> bool:
@@ -527,11 +550,30 @@ def _shorten_instruction(text: str, word_count: int, prompt_config: SubsectionPr
     )
 
 
+# Test7 QA: "may be a priority area to investigate" closed four blocks. Each block writes alone
+# and cannot see the others, so the R8 shape is assigned per Insight, the same on every run.
+_R8_SHAPES = (
+    '"could be explored as actions to support these outcomes"',
+    '"may be a priority area to investigate"',
+    '"is worth watching" (alongside a related figure)',
+)
+
+
+def _forward_looking_note(subsection_id: str) -> str:
+    if not subsection_id.endswith("-insight"):
+        return "This is an analysis subsection: state the finding and stop, with no forward-looking sentence."
+    order = ["1", "2", "3", "4", "5", "6", "7", "8", "gender"]
+    part = subsection_id.removesuffix("-insight")
+    shape = _R8_SHAPES[(order.index(part) if part in order else 0) % len(_R8_SHAPES)]
+    return f"If this Insight adds a forward-looking sentence (R8), use the shape {shape}."
+
+
 def _task_preamble(prompt_config: SubsectionPrompt, data_summary: str) -> str:
     return (
         f"Subsection: {prompt_config.title}\n"
         f"Word cap: {prompt_config.word_cap} words\n\n"
-        f"{prompt_config.instructions}\n\n"
+        f"{prompt_config.instructions}\n"
+        f"{_forward_looking_note(prompt_config.subsection_id)}\n\n"
         f"Computed statistics:\n{data_summary}"
     )
 
