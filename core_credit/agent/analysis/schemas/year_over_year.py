@@ -16,6 +16,7 @@ class YoYRow(BaseModel):
     change_pts: Optional[float] = None
     significant: bool = False
     is_score: bool = Field(default=False, description="True for the NPS score (points, not a share)")
+    is_count: bool = Field(default=False, description="CC-099: values are answer counts (protection signals)")
     note: Optional[str] = None
 
 
@@ -32,3 +33,5 @@ class YearOverYearSection(BaseModel):
     loan_cycle_rows: list[YoYRow] = Field(default_factory=list)
     country_rows: list[YoYRow] = Field(default_factory=list)
     review_rows: list[YoYRow] = Field(default_factory=list, description="CC-095 swing-flagged figures, not narrated")
+    theme_rows: list[YoYRow] = Field(default_factory=list, description="CC-099 significant theme-share changes")
+    protection_rows: list[YoYRow] = Field(default_factory=list, description="CC-099 protection-signal counts, both years")

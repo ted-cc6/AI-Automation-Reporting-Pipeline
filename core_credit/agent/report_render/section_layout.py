@@ -481,14 +481,18 @@ def render_client_voices(doc, section) -> None:
         h.add_body_paragraph(doc, "[ No detractor verbatims available. ]", italic=True)
 
 
-def _yoy_value(v, is_score: bool) -> str:
+def _yoy_value(v, is_score: bool, is_count: bool = False) -> str:
     if v is None:
         return "--"
+    if is_count:
+        return f"{int(v)}"
     return f"{v:.1f}" if is_score else f"{v * 100:.1f}%"
 
 
 def _yoy_change(r) -> str:
-    return "--" if r.change_pts is None else f"{r.change_pts:+.1f}"
+    if r.change_pts is None:
+        return "--"
+    return f"{int(r.change_pts):+d}" if r.is_count else f"{r.change_pts:+.1f}"
 
 
 def _yoy_headline_cells(r) -> list:
@@ -499,7 +503,8 @@ def _yoy_headline_cells(r) -> list:
 
 
 def _yoy_group_cells(r) -> list:
-    return [r.label, r.group, _yoy_value(r.value_2025, r.is_score), _yoy_value(r.value_2026, r.is_score), _yoy_change(r)]
+    v25, v26 = _yoy_value(r.value_2025, r.is_score, r.is_count), _yoy_value(r.value_2026, r.is_score, r.is_count)
+    return [r.label, r.group, v25, v26, _yoy_change(r)]
 
 
 def render_year_over_year(doc, section) -> None:
@@ -514,11 +519,23 @@ def render_year_over_year(doc, section) -> None:
         ("Significant changes by gender", section.gender_rows, "Who"),
         ("Significant changes by loan cycle", section.loan_cycle_rows, "Loan cycle"),
         ("Significant changes by country", section.country_rows, "Country"),
+        ("Significant changes in themes clients raised", section.theme_rows, "Question"),
     )
     for title, rows, who in groups:
         if rows:
             h.add_subheading(doc, title)
             h.add_table(doc, ["Figure", who] + years, [_yoy_group_cells(r) for r in rows])
+    if section.protection_rows:
+        h.add_subheading(doc, "Protection signals, number of answers")
+        h.add_caption(
+            doc,
+            "Counts of answers coded to each protection signal in each year. There are too few per signal "
+            "to read a trend, so these are shown as counts and not tested or interpreted.",
+        )
+        h.add_table(
+            doc, ["Signal", "Answers", str(a), str(b), "Difference"],
+            [[r.label, r.note or "", _yoy_value(r.value_2025, False, True), _yoy_value(r.value_2026, False, True), _yoy_change(r)] for r in section.protection_rows],
+        )
     if section.review_rows:
         h.add_subheading(doc, "Large shifts to confirm with country teams")
         h.add_caption(

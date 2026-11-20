@@ -4608,3 +4608,27 @@ counted in the NPS theme "poor service or rude staff"); any such answer that
 still codes as rude treatment is removed by hand. No sample rows were marked.
 Approved: quality of life 16 codes, protection signals 8, other coping 11,
 other child improvements 6 (all version 1).
+
+## CC-099 (done): theme-share changes between waves
+
+- `analysis/yoy/themes.py`, run inside `yoy.run_deltas` (adds `themes` to the
+  deltas file). Every theme pass with an approved codebook is coded for both
+  waves on the comparison countries (cache reused) and each theme's share of
+  answers is compared with the 95% two-proportion test.
+- Blocks: NPS promoter and detractor reasons -> 8.2; quality of life -> Part 3
+  Insight (3.3 is a code-rendered list); coping -> 7.3; child improvements ->
+  Part 4 Insight; NPS passives -> table only. Significant themes reach the
+  writer as YOY FACTs; the rest are listed "similar to 2025".
+- Protection signals are counts only: never tested, never given to the
+  writer, shown in the table as answers per signal in each year.
+- A theme set is tested only with at least 100 answers in each wave
+  (`MIN_THEME_BASE`). YoY1: other coping (155, 75) and other child
+  improvements (51, 53) fall below it and are named in the table note.
+- First coding of the four new codebooks: 11,814 answers (quality of life
+  10,806; protection 667; coping 230; child 104), then cached; a rerun coded 0.
+- YoY1 result: 21 significant theme changes across promoters (6), passives
+  (7), detractors (2) and quality of life (6). Examples: promoters citing
+  good service 37.7% to 43.0%, fast loan process 28.3% to 22.5%; detractors
+  citing high interest 26.8% to 14.6% (detractor answers 343 to 205);
+  quality-of-life business growth 40.2% to 36.1%.
+- Tests: `analysis/yoy/tests/test_themes.py` (6). 527 passed.

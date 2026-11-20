@@ -15,6 +15,7 @@ from pathlib import Path
 import pandas as pd
 
 from yoy.deltas import compute_deltas
+from yoy.themes import compute_theme_deltas
 
 
 def _load(path: str) -> pd.DataFrame:
@@ -25,7 +26,10 @@ def main(manifest_path: str) -> Path:
     manifest = json.loads(Path(manifest_path).read_text(encoding="utf-8"))
     by_year = {w["year"]: w["analysis_ready_csv"] for w in manifest["waves"]}
     earlier, latest = manifest["comparison_wave"], manifest["report_wave"]
-    result = compute_deltas(_load(by_year[earlier]), _load(by_year[latest]), manifest["comparison_countries"])
+    df_a, df_b = _load(by_year[earlier]), _load(by_year[latest])
+    result = compute_deltas(df_a, df_b, manifest["comparison_countries"])
+    # CC-099: codes any answer not yet in the codebook cache (LLM), then compares theme shares
+    result["themes"] = compute_theme_deltas(df_a, df_b, manifest["comparison_countries"])
     result.update(
         waves={"comparison": earlier, "report": latest},
         partial_countries=manifest["partial_countries"],
@@ -46,6 +50,11 @@ def main(manifest_path: str) -> Path:
     for r in review:
         unit = "" if r["metric_id"] == "nps_score" else " pts"
         print(f"    {r['country']} {r['label']}: {r['change_pts']:+.1f}{unit}")
+    for q in result["themes"]:
+        sig = [t for t in q["themes"] if t["significant"]]
+        print(f"  Themes, {q['group']} (n {q['n_2025']} -> {q['n_2026']}): {len(sig)} significant" + ("" if not q["counts_only"] else " (counts only)"))
+        for t in sig:
+            print(f"    {t['label']}: {t['value_2025']:.1%} -> {t['value_2026']:.1%} ({t['change_pts']:+.1f} pts)")
     n = result["nps_score"]["portfolio"]
     print(f"  NPS: {n['value_2025']:.1f} -> {n['value_2026']:.1f} ({n['change_pts']:+.1f}, p={n['p_value']:.3g})")
     return out

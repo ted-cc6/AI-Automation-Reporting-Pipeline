@@ -65,7 +65,10 @@ def test_route_qualitative_skips_when_section_has_no_qualitative_config():
     assert route_qualitative(state) == "skip_qualitative_node"
 
 
-def test_route_qualitative_fans_out_when_section_has_qualitative_config():
+def test_route_qualitative_fans_out_when_section_has_qualitative_config(monkeypatch):
+    import graph.nodes as nodes
+
+    monkeypatch.setattr(nodes, "load_approved_codebook", lambda q: None)  # CC-098: no approved codebook
     state = {
         "section_config": BUSINESS_HOUSEHOLD_IMPACT,
         "qualitative_responses": list(range(25)),

@@ -68,6 +68,18 @@ def build_yoy_section(deltas: dict, manifest: dict) -> YearOverYearSection:
         for r in deltas["swing_review"]
     ]
 
+    themes, protection = [], []
+    for q in deltas.get("themes", []):
+        for t in q["themes"]:
+            if q["counts_only"]:
+                protection.append(YoYRow(
+                    label=t["label"], group=q["group"], value_2025=t["count_2025"], value_2026=t["count_2026"],
+                    change_pts=t["count_2026"] - t["count_2025"], is_count=True,
+                    note=f"of {q['n_2025']} and {q['n_2026']} answers",
+                ))
+            elif t["significant"]:
+                themes.append(_row(t["label"], q["group"], t))
+
     compared = [country_display_name(c) for c in deltas["comparison_countries"]]
     excluded = {country_display_name(c): why for c, why in manifest.get("excluded_countries", {}).items()}
     partial = [country_display_name(c) for c in deltas.get("partial_countries", [])]
@@ -75,12 +87,17 @@ def build_yoy_section(deltas: dict, manifest: dict) -> YearOverYearSection:
     return YearOverYearSection(
         comparison_wave=a, report_wave=b, comparison_countries=compared, excluded_countries=excluded,
         partial_countries=partial, provisional=bool(deltas.get("provisional")),
-        note=_note(a, b, len(compared), excluded, partial, bool(deltas.get("provisional"))),
+        note=_note(a, b, len(compared), excluded, partial, bool(deltas.get("provisional")), _small_sets(deltas)),
         headline_rows=rows, gender_rows=gender, loan_cycle_rows=cycles, country_rows=countries, review_rows=review,
+        theme_rows=themes, protection_rows=protection,
     )
 
 
-def _note(a, b, n, excluded, partial, provisional) -> str:
+def _small_sets(deltas: dict) -> list:
+    return [f"{q['group']} ({q['n_2025']} and {q['n_2026']} answers)" for q in deltas.get("themes", []) if q.get("small_base") and not q["counts_only"]]
+
+
+def _note(a, b, n, excluded, partial, provisional, small_sets=()) -> str:
     parts = [
         f"These figures compare clients surveyed in {b} with clients surveyed in {a}, in the {n} "
         f"countries surveyed in both years. They are two different groups of clients, not the same "
@@ -99,6 +116,11 @@ def _note(a, b, n, excluded, partial, provisional) -> str:
         "interpreted; they are listed at the end for review with the country teams. The table "
         "describes what changed, not why."
     )
+    if small_sets:
+        parts.append(
+            "Themes are compared only where at least 100 clients answered in each year; too few did for "
+            + "; ".join(small_sets) + "."
+        )
     return " ".join(parts)
 
 

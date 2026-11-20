@@ -94,7 +94,8 @@ def facts_for(subsection_id: str) -> tuple[str, set]:
     else:
         ids = _block_metrics().get(subsection_id, ())
     with_nps = subsection_id in _NPS_BLOCKS
-    if not ids and not with_nps:
+    theme_sets = [q for q in d.get("themes", []) if q["block"] == subsection_id and not q["counts_only"]]
+    if not ids and not with_nps and not theme_sets:
         return "", set()
 
     lines, similar, accepted = [], [], set()
@@ -128,6 +129,18 @@ def facts_for(subsection_id: str) -> tuple[str, set]:
             )
         else:
             similar.append("Net Promoter Score")
+
+    for q in theme_sets:  # CC-099
+        for t in q["themes"]:
+            if t["significant"]:
+                lines.append(
+                    f"  - [YOY FACT: theme \"{t['label']}\" ({q['group']}): {_pct(t['value_2026'])} of answers in 2026 "
+                    f"compared with {_pct(t['value_2025'])} in 2025, {t['change_pts']:+.1f} points, a statistically significant change]"
+                )
+                accept(t)
+        quiet = [t["label"] for t in q["themes"] if not t["significant"] and (t["count_2025"] or t["count_2026"])]
+        if quiet:
+            similar.append(f"themes among {q['group']}: " + ", ".join(quiet))
 
     countries = len(d["comparison_countries"])
     status = []
