@@ -4575,7 +4575,7 @@ figures; none names a country; Part 8 says NPS is similar to 2025. Table:
   (71% = 100 - 28.8, 7.7% = 100 - 92.3) and Part 2 "100%" rounding.
 - Tests: 518 passed.
 
-## CC-098 (in progress): codebooks for the other four theme passes
+## CC-098 (done): codebooks for the other four theme passes
 
 **Wiring (done).** Quality-of-life drivers (Part 3, driver), other coping
 (Part 7, driver) and other child improvements (Part 4, driver) call
@@ -4601,3 +4601,10 @@ poor customer care as rude treatment; tightened, which fixed two other rows
 (refused a loan after a late repayment, belongings sold to recover a loan),
 but two "poor customer care" answers still code as rude treatment. Awaiting
 Binjie's review before approval.
+
+**Approved 2026-11-20.** Binjie chose to keep the strict protection rule:
+generally poor customer care is not a protection signal (it is already
+counted in the NPS theme "poor service or rude staff"); any such answer that
+still codes as rude treatment is removed by hand. No sample rows were marked.
+Approved: quality of life 16 codes, protection signals 8, other coping 11,
+other child improvements 6 (all version 1).

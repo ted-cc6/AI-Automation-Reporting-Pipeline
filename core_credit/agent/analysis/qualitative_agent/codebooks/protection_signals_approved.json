@@ -1,0 +1,54 @@
+{
+  "question": "protection_signals",
+  "version": 1,
+  "themes": [
+    {
+      "code": "rude_treatment",
+      "label": "Rude or disrespectful staff",
+      "definition": "Staff were rude, disrespectful, sarcastic, humiliating or shouted at the client. It must describe how staff treated the client: generally poor or slow service ('lacks good customer service', 'improve your services') is not a signal and goes to other. Pressure during collection goes to coercive_collection.",
+      "severity": "medium"
+    },
+    {
+      "code": "coercive_collection",
+      "label": "Coercive or harassing collection",
+      "definition": "Threats, harassment, repeated calls, undue pressure, seizing items, or contacting others to force repayment. Includes taking or selling the client's belongings to recover a loan.",
+      "severity": "high"
+    },
+    {
+      "code": "public_collection",
+      "label": "Public or embarrassing collection",
+      "definition": "Collection done in public or in groups in a way that shames the client or exposes their debt to others.",
+      "severity": "medium"
+    },
+    {
+      "code": "no_flexibility_in_hardship",
+      "label": "No understanding in hardship",
+      "definition": "Staff or rules showed no understanding when the client was ill, bereaved or in hardship and could not pay on time.",
+      "severity": "medium"
+    },
+    {
+      "code": "misselling_unclear_terms",
+      "label": "Misselling or unclear terms",
+      "definition": "The client was misled, promised something that did not happen, or not told the loan's conditions, fees or insurance when taking the loan.",
+      "severity": "high"
+    },
+    {
+      "code": "group_liability_burden",
+      "label": "Unfair group liability",
+      "definition": "The client was made to pay for other group members or guarantors without that being explained.",
+      "severity": "medium"
+    },
+    {
+      "code": "unfair_exclusion",
+      "label": "Unfair or selective treatment",
+      "definition": "The client felt distrusted, singled out, or refused a loan or service on grounds they see as unfair. Includes being refused a new loan after a late repayment.",
+      "severity": "low"
+    },
+    {
+      "code": "complaint_ignored",
+      "label": "Complaint ignored or mishandled",
+      "definition": "A complaint or request the client raised was ignored, mishandled or never resolved.",
+      "severity": "high"
+    }
+  ]
+}

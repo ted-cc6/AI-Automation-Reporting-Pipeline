@@ -1,0 +1,36 @@
+{
+  "question": "other_child_improvements",
+  "version": 1,
+  "themes": [
+    {
+      "code": "education",
+      "label": "Schooling",
+      "definition": "School fees, tuition, supplies, enrolment, or things for school such as a bicycle to get there."
+    },
+    {
+      "code": "leisure_travel",
+      "label": "Holidays and leisure",
+      "definition": "Holidays, trips, camps or leisure activities for the children."
+    },
+    {
+      "code": "basic_needs",
+      "label": "Food, health and home",
+      "definition": "Food, health care, hygiene, water, electricity or housing for the children."
+    },
+    {
+      "code": "time_with_children",
+      "label": "More time with the children",
+      "definition": "More time to spend with or care for the children."
+    },
+    {
+      "code": "household_income",
+      "label": "Household income",
+      "definition": "Higher household or business income that helps the children, without a specific use."
+    },
+    {
+      "code": "child_business_or_training",
+      "label": "A child's own business or training",
+      "definition": "Helped a child start a business or trade, or pay for vocational training."
+    }
+  ]
+}

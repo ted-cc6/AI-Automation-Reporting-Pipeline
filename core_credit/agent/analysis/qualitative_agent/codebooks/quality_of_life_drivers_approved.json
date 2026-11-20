@@ -1,0 +1,86 @@
+{
+  "question": "quality_of_life_drivers",
+  "version": 1,
+  "themes": [
+    {
+      "code": "business_growth",
+      "label": "Business growth",
+      "definition": "Loan grew an existing business or started or diversified into a new one: more stock, sales, customers, capital, or better harvests and livestock. Only for IMPACT03a (how life improved)."
+    },
+    {
+      "code": "higher_income",
+      "label": "Higher income",
+      "definition": "Income, earnings or profits rose, or the client has more money to spend or depends less on others, without naming a business mechanism. Only for IMPACT03a (how life improved)."
+    },
+    {
+      "code": "household_needs",
+      "label": "Household needs met",
+      "definition": "Loan helped cover everyday household needs: food, bills, consumption, health care or nutrition. Only for IMPACT03a (how life improved)."
+    },
+    {
+      "code": "education",
+      "label": "Children's education",
+      "definition": "Loan paid school fees, uniforms, supplies or other education costs. Only for IMPACT03a (how life improved)."
+    },
+    {
+      "code": "assets_housing",
+      "label": "Assets and housing",
+      "definition": "Loan bought durable assets (land, vehicles, equipment, cattle, goats, poultry or other animals bought or raised) or built, finished or repaired the home. Only for IMPACT03a (how life improved)."
+    },
+    {
+      "code": "savings",
+      "label": "Savings",
+      "definition": "Client can now save, or has more savings or financial security for the future. Only for IMPACT03a (how life improved)."
+    },
+    {
+      "code": "less_debt_stress",
+      "label": "Less debt or stress",
+      "definition": "Loan reduced debts, money worries, or improved peace of mind and confidence. Only for IMPACT03a (how life improved)."
+    },
+    {
+      "code": "general_wellbeing",
+      "label": "Broad improvement in living conditions",
+      "definition": "Names several gains together (food, housing, health, assets) or living conditions in general, with something concrete said. A bare 'it improved' goes to other. Only for IMPACT03a (how life improved)."
+    },
+    {
+      "code": "no_change_expenses",
+      "label": "Expenses offset any gain",
+      "definition": "Life did not change because household costs, dependents or repayments used up what the loan brought, or no reason beyond 'no change'. Only for IMPACT03b (why life did not change)."
+    },
+    {
+      "code": "too_early",
+      "label": "Too early to see an effect",
+      "definition": "Too little time has passed, the first harvest or cycle is not done, or the funds have not arrived yet. Only for IMPACT03b (why life did not change)."
+    },
+    {
+      "code": "loan_too_small",
+      "label": "Loan too small",
+      "definition": "The loan amount was too small to make a difference. For IMPACT03b or IMPACT03c."
+    },
+    {
+      "code": "external_conditions",
+      "label": "Economic or external conditions",
+      "definition": "Inflation, cost of living, competition, low buyer prices, pests, disease or weather limited the benefit or made things worse. For IMPACT03b or IMPACT03c."
+    },
+    {
+      "code": "business_setback",
+      "label": "Business setback",
+      "definition": "The business declined, failed, or lost stock or assets (theft, mismanagement), or the client says life or business got worse without a reason. Only for IMPACT03c (how life got worse)."
+    },
+    {
+      "code": "health_family_emergency",
+      "label": "Illness or family emergency",
+      "definition": "Illness, death or a family emergency caused hardship or used up the loan. Only for IMPACT03c (how life got worse)."
+    },
+    {
+      "code": "repayment_stress",
+      "label": "Repayment stress",
+      "definition": "Struggle, stress or a cycle of hardship from repaying the loan. Only for IMPACT03c (how life got worse)."
+    },
+    {
+      "code": "loan_mismatch",
+      "label": "Loan used or given for a different purpose",
+      "definition": "The loan received did not match the purpose asked for, or was spent on personal needs rather than the business, so the plan was not realised. For IMPACT03b or IMPACT03c."
+    }
+  ]
+}

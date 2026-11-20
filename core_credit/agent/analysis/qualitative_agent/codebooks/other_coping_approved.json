@@ -1,0 +1,61 @@
+{
+  "question": "other_coping",
+  "version": 1,
+  "themes": [
+    {
+      "code": "self_reliance",
+      "label": "Managed on their own",
+      "definition": "The household coped by itself, through its own work or by finding its own way through, without outside help."
+    },
+    {
+      "code": "savings_or_credit",
+      "label": "Savings or credit",
+      "definition": "Used savings or an emergency fund, or took or renewed a loan, or asked to change repayments, from VisionFund or another lender."
+    },
+    {
+      "code": "farming_adaptation",
+      "label": "Changed farming practices",
+      "definition": "Irrigation, buying water, drought-resistant or different seeds, replanting, or dams to protect crops."
+    },
+    {
+      "code": "new_income_source",
+      "label": "New income source",
+      "definition": "Started a new business, side job or trade to replace lost income."
+    },
+    {
+      "code": "worked_harder",
+      "label": "Worked harder",
+      "definition": "Worked more hours or harder, or pushed an existing business further."
+    },
+    {
+      "code": "sold_assets",
+      "label": "Sold assets",
+      "definition": "Sold land, livestock, crops or other possessions to get money or keep up repayments."
+    },
+    {
+      "code": "cut_spending",
+      "label": "Cut spending",
+      "definition": "Reduced household spending, meals or other expenses."
+    },
+    {
+      "code": "repairs_or_equipment",
+      "label": "Repairs, relocation or equipment",
+      "definition": "Repaired the home, moved because of flooding or damage, or bought equipment such as a generator."
+    },
+    {
+      "code": "acceptance_faith",
+      "label": "Acceptance or faith",
+      "definition": "Accepted the situation, was patient, or left it to God, without a practical step."
+    },
+    {
+      "code": "not_able_to_cope",
+      "label": "Could not cope",
+      "definition": "Could not deal with the shock at all, or suffered loss without any way through."
+    },
+    {
+      "code": "no_effect",
+      "label": "Shock had no real effect",
+      "definition": "Says the shock caused no problem or nothing needed doing."
+    }
+  ]
+}
