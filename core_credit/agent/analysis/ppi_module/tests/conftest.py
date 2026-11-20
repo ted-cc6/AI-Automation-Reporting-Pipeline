@@ -8,9 +8,11 @@ email thread), and they double as a drift check: if a future refresh of
 those workbooks changes shape, these tests catch it.
 """
 
+import re
 from pathlib import Path
 
 import pandas as pd
+
 import pytest
 
 # ppi_module/tests -> ppi_module -> analysis -> agent -> core_credit (project root)
@@ -25,7 +27,13 @@ def _find_latest_analysis_ready_csv() -> str:
     # hand-edited), so pinning one exact name breaks the moment someone reruns the pipeline or
     # clears the folder. Confirmed the hard way: a hardcoded name here broke every PPI test the
     # first time processed_data/ was cleared and regenerated with a new timestamp.
-    candidates = sorted(PROJECT_ROOT.glob("processed_data/*_analysis_ready.csv"))
+    # CC-093: per-wave files (<run>_<year>_<timestamp>_analysis_ready.csv) hold one wave only,
+    # and on Windows "YoY1_2026_..." sorts after "local-..." (paths compare case-blind), so
+    # they would become "latest". These tests check verified single-export figures.
+    candidates = sorted(
+        p for p in PROJECT_ROOT.glob("processed_data/*_analysis_ready.csv")
+        if not re.search(r"_20\d\d_\d{8}_\d{6}_analysis_ready\.csv$", p.name)
+    )
     assert candidates, f"no *_analysis_ready.csv found under {PROJECT_ROOT / 'processed_data'}"
     return str(candidates[-1])
 

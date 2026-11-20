@@ -4378,3 +4378,85 @@ Still flagged for review, not gated: two complement figures in Part 5
 analyses (7.6% = 100 - 92.4, 9.8% = 100 - 90.2) the writer derived itself,
 and "100%" rounding in Part 2 (CC-008 class). "Dashboard visuals missing 26 of
 26" is the separately fetched dashboard images, as in Test7.
+
+---
+
+# Year-over-year round (2026-11-20)
+
+## CC-092 (agreed design): 2026 report with a 2025 comparison
+
+**Source.** `Core Credit New Data/Credit_Impact_Survey_-_all_versions_-_labels_-_2026-11-18-22-49-05.csv`:
+one form, two waves, split on the year of `_submission_time`. 2025: 5,824 rows
+(Jul to Dec 2025; the August export Test6 used had 5,827). 2026: 5,287 rows
+(Aug 2026 onward, still collecting; last submission 2026-11-18). Both waves
+come from this one export, so the 2025 side is not Test6's file.
+
+**Facts that shaped it.** Only 199 client ids appear in both waves (3.7%),
+40 of them in Kosovo and 35 in Mali; Malawi, Senegal and India have none.
+India has no 2026 rows; Mali has 193 (2025: 276) and Senegal 206 (268).
+At about 270 clients a country, a share must move about 8 points to be
+distinguishable from noise; for the portfolio, about 2 points.
+
+**Decisions (agreed by Binjie).**
+1. Countries. Compare only countries present in both waves: 20, India out.
+   Portfolio figures for both years are computed on that same country set.
+   India stays in the 2026 country list with a note. Mali and Senegal are
+   included, marked partial. A country below 150 clients in either wave is
+   left out of country-level changes but stays in the portfolio totals.
+   Every run is provisional until 2026 collection closes; rerun once on the
+   final export.
+2. Same population, not the same clients: a repeated cross-section. Wording:
+   "clients surveyed in 2026 report X%, compared with Y% in 2025", never
+   "clients improved". A country-standardised check (the CC-028 method)
+   confirms a portfolio change is not just country mix; it is a check, not
+   the headline.
+3. Deltas are computed in code: 2025, 2026, change in points, and a 95%
+   two-proportion test (NPS: change in points). A new YoY table follows the
+   Executive Summary. Section text mentions only significant changes, given
+   to the writer as bracketed FACTs like the gender scorecard; the rest are
+   summarised as "similar to 2025". R1 to R8 apply: a change is described,
+   never explained. NPS themes compare directly (one CC-089 codebook for both
+   waves); the other four theme passes move onto codebooks in this round
+   before their themes are compared. PPI compares only countries scored in
+   both waves.
+4. CC-088. 199 matched clients cannot support pathways. It stays a text
+   recommendation; the report compares loan-cycle groups (2, 3, 4) between
+   waves as groups. CC-087 (country standardisation of gender gaps) shares
+   the standardisation code and is built in this round.
+
+**Build order.** (1) wave split and comparison country set; (2) deltas and
+significance, with tests; (3) YoY table and section FACTs; (4) codebooks for
+the other four theme passes; (5) provisional run on the current export;
+(6) final run when 2026 closes.
+
+## CC-093 (done): wave split and comparison country set
+
+**Change.**
+- `analysis/yoy/waves.py`: wave = calendar year of `_submission_time`;
+  `split_waves`, `country_counts`, `comparison_countries` (at least 150 rows in
+  every wave), `partial_countries` (latest wave more than 20% below the
+  earlier one), `build_manifest`.
+- `orchestrator/prepare_waves.py <export> --run-id <id> [--collection-closed]`:
+  Column Cleaner once on the whole export (one LLM judgment, so both waves keep
+  the same columns), split, Row Checker per wave (one QA report each; a client
+  surveyed in both years is not a duplicate), then
+  `processed_data/<id>_wave_manifest.json`. Fails if the waves end up with
+  different columns.
+- Tests: `analysis/yoy/tests/test_waves.py`. 491 passed.
+
+**Run YoY1 on the 2026-11-18 export.** 11,111 rows, 172 columns kept, 0 rows
+without a readable time. 2025: 5,824 rows; 2026: 5,287. Comparison set: 20
+countries (BOL, DOM, ECU, GHA, GTM, HND, KEN, KOS, MEX, MLI, MMR, MNE, MNG, MWI,
+RWA, SEN, TZA, UGA, VNM, ZMB); India excluded (no 2026 rows); Mali and Senegal
+partial; provisional. Columns against Test6: `Introduction/Start_Timestamp`
+dropped (unused), and two option columns added that only 2026 uses, once each
+(`IMPACT04a_resp_9_en` "Other", `RESILIENCE03b_resp_5_en` "Used savings").
+The pipeline reads options 1 to 8 and 1 to 4 there, as before, so those two
+answers are not counted.
+
+**Side effect fixed.** Windows compares paths case-blind, so
+`YoY1_2026_..._analysis_ready.csv` became the "latest" file and three PPI
+tests ran on the 2026 wave (no India rows, different Rwanda figure). The PPI
+test fixture now skips per-wave files. The standalone `__main__` entry points
+of the section drivers still pick the latest file by name and will now pick a
+wave file; the orchestrator always passes its path, so reports are unaffected.
