@@ -78,3 +78,17 @@ def test_yoy_figures_pass_grounding_and_the_population_check(active):
 
 def test_rules_ban_trend_verbs_and_joined_sentences():
     assert "rose, fell" in yoy_facts.RULES and "its own sentence" in yoy_facts.RULES
+
+
+def test_trend_wording_in_a_yoy_sentence_drives_the_rewrite(active):
+    bad = "Overall, 95.7% trust the mechanism, up from 93.9% in 2025."
+    good = "Overall, 95.7% of clients surveyed in 2026 trust the mechanism, compared with 93.9% in 2025."
+    assert yoy_facts.wording_violations(bad) == [bad]
+    assert yoy_facts.wording_violations(good) == []
+    assert yoy_facts.wording_violations('Savings rose for many. A client said "my sales fell in 2025".') == []
+    assert any("trend wording" in v for v in chain._writer_violations(bad, 100, []))
+
+
+def test_trend_check_is_off_without_a_deltas_file(monkeypatch):
+    monkeypatch.delenv(yoy_facts.ENV, raising=False)
+    assert yoy_facts.wording_violations("It rose from 40% in 2025.") == []

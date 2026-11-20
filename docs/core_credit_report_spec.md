@@ -4632,3 +4632,31 @@ other child improvements 6 (all version 1).
   citing high interest 26.8% to 14.6% (detractor answers 343 to 205);
   quality-of-life business growth 40.2% to 36.1%.
 - Tests: `analysis/yoy/tests/test_themes.py` (6). 527 passed.
+
+## Provisional YoY run YoY2 (2026-11-20)
+
+**Run.** Same inputs as YoY1, deltas now with themes. 6.6 min, exit 0, all
+gates. All seven theme passes came from the codebook cache (0 coded, no open
+coding). Output: `orchestrator/output/Core_Credit_Impact_Report_YoY2.docx`.
+
+**Against YoY1.** 0 blocks over tolerance (YoY1: 2). 23 YoY sentences, nearly
+all in the "compared with" wording and in their own sentence; none names a
+country. Theme facts used in 8.2 and the Part 3 Insight. No metric pairing
+under "worth watching" (three uses, each about one figure or gap). Table: 16
+headline, 12 gender, 14 loan-cycle, 84 country, 21 theme, 8 protection-count
+and 34 review rows; the note names the two small-base theme sets.
+
+**Fixed after the run.** "down from 95.3%" (4.1) and "up from 93.9%" (5.3)
+passed the rules paragraph. `yoy_facts.wording_violations` now flags trend
+wording in any sentence naming 2025 (quotes ignored, only with a deltas file)
+and it drives the corrective rewrite. The rules also say not to repeat the
+2026 figure (Parts 4 and 5 Insights did). 529 passed.
+
+**Open, not from this round.**
+- 1.1 derived figures not in the data (women as 68.2% of first-time
+  borrowers, 68.4% of clients). The grounding check reports ungrounded
+  percentages but they do not drive the rewrite.
+- A stray closing quote after an inline gloss in the Part 3 Insight
+  (`...de vida")."`): the writer's own closing mark is kept after the CC-064
+  substitution.
+- Complement figures (7.7% = 100 - 92.3) flagged for review as before.

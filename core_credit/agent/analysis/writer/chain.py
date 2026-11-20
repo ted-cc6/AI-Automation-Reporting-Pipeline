@@ -471,6 +471,13 @@ def _writer_violations(
             f"figure: {listed}"
         )
 
+    # CC-096: year-over-year sentences must keep the "compared with" wording.
+    for sentence in yoy_facts.wording_violations(text):
+        violations.append(
+            f'a year-over-year sentence uses trend wording (rose, fell, up from, down from...) -- restate it '
+            f'as "X% of clients surveyed in 2026, compared with Y% in 2025", keeping the figures: {sentence}'
+        )
+
     # CC-072: figures for all clients (or another split) narrated as describing women or men.
     for mismatch in check_population_mismatch(text, data_summary):
         violations.append(

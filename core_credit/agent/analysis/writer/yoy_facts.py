@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 from functools import lru_cache
 from typing import Optional
 
@@ -38,7 +39,9 @@ RULES = (
     "same clients followed over time. Mention at most the one or two that matter most for this "
     "block, worded like \"62.0% of clients surveyed in 2026, compared with 69.5% in 2025\". Never "
     "say clients improved or declined, and do not use rose, fell, grew, dropped, up from or down "
-    "from: keep the \"compared with\" wording. Put each year-over-year fact in its own sentence, "
+    "from: keep the \"compared with\" wording. If the sentence already gives the 2026 figure, add "
+    "only \", compared with Y% in 2025\" and do not repeat the 2026 figure. Put each "
+    "year-over-year fact in its own sentence, "
     "never joined to a client quote or to another metric. Never give a reason for a change, never "
     "call a figure under \"similar to 2025\" a change, and never describe a change that is not "
     "listed here."
@@ -151,6 +154,25 @@ def facts_for(subsection_id: str) -> tuple[str, set]:
     head = f"Year-over-year comparison, {countries} countries surveyed in both waves" + (f" ({'; '.join(status)})" if status else "") + ":"
     body = lines + ([f"  - Similar to 2025 (no significant change): {'; '.join(similar)}"] if similar else [])
     return "\n".join([head, *body, RULES]), accepted
+
+
+# YoY2: "down from 95.3%" and "up from 93.9%" got past the rules paragraph, so the wording is
+# also checked in code and drives the writer's corrective rewrite.
+_TREND_RE = re.compile(r"\b(rose|risen|fell|fallen|grew|grown|dropped|climbed|declined|up from|down from)\b", re.IGNORECASE)
+_QUOTED_RE = re.compile(r'"[^"]*"|\u201c[^\u201d]*\u201d')
+_SENTENCE_RE = re.compile(r"(?<=[.!?])\s+")
+
+
+def wording_violations(text: str) -> list[str]:
+    """Year-over-year sentences (they name 2025) that use trend wording. Empty unless a deltas
+    file is active; client quotes are ignored."""
+    if not _deltas():
+        return []
+    return [
+        s.strip()
+        for s in _SENTENCE_RE.split(_QUOTED_RE.sub('""', text or ""))
+        if "2025" in s and _TREND_RE.search(s)
+    ]
 
 
 def _names(codes: list) -> list:
