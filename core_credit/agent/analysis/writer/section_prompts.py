@@ -228,7 +228,8 @@ CHILD_WELLBEING_INSIGHT = SubsectionPrompt(
         "gap, so it mostly reflects which countries the two groups sit in, not caregiver "
         "status, and a couple of outcomes reverse once countries are matched. Sentence three: "
         "so do not read a broader social benefit, a deeper loan effect, or buffer-targeting "
-        "success into these numbers; any small standardised gap is an association only. Then "
+        "success into these numbers; any small standardised gap is an association only. Keep that list "
+        "of what not to read into the numbers exactly as given here and add nothing to it. Then "
         "two verbatims with profile."
     ),
 )
