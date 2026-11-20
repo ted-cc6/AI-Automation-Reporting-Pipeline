@@ -140,6 +140,23 @@ def test_write_insight_node_no_op_when_qualitative_missing():
     assert write_insight_node(state) == {}
 
 
+def test_write_insight_node_no_op_when_insight_already_written(monkeypatch):
+    # Test7: the node fired twice in no-pool sections and wrote the Insight twice
+    import graph.nodes as nodes
+
+    monkeypatch.setattr(nodes, "write_insight", lambda *a, **k: (_ for _ in ()).throw(AssertionError("LLM called")))
+    state = {
+        "section_config": FINANCIAL_ACCESS,
+        "metric_results": {
+            "first_time_access": _metric_result("first_time_access"),
+            "alternative_lender_hard_to_find": _metric_result("alternative_lender_hard_to_find"),
+        },
+        "qualitative": _qualitative(),
+        "insight_text": _written_text("1-insight"),
+    }
+    assert write_insight_node(state) == {}
+
+
 # --- assemble_section_node (generic, config-driven) ----------------------------------------
 
 

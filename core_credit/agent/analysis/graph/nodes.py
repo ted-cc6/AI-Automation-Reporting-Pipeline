@@ -363,6 +363,12 @@ def write_insight_node(state: GraphState) -> dict:
     metric_results = state.get("metric_results", {})
     qualitative = state.get("qualitative")
 
+    if state.get("insight_text") is not None:
+        # Test7: in sections with no quote pool, skip_qualitative_node and metrics_ready_node
+        # reach this node in different supersteps after both inputs are ready, so it wrote the
+        # Insight twice and the second write won. Write it once.
+        return {}
+
     metrics_complete = len(metric_results) == len(config.metrics)
     if not metrics_complete or qualitative is None:
         return {}  # not ready yet -- see module docstring

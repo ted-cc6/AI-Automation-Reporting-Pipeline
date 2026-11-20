@@ -4305,3 +4305,40 @@ write wins. Costs one extra call per section. The QA reviewer also noted mixed
 country names and ISO codes in the narrative, a 21 vs 14 country count in
 Part 2 without a reason given, four uses of "may be a priority area to
 investigate", and a doubled closing quote mark in the gender insight.
+
+---
+
+## Double Insight write fixed; decisions on the items held for Henry and Lorenz (2026-11-20)
+
+**Double write.** `write_insight_node` (graph/nodes.py) now returns `{}` once
+`insight_text` is in state. Checked on the real graph for financial access and
+agency: one write each for 1-insight and 6-insight (Test7: two each).
+Test: `graph/tests/test_nodes.py`. 478 passed.
+
+Binjie delegated these four decisions on 2026-11-20 and asked that no messages
+go to Henry or Lorenz.
+
+**CC-084 / R9 (was on hold): closed, no new rule.** Side-by-side figures
+stand in place of the correlation asked for in HO28. A correlation between two
+self-reported outcomes on a cross-sectional survey would invite the causal
+reading R1 to R8 exist to stop. CC-002 already forbids asserting an uncomputed
+relationship, the CC-085/086 lint enforces the linking verbs, and the R9 spot
+checks on Test6 and Test7 found no linking sentence. A separate R9 rule would
+duplicate CC-002.
+
+**CC-087 (backlog): no regression models; country standardisation later.**
+The report's readers need plain comparisons, and the data cannot support a
+causal adjustment. If the gender gaps need a fairer read, extend the CC-028
+country standardisation (already used for the caregiver gap in Part 4) to the
+gender scorecard. Scheduled with the YoY round, not built now.
+
+**CC-088 (backlog): folds into the YoY design.** The 2025 and 2026 waves are
+the first chance at loan-cycle pathways across time. Whether the same clients
+can be matched across waves is a YoY design question; until then the report
+may recommend the analysis in text, as before.
+
+**Scorecard code typos (KEN Q3, ZMB Q2/Q4, IND Q2, MEX Q1): no upstream
+message.** Since CC-068 the pipeline scores by option position and prints a
+`ScorecardLabelWarning` per typo, so the report is correct whatever the
+workbook says (Kenya 271/271, Zambia 281/281). The warnings stay as the
+record. Revisit only if a new scorecard version arrives.
