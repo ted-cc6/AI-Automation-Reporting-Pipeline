@@ -46,7 +46,7 @@ def test_analysis_block_gets_portfolio_and_significant_gender_changes(active):
     text, accepted = yoy_facts.facts_for("1.1")
     assert "First-time access (all clients): 46.3% in 2026 compared with 43.6% in 2025, +2.7 points" in text
     assert "split by gender: Female): 45.0% in 2026" in text and "Male" not in text
-    assert "Mali" in text and "provisional" in text and "never give a reason" in text
+    assert "Mali" in text and "provisional" in text and "Never give a reason" in text
     assert {46.3, 43.6, 2.7, 45.0, 40.0} <= accepted
 
 
@@ -74,3 +74,7 @@ def test_yoy_figures_pass_grounding_and_the_population_check(active):
     sentence = "Among women, 45.0% of clients surveyed in 2026 were first-time borrowers, compared with 40.0% in 2025."
     assert check_grounding(sentence, accepted) == []
     assert check_population_mismatch(sentence, summary) == []
+
+
+def test_rules_ban_trend_verbs_and_joined_sentences():
+    assert "rose, fell" in yoy_facts.RULES and "its own sentence" in yoy_facts.RULES

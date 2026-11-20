@@ -37,8 +37,11 @@ RULES = (
     "surveyed in 2025, in the same countries. They are two different groups of clients, not the "
     "same clients followed over time. Mention at most the one or two that matter most for this "
     "block, worded like \"62.0% of clients surveyed in 2026, compared with 69.5% in 2025\". Never "
-    "say clients improved or declined, never give a reason for a change, never call a figure under "
-    "\"similar to 2025\" a change, and never describe a change that is not listed here."
+    "say clients improved or declined, and do not use rose, fell, grew, dropped, up from or down "
+    "from: keep the \"compared with\" wording. Put each year-over-year fact in its own sentence, "
+    "never joined to a client quote or to another metric. Never give a reason for a change, never "
+    "call a figure under \"similar to 2025\" a change, and never describe a change that is not "
+    "listed here."
 )
 
 

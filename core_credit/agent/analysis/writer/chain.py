@@ -123,7 +123,7 @@ across more phrasings rather than dropping it where it wasn't earned. If you do 
 must not promise a result, and use one of these three shapes, picking whichever fits the point \
 best rather than falling back on the same one out of habit: (1) "could be explored as actions \
 to support these outcomes"; (2) "may be a priority area to investigate"; (3) "is worth \
-watching" (alongside a related figure, when one exists). Never "should raise", "will improve", \
+watching" (about one figure, never paired with a second metric as if they were linked). Never "should raise", "will improve", \
 "carries the most leverage", "would remove the single largest driver", or "should keep \
 prioritizing". Instead of "revisiting interest rate structure carries the most leverage for \
 lifting detractor scores", write "interest rate structure may be a priority area to \
@@ -332,6 +332,13 @@ def narrative_word_count(text: str, pool: list[Verbatim] = ()) -> int:
         quote = _normalize_quote_marks(v.quote.strip())
         if len(quote) >= 10 and quote in text:
             text = re.sub(r'"?\s*' + re.escape(quote) + r'\s*"?', " ", text)
+    # YoY1: a quoted fragment of a real client answer is still the client's words, not the
+    # writer's; counting it put two Insights over cap. Unmatched quoted text still counts.
+    pool_text = [_normalize_quote_marks(v.quote.strip()) for v in pool]
+    def _drop_fragment(m):
+        inner = m.group(1).strip().rstrip(".,;:!?")
+        return " " if len(inner) >= 10 and any(inner in q for q in pool_text) else m.group(0)
+    text = re.sub(r'"([^"]+)"', _drop_fragment, text)
     # a full stop or dash left standing alone where a quote was is not a word
     return sum(1 for token in text.split() if re.search(r"\w", token))
 
@@ -556,7 +563,7 @@ def _shorten_instruction(text: str, word_count: int, prompt_config: SubsectionPr
 _R8_SHAPES = (
     '"could be explored as actions to support these outcomes"',
     '"may be a priority area to investigate"',
-    '"is worth watching" (alongside a related figure)',
+    '"is worth watching" (about one figure only, never paired with another metric)',
 )
 
 

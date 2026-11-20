@@ -124,3 +124,12 @@ def test_insight_shorten_keeps_verbatim_ids(monkeypatch):
     assert len(calls) == 3
     assert written.word_count == 18 and written.within_cap
     assert [v.quote for v in used] == [QUOTE]
+
+
+def test_partial_quotes_from_the_pool_are_not_counted_either():
+    # YoY1: three quoted fragments of real answers put the Part 3 Insight over cap
+    pool = [Verbatim(quote=QUOTE, source_field="f")]
+    text = 'Clients report gains. One described "a second sewing machine for my shop".'
+    assert chain.narrative_word_count(text, pool) == 5
+    invented = 'Clients report gains. One said "this was never said by anyone here".'
+    assert chain.narrative_word_count(invented, pool) == len(invented.split())

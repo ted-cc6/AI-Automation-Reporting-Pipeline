@@ -4546,3 +4546,31 @@ check (recomputing without flagged countries) is not built.
   teams" listing the CC-095 figures.
 - Tests: `writer/tests/test_yoy_facts.py` (7), `yoy/tests/test_table.py` (3),
   one render test. 516 passed.
+
+## Provisional YoY run YoY1 (2026-11-20) and fixes
+
+**Run.** `run_orchestrator.py --prepared-csv YoY1_2026_..._analysis_ready.csv
+--yoy YoY1_yoy_deltas.json --run-id YoY1`: 11.2 min, exit 0, all gates. The
+2026 NPS answers (5,285) were coded against the CC-089 codebooks and are now
+cached. Output: `orchestrator/output/Core_Credit_Impact_Report_YoY1.docx`.
+
+**What the writer did.** 16 blocks use a YoY fact, all with the fact's own
+figures; none names a country; Part 8 says NPS is similar to 2025. Table:
+16 headline rows, 12 gender, 14 loan-cycle, 84 country, 34 for review.
+
+**Problems found, fixed in code (YoY1 left as generated).**
+- Part 3 Insight and gender Insight ended over tolerance (183 of 150, 191 of
+  150) because quoted fragments of real answers counted as the writer's
+  words. `narrative_word_count` now also drops quoted spans that are a
+  fragment of a pool quote; invented quoted text still counts.
+- The Part 3 Insight joined its YoY fact to the quality-of-life figure ("is
+  worth watching alongside the quality of life figure"). Source: the R8 shape
+  "is worth watching (alongside a related figure)", which invites linking two
+  metrics against the CC-084 decision. R8 and the rotation now say about one
+  figure, never paired with a second metric.
+- The Part 1 Insight wrote "rose to" and "fell to". The YoY rules now ban
+  rose, fell, grew, dropped, up from and down from, and require each YoY fact
+  in its own sentence, never joined to a quote or another metric.
+- Flagged for review, unchanged: complement figures the writer derived
+  (71% = 100 - 28.8, 7.7% = 100 - 92.3) and Part 2 "100%" rounding.
+- Tests: 518 passed.
