@@ -327,3 +327,19 @@ def test_section_3_3_heading_names_reported_reasons_not_drivers():
     assert "3.3 What clients reported as reasons for the improvement" in texts
     assert not any("What drove" in t for t in texts)
 
+
+def test_8_2_quote_block_renders_between_8_2_and_the_insight():
+    # CC-091
+    report = _full_report()
+    report.client_satisfaction.drivers_verbatims = [
+        Verbatim(quote="Promoter quote here.", country="KEN", source_field="t"),
+        Verbatim(quote="Detractor quote here.", country="KEN", source_field="t"),
+    ]
+    doc = Document()
+    render_report(doc, report)
+    texts = _paragraph_texts(doc)
+    start = texts.index("8.2 Reasons clients gave for recommending or not recommending")
+    end = texts.index("Insight for Client Satisfaction")
+    block = texts[start:end]
+    assert '"Promoter quote here."' in block and '"Detractor quote here."' in block
+    assert block.index('"Promoter quote here."') < block.index('"Detractor quote here."')

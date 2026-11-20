@@ -28,5 +28,10 @@ class ClientSatisfactionSection(BaseModel):
         default_factory=list, description="Theme-tagged NPS follow-up text, split by score band 9-10 / 7-8 / 0-6"
     )
     drivers_analysis: Optional[WrittenText] = None  # 8.2
+    drivers_verbatims: list[Verbatim] = Field(
+        default_factory=list,
+        description="CC-091: 8.2's quote block, placed by code -- one quote from the top promoter "
+        "theme and one from the top detractor theme, in that order",
+    )
     insight_text: Optional[WrittenText] = None
     insight_verbatims: list[Verbatim] = Field(default_factory=list)

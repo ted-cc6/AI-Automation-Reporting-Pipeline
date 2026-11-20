@@ -104,6 +104,31 @@ def _merge_for_verbatim_pool(label: str, *syntheses: QualitativeSynthesis) -> Qu
     return QualitativeSynthesis(source_field=label, base_n=base_n, themes=themes)
 
 
+def _top_theme_quote(qualitative: QualitativeSynthesis):
+    """The first representative verbatim of the highest-ranked theme that has one. With an
+    approved codebook (CC-089) both the theme order and the quote order are fixed, so 8.2 shows
+    the same two quotes on every run of the same data."""
+    for theme in qualitative.themes:
+        if theme.representative_verbatims:
+            return theme.representative_verbatims[0]
+    return None
+
+
+def _pick_driver_verbatims(promoters: QualitativeSynthesis, detractors: QualitativeSynthesis) -> list:
+    """CC-091: 8.2's quote block, one promoter then one detractor."""
+    return [v for v in (_top_theme_quote(promoters), _top_theme_quote(detractors)) if v is not None]
+
+
+def _without_quotes(qualitative: QualitativeSynthesis, shown: list) -> QualitativeSynthesis:
+    """The same pool minus quotes already placed in 8.2, so the Insight never repeats one."""
+    shown_quotes = {v.quote for v in shown}
+    themes = [
+        t.model_copy(update={"representative_verbatims": [v for v in t.representative_verbatims if v.quote not in shown_quotes]})
+        for t in qualitative.themes
+    ]
+    return qualitative.model_copy(update={"themes": themes})
+
+
 def build_section(df: pd.DataFrame) -> ClientSatisfactionSection:
     scores = pd.to_numeric(df[NPS_SCORE_COL], errors="coerce")
     overall = nps(scores)
@@ -166,8 +191,13 @@ def build_section(df: pd.DataFrame) -> ClientSatisfactionSection:
         nps_analysis = future_nps_text.result()
         drivers_analysis = future_drivers_text.result()
 
+    drivers_verbatims = _pick_driver_verbatims(promoters_qual, detractors_qual)
+
     combined_summary = f"{nps_summary}\n{drivers_summary}"
-    all_bands_qual = _merge_for_verbatim_pool("client_satisfaction_insight", promoters_qual, passives_qual, detractors_qual)
+    all_bands_qual = _without_quotes(
+        _merge_for_verbatim_pool("client_satisfaction_insight", promoters_qual, passives_qual, detractors_qual),
+        drivers_verbatims,
+    )
     acceptable_insight = acceptable_8_1 | acceptable_8_2 | collect_acceptable_percentages(all_bands_qual)
     insight_text, insight_verbatims = write_insight(
         CLIENT_SATISFACTION_INSIGHT, combined_summary, qualitative=all_bands_qual, acceptable_percentages=acceptable_insight
@@ -181,6 +211,7 @@ def build_section(df: pd.DataFrame) -> ClientSatisfactionSection:
         detractor_pain_points=detractor_pain_points,
         nps_followup_themes=nps_followup_themes,
         drivers_analysis=drivers_analysis,
+        drivers_verbatims=drivers_verbatims,
         insight_text=insight_text,
         insight_verbatims=insight_verbatims,
     )

@@ -441,6 +441,8 @@ def render_client_satisfaction(doc, section) -> None:
     h.add_subheading(doc, "8.2 Reasons clients gave for recommending or not recommending")
     _visual(doc, "8.2")
     _prose(doc, section.drivers_analysis)
+    # CC-091: one promoter and one detractor quote, chosen in code from the top theme on each side
+    add_verbatims(doc, section.drivers_verbatims)
     h.add_subheading(doc, "Insight for Client Satisfaction")
     _prose(doc, section.insight_text)
     add_verbatims(doc, section.insight_verbatims)

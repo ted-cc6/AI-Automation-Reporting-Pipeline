@@ -50,8 +50,8 @@ FINANCIAL_ACCESS_INSIGHT = SubsectionPrompt(
     word_cap=150,  # CC-042: raised from the template's 120, see docs/core_credit_report_spec.md CC-042
     instructions=(
         "Bring the section together in three to five sentences a reader can act on, folding "
-        "the headline figures into what they mean. Include two or three representative client "
-        "verbatims with profile (gender, age, branch, loan cycle) if any are available."
+        "the headline figures into what they mean. This section has no client free text, so "
+        "do not quote any client."
     ),
 )
 
@@ -218,7 +218,7 @@ CHILD_WELLBEING_INSIGHT = SubsectionPrompt(
     title="Insight for Child Wellbeing",
     word_cap=180,  # raised from 120: CC-028's corrected caregiver-gap reading plus verbatims
     instructions=(
-        "Three or four sentences, plus one verbatim. Keep it tight -- the word cap is firm, "
+        "Three or four sentences, plus two verbatims. Keep it tight -- the word cap is firm, "
         "do not quote gap figures. Sentence one: the headline child-wellbeing share, reported "
         "among caregivers. Sentence two: the raw caregiver-versus-non-caregiver gaps look "
         "large on several outcomes, but country standardisation removes almost all of that "
@@ -226,7 +226,7 @@ CHILD_WELLBEING_INSIGHT = SubsectionPrompt(
         "status, and a couple of outcomes reverse once countries are matched. Sentence three: "
         "so do not read a broader social benefit, a deeper loan effect, or buffer-targeting "
         "success into these numbers; any small standardised gap is an association only. Then "
-        "one verbatim with profile if available."
+        "two verbatims with profile."
     ),
 )
 
@@ -265,7 +265,7 @@ BUSINESS_HOUSEHOLD_IMPACT_INSIGHT = SubsectionPrompt(
     word_cap=150,  # CC-042: raised from 120, see docs/core_credit_report_spec.md CC-042
     instructions=(
         "Bring the section together in three to five sentences a reader can act on, folding "
-        "the income and quality of life figures into what they mean. Include one verbatim "
+        "the income and quality of life figures into what they mean. Include two verbatims "
         "with profile (gender, age, branch, loan cycle)."
     ),
 )
@@ -341,7 +341,7 @@ CLIENT_PROTECTION_INSIGHT = SubsectionPrompt(
         "up. The data includes a per-country breakdown of client-protection indicators -- name "
         "at most one country from it (the strongest or weakest) if it sharpens the point, do "
         "not walk through the breakdown, since 5.1 to 5.5 already cover the indicators "
-        "individually. Include one verbatim with profile if any are available."
+        "individually. Include two verbatims with profile."
     ),
 )
 
@@ -389,8 +389,8 @@ AGENCY_INSIGHT = SubsectionPrompt(
     word_cap=150,  # CC-042: raised from 120, see docs/core_credit_report_spec.md CC-042
     instructions=(
         "Bring the section together in three to five sentences a reader can act on, covering "
-        "goal achievement and empowerment, and lead with the gender read. Include two or three "
-        "verbatims with profile."
+        "goal achievement and empowerment, and lead with the gender read. This section has no client "
+        "free text, so do not quote any client."
     ),
 )
 
@@ -463,8 +463,8 @@ RESILIENCE_INSIGHT = SubsectionPrompt(
     word_cap=150,  # CC-042: raised from 120, see docs/core_credit_report_spec.md CC-042
     instructions=(
         "Bring the section together in three to five sentences a reader can act on. Fold in "
-        "savings, the share who faced a shock, and the negative coping flag. Include one "
-        "verbatim with profile. When you give the stricter-basis savings figure against the "
+        "savings, the share who faced a shock, and the negative coping flag. Include two "
+        "verbatims with profile. When you give the stricter-basis savings figure against the "
         "MFI Index benchmark, name the metric explicitly (\"our own savings figure on the "
         "stricter basis\", not a bare \"our own figure\"). A real run had this figure land on "
         "the same number, by coincidence, as a completely unrelated figure in Part 6 (partial "
@@ -502,7 +502,7 @@ GENDER_INSIGHT = SubsectionPrompt(
         "the gender story for the whole report. Describe the observed pattern only, and do not "
         "propose an explanation for it: a reviewer flagged a draft that said women's advantage "
         "is concentrated in outcomes tied to tenure and relationship depth, a claim the report "
-        "never tested. Include two or three verbatims with profile. "
+        "never tested. Include two verbatims with profile. "
         "Every row already states which gender has the higher share as a bracketed "
         "[FACT: ...] -- use that fact directly rather than comparing the two percentages "
         "yourself, and never state or imply the opposite of what it says. Use each metric's "
@@ -542,6 +542,6 @@ CLIENT_SATISFACTION_INSIGHT = SubsectionPrompt(
     instructions=(
         "Bring the section together in three to five sentences a reader can act on. Fold in "
         "the NPS and the most commonly cited reason on each side, and name one area that may "
-        "be a priority to investigate. Include one verbatim with profile."
+        "be a priority to investigate. Include two verbatims with profile."
     ),
 )

@@ -36,6 +36,8 @@ from .grounding import (
     check_population_mismatch,
     check_profile_grounding,
     check_quote_grounding,
+    _normalize_quote_marks,
+    quote_in_text,
 )
 from .section_prompts import SubsectionPrompt
 
@@ -323,10 +325,11 @@ CAP_TOLERANCE = 0.10
 
 def narrative_word_count(text: str, pool: list[Verbatim] = ()) -> int:
     """Words in `text` with every pool quote (and its quote marks) taken out."""
+    text = _normalize_quote_marks(text)
     for v in pool:
-        quote = v.quote.strip()
+        quote = _normalize_quote_marks(v.quote.strip())
         if len(quote) >= 10 and quote in text:
-            text = re.sub(r'["\u201c]?\s*' + re.escape(quote) + r'\s*["\u201d]?', " ", text)
+            text = re.sub(r'"?\s*' + re.escape(quote) + r'\s*"?', " ", text)
     # a full stop or dash left standing alone where a quote was is not a word
     return sum(1 for token in text.split() if re.search(r"\w", token))
 
@@ -335,8 +338,36 @@ def within_tolerance(word_count: int, word_cap: int) -> bool:
     return word_count <= word_cap * (1 + CAP_TOLERANCE)
 
 
+# CC-091: every insight with a quote pool quotes this many clients (fewer if the pool is smaller).
+INSIGHT_VERBATIMS = 2
+
+
+def _usable_quotes(pool: list[Verbatim]) -> list[str]:
+    seen, out = set(), []
+    for v in pool:
+        q = _normalize_quote_marks(v.quote.strip())
+        if len(q) >= 10 and q not in seen:
+            seen.add(q)
+            out.append(q)
+    return out
+
+
+def quotes_used(text: str, pool: list[Verbatim]) -> int:
+    """How many distinct pool quotes appear in full in `text`."""
+    return sum(1 for q in _usable_quotes(pool) if quote_in_text(q, text))
+
+
+def required_quotes(pool: list[Verbatim]) -> int:
+    return min(INSIGHT_VERBATIMS, len(_usable_quotes(pool)))
+
+
 def _writer_violations(
-    text: str, word_cap: int, pool: list[Verbatim], data_summary: str = "", include_length: bool = True
+    text: str,
+    word_cap: int,
+    pool: list[Verbatim],
+    data_summary: str = "",
+    include_length: bool = True,
+    min_quotes: int = 0,
 ) -> list[str]:
     """Every enforceable violation in `text`: house style (word cap, banned punctuation) AND
     grounding (fabricated quotes, invented profile attribution on an otherwise-real quote,
@@ -379,6 +410,15 @@ def _writer_violations(
     orphans = check_orphan_markers(text)
     if orphans:
         violations.append(f"literal citation marker(s) that must be removed: {orphans}")
+
+    # CC-091: an insight with a quote pool must quote enough real clients, in full.
+    used = quotes_used(text, pool) if min_quotes else 0
+    if used < min_quotes:
+        violations.append(
+            f"quotes {used} of the {min_quotes} client verbatims this block needs -- add "
+            f"{min_quotes - used} more from the numbered list, copied exactly and in full, each with "
+            f"its client profile (client quotes do not count toward the word cap)"
+        )
 
     # CC-086: hard-tier causal or overclaiming wording (causal_lint.py, rules R1-R8). Named
     # phrase by phrase so the rewrite fixes exactly these; assembly's raise_on_causal_language
@@ -489,7 +529,9 @@ def _task_preamble(prompt_config: SubsectionPrompt, data_summary: str) -> str:
     )
 
 
-def _shorten_rejection(candidate: str, previous_word_count: int, word_cap: int, pool: list[Verbatim], data_summary: str) -> list[str]:
+def _shorten_rejection(
+    candidate: str, previous_word_count: int, word_cap: int, pool: list[Verbatim], data_summary: str, min_quotes: int = 0
+) -> list[str]:
     """Why a shortened draft can't replace the previous one; empty means accept. It must be
     actually shorter and break no rule other than length. A shorten pass that invents a quote
     or adds causal wording is thrown away, and the longer, clean draft is kept."""
@@ -498,7 +540,7 @@ def _shorten_rejection(candidate: str, previous_word_count: int, word_cap: int, 
     n = narrative_word_count(candidate, pool)
     if n >= previous_word_count:
         return [f"not shorter ({n} words)"]
-    return _writer_violations(candidate, word_cap, pool, data_summary, include_length=False)
+    return _writer_violations(candidate, word_cap, pool, data_summary, include_length=False, min_quotes=min_quotes)
 
 
 def write_subsection(
@@ -581,8 +623,9 @@ def write_insight(
     )
     text = raw.text.strip()
 
+    min_quotes = required_quotes(pool)
     first_pass_word_count = narrative_word_count(text, pool)
-    first_pass_violations = _writer_violations(text, prompt_config.word_cap, pool, data_summary)
+    first_pass_violations = _writer_violations(text, prompt_config.word_cap, pool, data_summary, min_quotes=min_quotes)
     if first_pass_violations:
         revise_task = (
             _revise_instruction(text, first_pass_violations, prompt_config.word_cap)
@@ -600,7 +643,12 @@ def write_insight(
             _shorten_instruction(text, word_count, prompt_config) + "\n\n" + _format_verbatim_pool(pool) + INSIGHT_ID_INSTRUCTION
         )
         candidate = invoke_structured(llm, _NarrativeWithVerbatims, [("system", SYSTEM_PROMPT), ("human", shorten_task)])
-        shorten_rejected = _shorten_rejection(candidate.text.strip(), word_count, prompt_config.word_cap, pool, data_summary)
+        # The shorten pass may not lose a quote, but it isn't asked to add one: demanding the
+        # full count here rejected every shortened draft of an insight already one quote short.
+        shorten_rejected = _shorten_rejection(
+            candidate.text.strip(), word_count, prompt_config.word_cap, pool, data_summary,
+            min(min_quotes, quotes_used(text, pool)),
+        )
         if not shorten_rejected:
             raw, text, shortened = candidate, candidate.text.strip(), True
             word_count = narrative_word_count(text, pool)
@@ -611,7 +659,7 @@ def write_insight(
 
     used_verbatims = []
     for i in raw.used_verbatim_ids:
-        if 0 <= i < len(pool) and pool[i].quote in text:
+        if 0 <= i < len(pool) and quote_in_text(pool[i].quote, text):
             used_verbatims.append(pool[i])
 
     written = WrittenText(

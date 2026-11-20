@@ -4228,3 +4228,41 @@ Quotes mattered only for the gender insight (about 150 narrative words of a
 Part 7 insights (132 to 164 of 150) and, at the new cap, 3 of 3 Part 5
 insights (180 to 195 of 180). Gender insight 135 to 148 of 150. Tests: 466
 passed (`writer/tests/test_word_caps.py`, 13 new).
+
+---
+
+## CC-091 (done): two verbatims per insight, 8.2 quote block placed by code
+
+**Findings.**
+- Financial access, poverty and agency have no client free text
+  (`qualitative=None` by design), so their 0 quotes were correct. But the
+  financial access and agency prompts still asked for "two or three
+  verbatims", which invites invention. They now say the section has no client
+  free text and must not quote anyone.
+- The pooled insights asked for different counts (one in Parts 3, 4, 5, 7 and
+  8, two or three in gender). All now ask for two.
+- Main cause of 0 or 1 quotes: many client answers contain line breaks or
+  double spaces. The writer reproduces them on one line, the exact match in
+  `check_quote_grounding` called the real quote fabricated, and the
+  corrective rewrite deleted it. Part 5's pool is mostly such long,
+  multi-line conduct complaints, which is why it ended with none.
+
+**Change.**
+- `writer/grounding.py`: matching collapses whitespace as well as quote-mark
+  style. New `quote_in_text` uses the same rule; `write_insight` uses it to
+  attach used verbatims, and `narrative_word_count` to strip quotes.
+- `writer/chain.py`: an insight with a pool must quote
+  `min(2, distinct usable pool quotes)` clients in full, or the shortfall is a
+  violation that drives the rewrite. The shorten pass may not lose a quote the
+  text already has, but is not asked to add one.
+- 8.2: `ClientSatisfactionSection.drivers_verbatims` holds the first quote of
+  the top promoter theme and of the top detractor theme (fixed by the CC-089
+  codebook order), rendered under the 8.2 text. Those two quotes are removed
+  from the Insight's pool so the page never repeats one. Translation picks
+  the new field up through its generic walk.
+
+**Check (Test6 inputs, Parts 5 and 7 and gender insights, 3 runs each).**
+6 of 9 quote 2 clients, 3 quote 1 (Test6: 0 to 1), none fabricated. The
+two over-tolerance results in that check came from the shorten pass
+demanding the full quote count; fixed after the check. Parts 3, 4, 8 and the
+8.2 block are checked in Test7. Tests: 476 passed.

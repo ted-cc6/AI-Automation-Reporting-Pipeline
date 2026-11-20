@@ -137,8 +137,20 @@ def _normalize_quote_marks(s: str) -> str:
     confirmed a real false positive from this: a genuine pool verbatim used a curly apostrophe
     ("j’ai"), the model's reproduction came back with a straight one ("j'ai"), and the exact
     match in check_quote_grounding flagged a real quote as fabricated.
+
+    CC-091: runs of whitespace also collapse to one space. Many client answers carry line
+    breaks or double spaces ("...respect..\nVision Fund institution..."); the writer
+    reproduces them on one line, and the exact match flagged the real quote as fabricated, so
+    the corrective rewrite deleted it. That was a main reason insights ended with 0 or 1 quotes.
     """
-    return s.translate(_QUOTE_MARK_TRANSLATION)
+    return re.sub(r"\s+", " ", s.translate(_QUOTE_MARK_TRANSLATION))
+
+
+def quote_in_text(quote: str, text: str) -> bool:
+    """CC-091: whether a pool quote appears in `text`, under the same normalization the
+    grounding checks use (quote-mark style, whitespace)."""
+    q = _normalize_quote_marks(quote.strip())
+    return bool(q) and q in _normalize_quote_marks(text)
 
 
 # Terminal punctuation stripped before the exact-match test. A sentence period placed inside
