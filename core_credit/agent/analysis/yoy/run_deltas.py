@@ -41,6 +41,11 @@ def main(manifest_path: str) -> Path:
         if p["significant"]:
             mix = " [country mix]" if p["mix_flag"] else ""
             print(f"  {m['label']}: {p['value_2025']:.1%} -> {p['value_2026']:.1%} ({p['change_pts']:+.1f} pts, p={p['p_value']:.3g}){mix}")
+    review = result["swing_review"]
+    print(f"  Swing screen: {len(review)} country figures moved more than {result['swing_screen_pts']:.0f} points (not narrated):")
+    for r in review:
+        unit = "" if r["metric_id"] == "nps_score" else " pts"
+        print(f"    {r['country']} {r['label']}: {r['change_pts']:+.1f}{unit}")
     n = result["nps_score"]["portfolio"]
     print(f"  NPS: {n['value_2025']:.1f} -> {n['value_2026']:.1f} ({n['change_pts']:+.1f}, p={n['p_value']:.3g})")
     return out

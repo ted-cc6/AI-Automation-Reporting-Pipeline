@@ -102,3 +102,18 @@ def test_metric_inventory_reuses_report_definitions():
     assert sum(s.headline for s in specs) == 15  # the gender scorecard's 15 rows
     assert {"first_time_access", "nps_promoter", "cut_food_to_repay", "savings_increased"} <= set(ids)
     assert next(s for s in specs if s.metric_id == "cut_food_to_repay").lower_is_better
+
+
+def test_swing_screen_flags_moves_over_30_points_only():
+    assert d._screen({"change_pts": 30.0, "tested": True})["swing_flag"] is False
+    assert d._screen({"change_pts": -30.1, "tested": True})["swing_flag"] is True
+    assert d._screen({"change_pts": None, "tested": False})["swing_flag"] is False
+    assert d._screen({"change_pts": 100.0, "tested": False})["swing_flag"] is False  # too small to test
+
+
+def test_swing_review_lists_metric_and_nps_cells_largest_first():
+    cell = lambda ch, flag: {"value_2025": 0.5, "value_2026": 0.5, "change_pts": ch, "n_2025": 100, "n_2026": 100, "swing_flag": flag}
+    metrics = [{"metric_id": "m", "label": "M", "by_country": {"KEN": cell(-40.0, True), "UGA": cell(10.0, False)}}]
+    nps = {"by_country": {"ZMB": cell(55.0, True)}}
+    rows = d.swing_review(metrics, nps)
+    assert [(r["metric_id"], r["country"]) for r in rows] == [("nps_score", "ZMB"), ("m", "KEN")]

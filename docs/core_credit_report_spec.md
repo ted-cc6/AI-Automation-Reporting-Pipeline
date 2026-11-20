@@ -4492,3 +4492,20 @@ are identical in both waves and no answer option exists in only one wave, so
 this is not a coding change. Whether it is real change or a recording
 problem (translation, option order, enumerator practice) cannot be told from
 the data. Some portfolio changes lean on these cells.
+
+## CC-095 (done): swing screen for country-level changes
+
+Decided by Binjie after CC-094: build the screen; the portfolio robustness
+check (recomputing without flagged countries) is not built.
+
+- A tested country cell (n >= 30 in both waves) that moves by more than 30
+  points is marked `swing_flag`; this covers metric cells and NPS by country
+  (NPS points). Untested cells are never flagged: they are never narrated,
+  and on a handful of clients a 30-point move says nothing.
+- `swing_review` in `<run>_yoy_deltas.json` lists every flagged figure,
+  largest move first, for the country teams. Step 3 must not narrate a
+  flagged figure.
+- YoY1: 34 flagged. Zambia 8, Montenegro 5, Senegal 4, Mali 4, Tanzania 3,
+  Kenya 3, Mongolia 2, Vietnam 2, Rwanda, Uganda and Honduras 1 each. Most
+  often "hard to find another lender" (7), financial worry (4), NPS (4).
+- Tests: 2 new in `analysis/yoy/tests/test_deltas.py`. 505 passed.

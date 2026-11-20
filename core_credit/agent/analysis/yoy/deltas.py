@@ -10,6 +10,13 @@ Significance (agreed 2026-11-20): two-sided tests at 95% for the portfolio and g
 99% for country and loan-cycle changes, where hundreds of small tests would otherwise throw up
 chance "changes". No minimum size on top of the test.
 
+Swing screen (CC-095): a country figure that moves by more than SWING_SCREEN_PTS points between
+waves is flagged `swing_flag` and listed in `swing_review`. YoY1 showed 30 such cells (Senegal
+loan purpose fully achieved 91% to 5%, Rwanda financial worry answers mirrored) with identical
+answer labels and form version, so the data cannot tell real change from a recording problem.
+Flagged figures are never narrated; they go to a review list for the country teams. Applies to
+NPS by country too, in NPS points.
+
 Country-mix check: the portfolio change is also directly standardised to a common country mix
 (the CC-028 method). `mix_flag` marks a significant raw change that standardisation erases,
 reverses, or halves: it may reflect which countries were surveyed rather than a change.
@@ -31,6 +38,7 @@ from yoy.waves import COUNTRY_COL
 PORTFOLIO_ALPHA = 0.05
 SUBGROUP_ALPHA = 0.01
 MIN_CELL_N = 30  # same floor as LOW_N_THRESHOLD elsewhere: below it a cell's change isn't tested
+SWING_SCREEN_PTS = 30.0
 NPS_COL = "Client Satisfaction/CLIENTSAT01_resp_en"
 
 MaskFn = Callable[[pd.DataFrame], pd.Series]
@@ -191,6 +199,29 @@ def _segment_changes(spec, df_a, df_b, segment_fn, alpha) -> dict:
     return out
 
 
+def _screen(cell: dict) -> dict:
+    # Only tested cells (n >= MIN_CELL_N in both waves): a smaller cell is never narrated anyway,
+    # and on a handful of clients a 30-point move says nothing.
+    cell["swing_flag"] = bool(cell.get("tested") and cell["change_pts"] is not None and abs(cell["change_pts"]) > SWING_SCREEN_PTS)
+    return cell
+
+
+def swing_review(metrics: list[dict], nps: dict) -> list[dict]:
+    """Every flagged country figure, largest move first, for the review list."""
+    rows = [
+        {"metric_id": m["metric_id"], "label": m["label"], "country": c, **{k: v[k] for k in ("value_2025", "value_2026", "change_pts", "n_2025", "n_2026")}}
+        for m in metrics
+        for c, v in m["by_country"].items()
+        if v["swing_flag"]
+    ]
+    rows += [
+        {"metric_id": "nps_score", "label": "Net Promoter Score", "country": c, **{k: v[k] for k in ("value_2025", "value_2026", "change_pts", "n_2025", "n_2026")}}
+        for c, v in nps["by_country"].items()
+        if v["swing_flag"]
+    ]
+    return sorted(rows, key=lambda r: -abs(r["change_pts"]))
+
+
 def compute_deltas(df_2025: pd.DataFrame, df_2026: pd.DataFrame, comparison_countries: list[str]) -> dict:
     a, b = _in_set(df_2025, comparison_countries), _in_set(df_2026, comparison_countries)
     metrics = []
@@ -209,13 +240,13 @@ def compute_deltas(df_2025: pd.DataFrame, df_2026: pd.DataFrame, comparison_coun
                 "portfolio": portfolio.as_dict(),
                 "by_gender": _segment_changes(spec, a, b, gender, PORTFOLIO_ALPHA),
                 "by_loan_cycle": _segment_changes(spec, a, b, loan_cycle, SUBGROUP_ALPHA),
-                "by_country": _segment_changes(spec, a, b, country, SUBGROUP_ALPHA),
+                "by_country": {c: _screen(v) for c, v in _segment_changes(spec, a, b, country, SUBGROUP_ALPHA).items()},
             }
         )
     nps = {
         "portfolio": nps_change(a[NPS_COL], b[NPS_COL], PORTFOLIO_ALPHA).as_dict(),
         "by_country": {
-            c: nps_change(a.loc[country(a) == c, NPS_COL], b.loc[country(b) == c, NPS_COL], SUBGROUP_ALPHA, MIN_CELL_N).as_dict()
+            c: _screen(nps_change(a.loc[country(a) == c, NPS_COL], b.loc[country(b) == c, NPS_COL], SUBGROUP_ALPHA, MIN_CELL_N).as_dict())
             for c in comparison_countries
         },
     }
@@ -223,6 +254,8 @@ def compute_deltas(df_2025: pd.DataFrame, df_2026: pd.DataFrame, comparison_coun
         "comparison_countries": comparison_countries,
         "alphas": {"portfolio_and_gender": PORTFOLIO_ALPHA, "country_and_loan_cycle": SUBGROUP_ALPHA},
         "min_cell_n": MIN_CELL_N,
+        "swing_screen_pts": SWING_SCREEN_PTS,
         "metrics": metrics,
         "nps_score": nps,
+        "swing_review": swing_review(metrics, nps),
     }
