@@ -494,3 +494,16 @@ def test_suppress_duplicate_theme_verbatims_matches_by_client_id_over_quote_text
     removed = _suppress_duplicate_theme_verbatims(qs, rank_key=lambda t: t.frequency)
     assert removed == 0
     assert all(t.representative_verbatims for t in qs.themes)
+
+
+def test_writer_closing_mark_is_dropped_when_its_opening_mark_is_reused():
+    # YoY2: 'vida")."' -- the writer's own closing quote was left after the gloss
+    from report_assembly.translate_verbatims import _inline_glossed_text
+
+    v = Verbatim(quote="Mejoro mucho debido a que la familia tiene mas ingresos y mejor calidad de vida",
+                 source_field="f", language="Spanish", english_gloss="It improved a lot because the family has more income")
+    text = 'A client said "Mejoro mucho debido a que la familia tiene mas ingresos y mejor calidad de vida." Next.'
+    out, n = _inline_glossed_text(text, [v])
+    assert n == 1
+    assert out.endswith('calidad de vida"). Next.')
+    assert out.count('"') == 4  # gloss pair + original pair, no stray mark

@@ -36,6 +36,7 @@ from .grounding import (
     check_population_mismatch,
     check_profile_grounding,
     check_quote_grounding,
+    with_complements,
     _normalize_quote_marks,
     quote_in_text,
 )
@@ -406,6 +407,7 @@ def _writer_violations(
     data_summary: str = "",
     include_length: bool = True,
     min_quotes: int = 0,
+    acceptable: Optional[set] = None,
 ) -> list[str]:
     """Every enforceable violation in `text`: house style (word cap, banned punctuation) AND
     grounding (fabricated quotes, invented profile attribution on an otherwise-real quote,
@@ -470,6 +472,17 @@ def _writer_violations(
             f"'commonly cited reasons', 'may be a priority area to investigate'), keeping every "
             f"figure: {listed}"
         )
+
+    # YoY2: a percentage not in the data (1.1 had "68.2% of first-time borrowers are women")
+    # was only reported. It now drives the rewrite, like an invented quote. None = no figures
+    # were supplied for this block, so nothing to check against.
+    if acceptable is not None:
+        unsupported = check_grounding(text, with_complements(acceptable))
+        if unsupported:
+            violations.append(
+                f"percentage(s) that are not in the data given: {unsupported} -- use only the figures "
+                f"provided (or 100 minus one of them), or drop the claim; never work out a new figure"
+            )
 
     # CC-096: year-over-year sentences must keep the "compared with" wording.
     for sentence in yoy_facts.wording_violations(text):
@@ -602,7 +615,13 @@ def _task_preamble(prompt_config: SubsectionPrompt, data_summary: str) -> str:
 
 
 def _shorten_rejection(
-    candidate: str, previous_word_count: int, word_cap: int, pool: list[Verbatim], data_summary: str, min_quotes: int = 0
+    candidate: str,
+    previous_word_count: int,
+    word_cap: int,
+    pool: list[Verbatim],
+    data_summary: str,
+    min_quotes: int = 0,
+    acceptable: Optional[set] = None,
 ) -> list[str]:
     """Why a shortened draft can't replace the previous one; empty means accept. It must be
     actually shorter and break no rule other than length. A shorten pass that invents a quote
@@ -612,7 +631,9 @@ def _shorten_rejection(
     n = narrative_word_count(candidate, pool)
     if n >= previous_word_count:
         return [f"not shorter ({n} words)"]
-    return _writer_violations(candidate, word_cap, pool, data_summary, include_length=False, min_quotes=min_quotes)
+    return _writer_violations(
+        candidate, word_cap, pool, data_summary, include_length=False, min_quotes=min_quotes, acceptable=acceptable
+    )
 
 
 def write_subsection(
@@ -637,7 +658,7 @@ def write_subsection(
     pool = _pool_verbatims(qualitative) if qualitative else []
 
     first_pass_word_count = narrative_word_count(text, pool)
-    first_pass_violations = _writer_violations(text, prompt_config.word_cap, pool, data_summary)
+    first_pass_violations = _writer_violations(text, prompt_config.word_cap, pool, data_summary, acceptable=acceptable_percentages)
     if first_pass_violations:
         revise_task = _revise_instruction(text, first_pass_violations, prompt_config.word_cap)
         response = llm.invoke([("system", SYSTEM_PROMPT), ("human", revise_task)])
@@ -648,7 +669,9 @@ def write_subsection(
     if not within_tolerance(word_count, prompt_config.word_cap):
         response = llm.invoke([("system", SYSTEM_PROMPT), ("human", _shorten_instruction(text, word_count, prompt_config))])
         candidate = _clean_output(extract_text(response))
-        shorten_rejected = _shorten_rejection(candidate, word_count, prompt_config.word_cap, pool, data_summary)
+        shorten_rejected = _shorten_rejection(
+            candidate, word_count, prompt_config.word_cap, pool, data_summary, acceptable=acceptable_percentages
+        )
         if not shorten_rejected:
             text, shortened = candidate, True
             word_count = narrative_word_count(text, pool)
@@ -662,7 +685,7 @@ def write_subsection(
         text=text,
         word_count=word_count,
         within_cap=within_tolerance(word_count, prompt_config.word_cap),
-        ungrounded_percentages=check_grounding(text, acceptable_percentages or set()),
+        ungrounded_percentages=check_grounding(text, with_complements(acceptable_percentages or set())),
         ungrounded_quotes=check_quote_grounding(text, pool),
         partial_quotes=check_partial_quotes(text, pool),
         orphan_markers=check_orphan_markers(text),
@@ -700,7 +723,9 @@ def write_insight(
 
     min_quotes = required_quotes(pool)
     first_pass_word_count = narrative_word_count(text, pool)
-    first_pass_violations = _writer_violations(text, prompt_config.word_cap, pool, data_summary, min_quotes=min_quotes)
+    first_pass_violations = _writer_violations(
+        text, prompt_config.word_cap, pool, data_summary, min_quotes=min_quotes, acceptable=acceptable_percentages
+    )
     if first_pass_violations:
         revise_task = (
             _revise_instruction(text, first_pass_violations, prompt_config.word_cap)
@@ -722,7 +747,7 @@ def write_insight(
         # full count here rejected every shortened draft of an insight already one quote short.
         shorten_rejected = _shorten_rejection(
             _clean_output(candidate.text), word_count, prompt_config.word_cap, pool, data_summary,
-            min(min_quotes, quotes_used(text, pool)),
+            min(min_quotes, quotes_used(text, pool)), acceptable_percentages,
         )
         if not shorten_rejected:
             raw, text, shortened = candidate, _clean_output(candidate.text), True
@@ -742,7 +767,7 @@ def write_insight(
         text=text,
         word_count=word_count,
         within_cap=within_tolerance(word_count, prompt_config.word_cap),
-        ungrounded_percentages=check_grounding(text, acceptable_percentages or set()),
+        ungrounded_percentages=check_grounding(text, with_complements(acceptable_percentages or set())),
         ungrounded_quotes=check_quote_grounding(text, pool),
         partial_quotes=check_partial_quotes(text, pool),
         orphan_markers=check_orphan_markers(text),

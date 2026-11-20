@@ -150,6 +150,14 @@ def _inline_glossed_text(text: str, non_english: list) -> tuple[str, int]:
         preceded_by_quote = i > 0 and text[i - 1] == '"'
         out.append(_inline_gloss(v, omit_leading_quote=preceded_by_quote))
         cursor = j
+        if preceded_by_quote:
+            # YoY2: the writer's own closing mark (after an optional full stop) was left behind
+            # the gloss's closing parenthesis, giving 'vida")."'. Its opening mark is reused
+            # above, so drop the closing one and keep the punctuation.
+            closing = re.match(r'([.,;:!?]?)"', text[j:])
+            if closing:
+                out.append(closing.group(1))
+                cursor = j + closing.end()
     out.append(text[cursor:])
     return "".join(out), len(matches)
 

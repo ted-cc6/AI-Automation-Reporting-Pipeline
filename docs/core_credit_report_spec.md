@@ -4660,3 +4660,17 @@ and it drives the corrective rewrite. The rules also say not to repeat the
   (`...de vida")."`): the writer's own closing mark is kept after the CC-064
   substitution.
 - Complement figures (7.7% = 100 - 92.3) flagged for review as before.
+
+## Unsupported figures drive the rewrite; gloss closing mark (2026-11-20)
+
+Agreed by Binjie after YoY2.
+- A percentage not among the block's accepted figures is now a writer
+  violation (it was only reported), so the corrective rewrite removes it or
+  replaces it with a given figure. Complements (100 minus an accepted figure,
+  `grounding.with_complements`) count as accepted, so "7.7% did" next to
+  "92.3% did not" is no longer flagged; the reported `ungrounded_percentages`
+  use the same rule. Blocks with no accepted figures supplied are not checked.
+- `translate_verbatims._inline_glossed_text`: when the writer's opening mark
+  is reused for the gloss (CC-064), its closing mark after an optional full
+  stop is dropped, so 'vida")."' becomes 'vida").'.
+- Tests: 532 passed.

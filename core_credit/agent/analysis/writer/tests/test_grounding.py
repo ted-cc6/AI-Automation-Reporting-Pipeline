@@ -291,3 +291,20 @@ def test_check_profile_grounding_flags_a_real_quote_wrapped_in_the_wrong_country
 def test_check_profile_grounding_ignores_quotes_not_present_in_text():
     v = Verbatim(quote="A quote that was never actually used.", country="KEN", source_field="f")
     assert check_profile_grounding("Some unrelated analytical prose.", [v]) == []
+
+
+def test_complements_of_accepted_figures_are_accepted():
+    from writer.grounding import check_grounding, with_complements
+
+    ok = with_complements({92.3, 28.8})
+    assert check_grounding("so 7.7% did, and roughly 71% did not report it", ok) == []
+    assert check_grounding("women are 68.2% of first-time borrowers", ok) == ["68.2%"]
+
+
+def test_unsupported_figures_drive_the_rewrite_only_when_figures_are_given():
+    from writer import chain
+
+    text = "Women account for about 68.2% of first-time borrowers."
+    assert any("not in the data" in v for v in chain._writer_violations(text, 100, [], acceptable={46.3}))
+    assert not any("not in the data" in v for v in chain._writer_violations(text, 100, []))
+    assert not any("not in the data" in v for v in chain._writer_violations("Only 7.7% did.", 100, [], acceptable={92.3}))

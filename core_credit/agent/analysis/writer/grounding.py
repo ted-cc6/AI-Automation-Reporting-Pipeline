@@ -117,6 +117,12 @@ def collect_acceptable_percentages(*sources) -> set:
     return acceptable
 
 
+def with_complements(acceptable: set) -> set:
+    """The accepted figures plus 100 minus each one. "95.7% report no unfair treatment, so 4.3%
+    did" restates a real figure; YoY1/YoY2 flagged such complements (71%, 7.7%) every run."""
+    return set(acceptable) | {round(100 - a, 1) for a in acceptable} | {round(100 - a) for a in acceptable}
+
+
 def check_grounding(text: str, acceptable: set) -> list:
     """Every percentage mentioned in `text` that doesn't match (within rounding) a number in
     `acceptable`. Empty list means every percentage claim traces back to real data.
