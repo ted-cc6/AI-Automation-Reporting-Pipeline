@@ -34,6 +34,10 @@ def assemble_report_node(state: OrchestratorState) -> dict:
 
     run_id = state.get("run_id", "orchestrator")
     report = build_report(sections=sections, run_id=run_id)
+    if state.get("yoy_deltas_path"):
+        from yoy.table import load_yoy_section
+
+        report.year_over_year = load_yoy_section(state["yoy_deltas_path"])  # CC-097, built in code
     raise_on_meta_text_leaks(report)  # hard gate -- stops the run before spending on translation/render
     raise_on_unknown_theme_references(report)  # hard gate -- fabricated theme name in the exec summary
     raise_on_missing_caregiver_scope(report)  # hard gate -- Child Wellbeing stated with no caregiver scope

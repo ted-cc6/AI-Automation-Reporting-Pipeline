@@ -27,6 +27,7 @@ class OrchestratorState(TypedDict, total=False):
     trimmed_csv_path: str
     column_manifest_path: str
     csv_path: str  # analysis_ready.csv -- what every Tier 0 node reads
+    yoy_deltas_path: Optional[str]  # CC-096: <run>_yoy_deltas.json when the report carries a YoY comparison
     qa_report_path: str
     data_ready: bool
     failure_reason: Optional[str]

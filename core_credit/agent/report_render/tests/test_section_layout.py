@@ -343,3 +343,27 @@ def test_8_2_quote_block_renders_between_8_2_and_the_insight():
     block = texts[start:end]
     assert '"Promoter quote here."' in block and '"Detractor quote here."' in block
     assert block.index('"Promoter quote here."') < block.index('"Detractor quote here."')
+
+
+def test_year_over_year_table_renders_after_the_executive_summary():
+    # CC-097
+    from schemas.year_over_year import YearOverYearSection, YoYRow
+
+    report = _full_report()
+    doc = Document()
+    render_report(doc, report)
+    assert "2026 compared with 2025" not in _paragraph_texts(doc)  # absent unless the run carries it
+
+    report.year_over_year = YearOverYearSection(
+        comparison_wave=2025, report_wave=2026, comparison_countries=["Kenya"], note="Fixed note.",
+        headline_rows=[YoYRow(label="First-time access", group="all clients", value_2025=0.436, value_2026=0.463, change_pts=2.7, significant=True)],
+        review_rows=[YoYRow(label="NPS", group="Kenya", value_2025=20.0, value_2026=60.0, change_pts=40.0, is_score=True)],
+    )
+    doc = Document()
+    render_report(doc, report)
+    texts = _paragraph_texts(doc)
+    i = texts.index("2026 compared with 2025")
+    assert texts.index("Executive Summary") < i < texts.index("Part 1 -- Financial Access")
+    assert "Large shifts to confirm with country teams" in texts
+    cells = [c.text for t in doc.tables for row in t.rows for c in row.cells]
+    assert {"43.6%", "46.3%", "+2.7", "Significant change", "20.0", "60.0", "+40.0"} <= set(cells)

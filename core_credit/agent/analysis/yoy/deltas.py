@@ -53,6 +53,7 @@ class MetricSpec:
     base_fn: Optional[MaskFn] = None
     headline: bool = False
     lower_is_better: bool = False
+    population: str = "all clients"
 
 
 @dataclass
@@ -84,11 +85,11 @@ _HEADLINE_CONFIG_IDS = {
 }
 # Scorecard rows defined outside the section configs, by their scorecard label.
 _EXTRA_SCORECARD_ROWS = {
-    "Improved child wellbeing": ("improved_child_wellbeing", "child_wellbeing", False),
-    "Cut food to repay (lower is better)": ("cut_food_to_repay", "client_protection", True),
-    "Savings rose": ("savings_increased", "resilience", False),
-    "VisionFund reduced shock severity": ("vf_reduced_shock_severity", "resilience", False),
-    "Promoter on NPS": ("nps_promoter", "client_satisfaction", False),
+    "Improved child wellbeing": ("improved_child_wellbeing", "child_wellbeing", False, "caregivers"),
+    "Cut food to repay (lower is better)": ("cut_food_to_repay", "client_protection", True, "all clients"),
+    "Savings rose": ("savings_increased", "resilience", False, "all clients"),
+    "VisionFund reduced shock severity": ("vf_reduced_shock_severity", "resilience", False, "clients affected by a shock"),
+    "Promoter on NPS": ("nps_promoter", "client_satisfaction", False, "all clients"),
 }
 
 
@@ -106,14 +107,17 @@ def metric_specs() -> list[MetricSpec]:
     from synthesis.build_gender_scorecard import ROWS  # the verified headline row definitions
 
     specs = [
-        MetricSpec(mc.metric_id, mc.label, section_id, _config_mask(mc), _config_base(mc), mc.metric_id in _HEADLINE_CONFIG_IDS)
+        MetricSpec(
+            mc.metric_id, mc.label, section_id, _config_mask(mc), _config_base(mc),
+            mc.metric_id in _HEADLINE_CONFIG_IDS, population=mc.population,
+        )
         for section_id, cfg in SECTION_CONFIGS.items()
         for mc in cfg.metrics
     ]
     for label, mask_fn, base_fn in ROWS:
         if label in _EXTRA_SCORECARD_ROWS:
-            metric_id, section, lower = _EXTRA_SCORECARD_ROWS[label]
-            specs.append(MetricSpec(metric_id, label, section, mask_fn, base_fn, True, lower))
+            metric_id, section, lower, population = _EXTRA_SCORECARD_ROWS[label]
+            specs.append(MetricSpec(metric_id, label, section, mask_fn, base_fn, True, lower, population))
     return specs
 
 
@@ -237,6 +241,7 @@ def compute_deltas(df_2025: pd.DataFrame, df_2026: pd.DataFrame, comparison_coun
                 "section": spec.section,
                 "headline": spec.headline,
                 "lower_is_better": spec.lower_is_better,
+                "population": spec.population,
                 "portfolio": portfolio.as_dict(),
                 "by_gender": _segment_changes(spec, a, b, gender, PORTFOLIO_ALPHA),
                 "by_loan_cycle": _segment_changes(spec, a, b, loan_cycle, SUBGROUP_ALPHA),

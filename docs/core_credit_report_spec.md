@@ -4509,3 +4509,40 @@ check (recomputing without flagged countries) is not built.
   Kenya 3, Mongolia 2, Vietnam 2, Rwanda, Uganda and Honduras 1 each. Most
   often "hard to find another lender" (7), financial worry (4), NPS (4).
 - Tests: 2 new in `analysis/yoy/tests/test_deltas.py`. 505 passed.
+
+## CC-096 (done): YoY facts for the writer; prepared-wave run path
+
+- `run_orchestrator.py --prepared-csv <wave analysis_ready.csv> --yoy <run>_yoy_deltas.json`.
+  A prepared CSV skips Column Cleaner and Row Checker (re-cleaning would break
+  the shared-columns guarantee); only the required-columns check runs. `--yoy`
+  sets `CC_YOY_DELTAS` and `yoy_deltas_path` in state.
+- `writer/yoy_facts.py`: per block, `[YOY FACT: ...]` lines appended to the
+  data summary. Analysis subsections get portfolio and significant gender
+  changes of their own metrics (from `subsection_metric_ids` plus 4.1, 7.1,
+  7.4, 8.1); Insights get portfolio changes; the Executive Summary gets every
+  headline metric and the NPS score. Only significant, non-mix-flagged
+  changes are FACTs; the rest are listed "similar to 2025". Country and
+  loan-cycle changes are never given to the writer. A rules paragraph
+  travels with the facts: two different groups of clients, at most one or two
+  facts, a set wording, no reasons, no changes not listed. Every YoY figure
+  is added to the block's accepted percentages; gender lines carry "split by
+  gender" so the CC-072 population check reads them correctly.
+- `yoy/deltas.py` now carries each metric's population.
+
+## CC-097 (done): YoY table after the Executive Summary
+
+- `schemas/year_over_year.py` (`YearOverYearSection`, `YoYRow`),
+  `yoy/table.py` (`build_yoy_section`, `load_yoy_section`), report field
+  `year_over_year`, set by `assemble_report_node` when the run carries a
+  deltas file, rendered by `render_year_over_year` between the Executive
+  Summary and Part 1. Built in code, nothing LLM-written.
+- Content: a fixed note (two different groups of clients, countries not
+  compared, provisional state, the 95%/99% levels, swing figures not
+  interpreted, what changed not why); headline rows for the 15 scorecard
+  metrics plus NPS, each "Significant change" or "Similar" (mix-flagged
+  changes shown as similar with a note; "lower is better" noted); then
+  significant changes by gender, by loan cycle and by country (99%,
+  swing-flagged figures removed); then "Large shifts to confirm with country
+  teams" listing the CC-095 figures.
+- Tests: `writer/tests/test_yoy_facts.py` (7), `yoy/tests/test_table.py` (3),
+  one render test. 516 passed.

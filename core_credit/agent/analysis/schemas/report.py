@@ -18,6 +18,7 @@ from .financial_access import FinancialAccessSection
 from .gender_scorecard import GenderScorecardSection
 from .poverty_likelihood import PovertyLikelihoodSection
 from .resilience import ResilienceSection
+from .year_over_year import YearOverYearSection
 
 
 class CoreCreditImpactReport(BaseModel):
@@ -59,3 +60,4 @@ class CoreCreditImpactReport(BaseModel):
     executive_summary: Optional[ExecutiveSummarySection] = None
     gender_scorecard: Optional[GenderScorecardSection] = None
     client_voices: Optional[ClientVoicesSection] = None
+    year_over_year: Optional[YearOverYearSection] = None  # CC-097: set when the run carries a YoY comparison

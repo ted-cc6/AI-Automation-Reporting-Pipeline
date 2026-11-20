@@ -184,6 +184,8 @@ def _find_wrote_path(messages: list, label: str) -> Optional[str]:
 
 
 def clean_columns_node(state: OrchestratorState) -> dict:
+    if state.get("csv_path"):
+        return {}  # CC-096: a prepared analysis-ready wave (prepare_waves.py) skips data prep
     run_label = state.get("run_id", "")
     config = _load_config(COLUMN_CLEAN_DIR)
     build_tools = _import_build_tools(COLUMN_CLEAN_DIR, ("rules",))
@@ -216,6 +218,13 @@ def clean_columns_node(state: OrchestratorState) -> dict:
 def check_rows_node(state: OrchestratorState) -> dict:
     if state.get("data_ready") is False:
         return {}  # Column Cleaner already failed -- nothing to check
+    if state.get("csv_path") and not state.get("trimmed_csv_path"):
+        # CC-096: prepared wave. Re-cleaning would break the guarantee that both waves keep the
+        # same columns, so only the required-columns check runs.
+        missing = _missing_required_columns(state["csv_path"])
+        if missing:
+            return {"data_ready": False, "failure_reason": f"prepared CSV lacks required columns {missing}"}
+        return {"data_ready": True}
 
     run_label = state.get("run_id", "")
     config = _load_config(ROW_CHECK_DIR)

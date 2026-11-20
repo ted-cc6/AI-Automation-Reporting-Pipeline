@@ -39,6 +39,7 @@ from .grounding import (
     _normalize_quote_marks,
     quote_in_text,
 )
+from . import yoy_facts
 from .section_prompts import SubsectionPrompt
 
 SYSTEM_PROMPT = """You are writing one subsection of VisionFund's Core Credit Impact Report. \
@@ -568,6 +569,14 @@ def _forward_looking_note(subsection_id: str) -> str:
     return f"If this Insight adds a forward-looking sentence (R8), use the shape {shape}."
 
 
+def _with_yoy(subsection_id: str, data_summary: str, acceptable: Optional[set]) -> tuple[str, Optional[set]]:
+    """CC-096: append this block's year-over-year FACTs, when a deltas file is active."""
+    text, accepted = yoy_facts.facts_for(subsection_id)
+    if not text:
+        return data_summary, acceptable
+    return f"{data_summary}\n\n{text}", (acceptable or set()) | accepted
+
+
 def _task_preamble(prompt_config: SubsectionPrompt, data_summary: str) -> str:
     return (
         f"Subsection: {prompt_config.title}\n"
@@ -603,6 +612,7 @@ def write_subsection(
     for subsections the template asks to cite client quotes in.
     """
     llm = build_chat_model(reasoning_effort=reasoning_effort)
+    data_summary, acceptable_percentages = _with_yoy(prompt_config.subsection_id, data_summary, acceptable_percentages)
 
     task = _task_preamble(prompt_config, data_summary)
     if qualitative and qualitative.themes:
@@ -665,6 +675,8 @@ def write_insight(
         return written, []
 
     llm = build_chat_model(reasoning_effort=reasoning_effort, use_thinking=False)
+    # after the no-pool hand-off above, so write_subsection doesn't append the facts a second time
+    data_summary, acceptable_percentages = _with_yoy(prompt_config.subsection_id, data_summary, acceptable_percentages)
     task = _task_preamble(prompt_config, data_summary) + "\n\n" + _format_verbatim_pool(pool) + INSIGHT_ID_INSTRUCTION
 
     raw: _NarrativeWithVerbatims = invoke_structured(

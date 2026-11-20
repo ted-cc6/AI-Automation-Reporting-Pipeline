@@ -481,6 +481,56 @@ def render_client_voices(doc, section) -> None:
         h.add_body_paragraph(doc, "[ No detractor verbatims available. ]", italic=True)
 
 
+def _yoy_value(v, is_score: bool) -> str:
+    if v is None:
+        return "--"
+    return f"{v:.1f}" if is_score else f"{v * 100:.1f}%"
+
+
+def _yoy_change(r) -> str:
+    return "--" if r.change_pts is None else f"{r.change_pts:+.1f}"
+
+
+def _yoy_headline_cells(r) -> list:
+    reading = "Significant change" if r.significant else "Similar"
+    if r.note:
+        reading += f" ({r.note})"
+    return [r.label, _yoy_value(r.value_2025, r.is_score), _yoy_value(r.value_2026, r.is_score), _yoy_change(r), reading]
+
+
+def _yoy_group_cells(r) -> list:
+    return [r.label, r.group, _yoy_value(r.value_2025, r.is_score), _yoy_value(r.value_2026, r.is_score), _yoy_change(r)]
+
+
+def render_year_over_year(doc, section) -> None:
+    """CC-097: built in code from the deltas file; nothing here is LLM-written."""
+    a, b = section.comparison_wave, section.report_wave
+    h.add_section_heading(doc, f"{b} compared with {a}")
+    h.add_body_paragraph(doc, section.note)
+    years = [str(a), str(b), "Change (points)"]
+    h.add_subheading(doc, "Headline figures")
+    h.add_table(doc, ["Figure"] + years + ["Reading"], [_yoy_headline_cells(r) for r in section.headline_rows])
+    groups = (
+        ("Significant changes by gender", section.gender_rows, "Who"),
+        ("Significant changes by loan cycle", section.loan_cycle_rows, "Loan cycle"),
+        ("Significant changes by country", section.country_rows, "Country"),
+    )
+    for title, rows, who in groups:
+        if rows:
+            h.add_subheading(doc, title)
+            h.add_table(doc, ["Figure", who] + years, [_yoy_group_cells(r) for r in rows])
+    if section.review_rows:
+        h.add_subheading(doc, "Large shifts to confirm with country teams")
+        h.add_caption(
+            doc,
+            "Each figure below moved by more than 30 points between the two years. Answer labels and the "
+            "survey form were the same in both years, so the data alone cannot show whether this is real "
+            "change or a difference in how answers were recorded. These figures are not interpreted in "
+            "this report.",
+        )
+        h.add_table(doc, ["Figure", "Country"] + years, [_yoy_group_cells(r) for r in section.review_rows])
+
+
 def render_report(doc, report, dashboard_visuals: Optional[dict] = None) -> None:
     """`dashboard_visuals`, when given, is a pre-resolved {subsection_id: DashboardVisual} map
     (e.g. from the orchestrator's resolve_dashboard_visuals node, which runs the same lookup
@@ -528,6 +578,9 @@ def render_report(doc, report, dashboard_visuals: Optional[dict] = None) -> None
         h.add_divider(doc)
         if report.executive_summary is not None:
             render_executive_summary(doc, report.executive_summary)
+            h.add_divider(doc)
+        if report.year_over_year is not None:
+            render_year_over_year(doc, report.year_over_year)
             h.add_divider(doc)
         for render_part, section in (
             (render_financial_access, report.financial_access),

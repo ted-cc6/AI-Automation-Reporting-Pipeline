@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
 import time
 from pathlib import Path
@@ -73,14 +74,24 @@ def diagnose_failure(compiled, graph_config: dict, exc: Exception) -> dict:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Run the full Core Credit Impact Report pipeline end to end.")
-    parser.add_argument("raw_csv_path", help="Path to the raw quarterly survey export")
+    parser.add_argument("raw_csv_path", nargs="?", help="Path to the raw quarterly survey export")
+    parser.add_argument("--prepared-csv", default=None, help="CC-096: an analysis-ready wave from prepare_waves.py (skips data prep)")
+    parser.add_argument("--yoy", default=None, help="CC-096: <run>_yoy_deltas.json from yoy.run_deltas, adds the 2025 comparison")
     parser.add_argument("--run-id", default=None, help="Unique tag for this run (e.g. 2026Q3) -- also the checkpoint thread_id")
     args = parser.parse_args()
 
-    raw_path = Path(args.raw_csv_path).resolve()
-    if not raw_path.exists():
-        print(f"ERROR: file not found: {raw_path}", file=sys.stderr)
+    if bool(args.raw_csv_path) == bool(args.prepared_csv):
+        print("ERROR: give either a raw export or --prepared-csv, not both or neither", file=sys.stderr)
         sys.exit(1)
+    raw_path = Path(args.raw_csv_path or args.prepared_csv).resolve()
+    for p in [raw_path] + ([Path(args.yoy)] if args.yoy else []):
+        if not Path(p).exists():
+            print(f"ERROR: file not found: {p}", file=sys.stderr)
+            sys.exit(1)
+    if args.yoy:
+        # Read by the writer (writer/yoy_facts.py) and the assembler; an env var reaches every
+        # section's worker thread without changing each builder's signature.
+        os.environ["CC_YOY_DELTAS"] = str(Path(args.yoy).resolve())
 
     run_id = args.run_id or time.strftime("run-%Y%m%dT%H%M%S")
     benchmarks_path = str(PROJECT_ROOT / "External Benchmarks.xlsx")
@@ -103,6 +114,10 @@ def main() -> None:
             else:
                 print(f"Starting fresh run: run_id={run_id!r}, raw_csv={raw_path.name}")
                 inputs = {"raw_csv_path": str(raw_path), "run_id": run_id, "benchmarks_path": benchmarks_path}
+                if args.prepared_csv:
+                    inputs["csv_path"] = str(raw_path)
+                if args.yoy:
+                    inputs["yoy_deltas_path"] = os.environ["CC_YOY_DELTAS"]
                 result = compiled.invoke(inputs, config=graph_config)
         except Exception as exc:  # noqa: BLE001 -- CC-038: report which node failed, don't crash bare
             elapsed = time.monotonic() - started
