@@ -4460,3 +4460,35 @@ tests ran on the 2026 wave (no India rows, different Rwanda figure). The PPI
 test fixture now skips per-wave files. The standalone `__main__` entry points
 of the section drivers still pick the latest file by name and will now pick a
 wave file; the orchestrator always passes its path, so reports are unaffected.
+
+## CC-094 (done, one open decision): YoY changes and significance
+
+**Change.** `analysis/yoy/deltas.py`, run with
+`python -m yoy.run_deltas <run>_wave_manifest.json` -> `<run>_yoy_deltas.json`.
+Metric definitions reused: every MetricConfig in the four config sections (15)
+plus the gender scorecard's five other headline rows, 20 metrics, 15 headline.
+Per metric: portfolio change on the comparison countries (95%), by gender
+(95%), by loan cycle and by country (99%, cells below n=30 untested), and a
+country-standardised portfolio change (`mix_flag` when standardising erases,
+reverses or halves a significant change). NPS score change with variance
+(p_promoter + p_detractor - nps^2) / n. Tests: `analysis/yoy/tests/test_deltas.py`
+(12). 503 passed.
+
+**YoY1 result (provisional).** 12 significant portfolio changes, none
+mix-flagged: hard to find another lender 46.2% to 38.7%; loan purpose fully
+achieved 69.5% to 62.0% (partially 28.2% to 36.0%); first-time access +2.7;
+did not cut food +2.5; complaints trusted +1.8; household influence +2.2;
+community respect +2.0; business income +1.5; child wellbeing -1.9; savings
+rose -2.9. NPS 69.9 to 71.9, not significant (p = 0.058).
+
+**Open: country-level swings.** 130 of 371 tested country cells are
+significant at 99%, far more than chance, and 30 move by more than 30 points
+(Zambia 7, Montenegro 4, Senegal 4, Mali 3, Tanzania 3). Examples: Senegal
+loan purpose fully achieved 91% to 5%; Rwanda financial worry decreased 76% to
+6% (the answers mirror, "slightly decreased" to "slightly increased"); Zambia
+hard to find another lender 83% to 19% with 40 new "I don't know"; Montenegro
+"no change" on community respect 85% to 33%. Answer labels and survey version
+are identical in both waves and no answer option exists in only one wave, so
+this is not a coding change. Whether it is real change or a recording
+problem (translation, option order, enumerator practice) cannot be told from
+the data. Some portfolio changes lean on these cells.
