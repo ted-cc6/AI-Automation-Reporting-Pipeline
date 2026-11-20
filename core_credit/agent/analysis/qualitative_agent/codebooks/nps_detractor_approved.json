@@ -1,0 +1,71 @@
+{
+  "question": "nps_detractor",
+  "version": 1,
+  "themes": [
+    {
+      "code": "interest_rates_negative",
+      "label": "High interest rates",
+      "definition": "Interest rates described as too high, or asks to lower them. Other charges and insurance go to fees_insurance_negative."
+    },
+    {
+      "code": "staff_service_negative",
+      "label": "Poor service or rude staff",
+      "definition": "Complaints about customer service or how staff treat clients: rude, disrespectful, sarcastic, impatient, unhelpful, lacking understanding, or a poor customer relationship in general. Pressure or harassment during collection goes to collection_pressure_negative. A detractor naming only 'the service' (for example 'por el servicio') counts here, because the question asks what should change."
+    },
+    {
+      "code": "loan_speed_negative",
+      "label": "Slow approval or disbursement",
+      "definition": "Approval, processing or disbursement takes too long, or asks to speed it up. Waiting in line at the branch goes to branch_access_negative."
+    },
+    {
+      "code": "loan_amount_negative",
+      "label": "Loan amount too small",
+      "definition": "The amount given is too small or was cut, or asks for a higher amount or limit, including at renewal."
+    },
+    {
+      "code": "repayment_flexibility_negative",
+      "label": "Wants more flexible repayment",
+      "definition": "Asks for longer repayment periods, grace periods, extensions in an emergency or a more lenient schedule. How staff behave when collecting goes to collection_pressure_negative."
+    },
+    {
+      "code": "requirements_negative",
+      "label": "Too many requirements or documents",
+      "definition": "Too much paperwork, collateral, photos or rules, or strict eligibility that makes it hard to apply or qualify."
+    },
+    {
+      "code": "fees_insurance_negative",
+      "label": "High fees or insurance problems",
+      "definition": "Charges other than interest are too high (processing, commitment, mobile money fees), or complaints about insurance cost, slow claims or exclusions."
+    },
+    {
+      "code": "collection_pressure_negative",
+      "label": "Pressure or harassment in collection",
+      "definition": "Aggressive, embarrassing or harassing behaviour when collecting repayments, repeated demands after payment, or pressure tactics."
+    },
+    {
+      "code": "branch_access_negative",
+      "label": "Branches too far or too busy",
+      "definition": "Too few branches or meeting points, too far away, or long waits at the counter."
+    },
+    {
+      "code": "group_lending_negative",
+      "label": "Problems with group lending",
+      "definition": "Joint liability problems: other members not paying or letting the group down (for example 'some people don't pay', 'quedan mal'), or wanting an individual loan or a loan on one's own signature instead of a group loan."
+    },
+    {
+      "code": "communication_support_negative",
+      "label": "Unclear terms, broken promises or distrust",
+      "definition": "Loan terms or conditions were not explained or not clear, a promised benefit did not happen, no help when seeking a new loan, or distrust of VisionFund's honesty. General poor service or a poor customer relationship goes to staff_service_negative."
+    },
+    {
+      "code": "referral_reluctance",
+      "label": "Would not refer for privacy reasons",
+      "definition": "Hesitant to recommend because they do not want others to know about their loan, or because people would know they have a loan."
+    },
+    {
+      "code": "product_changes_requested",
+      "label": "Asks for other product or process changes",
+      "definition": "Suggestions for loan terms or features not covered by another code (for example loyalty rewards, SMS balances, agricultural products)."
+    }
+  ]
+}

@@ -43,7 +43,7 @@ import pandas as pd  # noqa: E402
 from benchmark_module.lookup import get_mfi_index_benchmark  # noqa: E402
 from metrics_engine.engine import nps, nps_by_segment  # noqa: E402
 from metrics_engine.segments import country as country_series, gender as gender_series  # noqa: E402
-from qualitative_agent.agent import theme_tag_full_dataset  # noqa: E402
+from qualitative_agent.codebook import tag_responses  # noqa: E402
 from qualitative_agent.data_prep import load_free_text_responses  # noqa: E402
 from schemas.client_satisfaction import ClientSatisfactionSection, NPSResult  # noqa: E402
 from schemas.common import QualitativeSynthesis, RankedOption, RankedOptions, SegmentAxis  # noqa: E402
@@ -56,6 +56,11 @@ NPS_SCORE_COL = "Client Satisfaction/CLIENTSAT01_resp_en"
 PROMOTER_FOLLOWUP_COL = "Client Satisfaction/CLIENTSAT01a_resp_en"  # asked only of scores 9-10
 PASSIVE_FOLLOWUP_COL = "Client Satisfaction/CLIENTSAT01c_resp_en"  # asked only of scores 7-8
 DETRACTOR_FOLLOWUP_COL = "Client Satisfaction/CLIENTSAT01b_resp_en"  # asked only of scores 0-6
+
+# CC-089: codebook names under qualitative_agent/codebooks/ (<name>_approved.json).
+PROMOTER_CODEBOOK = "nps_promoter"
+PASSIVE_CODEBOOK = "nps_passive"
+DETRACTOR_CODEBOOK = "nps_detractor"
 
 PROMOTER_TASK = (
     "These responses answer 'What specifically about VisionFund would cause you to recommend "
@@ -126,10 +131,10 @@ def build_section(df: pd.DataFrame) -> ClientSatisfactionSection:
         f"{len(detractor_responses)} detractor responses concurrently..."
     )
     with ThreadPoolExecutor(max_workers=3) as pool:
-        future_promoters = pool.submit(theme_tag_full_dataset, "promoter_drivers", promoter_responses, PROMOTER_TASK)
-        future_passives = pool.submit(theme_tag_full_dataset, "passive_followup", passive_responses, PASSIVE_TASK)
+        future_promoters = pool.submit(tag_responses, "promoter_drivers", PROMOTER_CODEBOOK, promoter_responses, PROMOTER_TASK)
+        future_passives = pool.submit(tag_responses, "passive_followup", PASSIVE_CODEBOOK, passive_responses, PASSIVE_TASK)
         future_detractors = pool.submit(
-            theme_tag_full_dataset, "detractor_pain_points", detractor_responses, DETRACTOR_TASK
+            tag_responses, "detractor_pain_points", DETRACTOR_CODEBOOK, detractor_responses, DETRACTOR_TASK
         )
         promoters_qual = future_promoters.result()
         passives_qual = future_passives.result()

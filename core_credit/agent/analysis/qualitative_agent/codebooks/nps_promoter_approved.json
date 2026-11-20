@@ -1,0 +1,61 @@
+{
+  "question": "nps_promoter",
+  "version": 1,
+  "themes": [
+    {
+      "code": "staff_service_positive",
+      "label": "Good service and respectful staff",
+      "definition": "Praise for service quality or for staff and loan officers being kind, respectful, helpful or easy to reach. Not speed of the loan process (loan_speed_positive)."
+    },
+    {
+      "code": "loan_speed_positive",
+      "label": "Fast, easy loan process",
+      "definition": "The loan is quick or easy to get: fast approval, processing and disbursement. Few documents or no guarantor goes to requirements_positive."
+    },
+    {
+      "code": "interest_rates_positive",
+      "label": "Low or fair interest rates",
+      "definition": "Interest rates described as low, fair or better than other lenders."
+    },
+    {
+      "code": "impact_positive",
+      "label": "Positive impact on business, household or family",
+      "definition": "The loan improved income, business, assets, living standards, children's schooling or helped through an emergency or hard time."
+    },
+    {
+      "code": "repayment_flexibility_positive",
+      "label": "Flexible, manageable repayment",
+      "definition": "Repayment schedules are easy or flexible, or staff are understanding when a client is late or in hardship."
+    },
+    {
+      "code": "trust_positive",
+      "label": "Trustworthy and transparent",
+      "definition": "VisionFund is honest, transparent, reliable or treats clients fairly as an institution. Kindness of individual staff goes to staff_service_positive."
+    },
+    {
+      "code": "requirements_positive",
+      "label": "Few requirements, easy to qualify",
+      "definition": "Few documents, no guarantor or collateral, or easy to qualify compared with other lenders."
+    },
+    {
+      "code": "collection_respect_positive",
+      "label": "Respectful collection",
+      "definition": "Says VisionFund does not pressure or harass clients when collecting, including fair handling of late payments."
+    },
+    {
+      "code": "vulnerable_groups_positive",
+      "label": "Helps women and vulnerable people",
+      "definition": "VisionFund helps women, the poor or vulnerable community members, said about others rather than the client's own gains."
+    },
+    {
+      "code": "other_products_positive",
+      "label": "Training, insurance or savings",
+      "definition": "Praise for training, advice, insurance cover or savings products."
+    },
+    {
+      "code": "mixed_with_complaint",
+      "label": "Recommends, with a complaint or ask",
+      "definition": "Recommends VisionFund but adds a complaint or a wanted change (for example poor communication, slow service, a higher amount). Also code the complaint itself if it has its own code."
+    }
+  ]
+}

@@ -53,3 +53,7 @@ core_credit/.claude/
 core_credit/processed_data/
 core_credit/**/output/
 core_credit/**/checkpoints.db
+
+# CC-089: codebook drafts and the review sample hold client answers; only *_approved.json is tracked
+core_credit/agent/analysis/qualitative_agent/codebooks/*_draft*.json
+core_credit/agent/analysis/qualitative_agent/codebooks/*_review_sample.csv

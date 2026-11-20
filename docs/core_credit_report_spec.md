@@ -4127,3 +4127,66 @@ gender insight).**
   belongs with the qualitative agent, not this round.
 - Known-class grounding flags carried over: "100%" coverage rounding and "7.4
   percent" (CC-008 class), plus one partial quote in the gender insight.
+
+---
+
+# Open-items round (2026-11-20, branch `cc-open-items`)
+
+Order agreed: CC-089 NPS codebook, then word caps, verbatims and the 8.2 block,
+then a Test7 run, then the Henry and Lorenz messages.
+
+## CC-089 (done): NPS themes coded against a fixed, approved codebook
+
+**Problem.** The lead detractor reason changes between runs on the same data
+(local-cc066: staff attitude 40.8%; Test6: interest 54.3%). Cause: open coding.
+Each batch of 200 answers gets themes the model invents, an LLM merge regroups
+them, and Sonnet 5 rejects `temperature`. A per-answer cache alone cannot fix
+this, because the theme list itself moves. A year-over-year comparison also
+needs both waves coded against the same list.
+
+**Change.**
+- New `qualitative_agent/codebook.py`. Draft a codebook once from open coding,
+  a person reviews and approves it, then every answer is coded into approved
+  codes (one or more) or "other". The model only chooses from the list.
+- Each answer's codes are cached in `qualitative_agent/cache/codebook_tags.json`,
+  keyed on question, codebook version, a client id hash and a text hash. No
+  client text or raw client id is stored, so the cache is committed. Reruns on the same data make no
+  LLM call. Approving a changed codebook bumps its version and re-codes once.
+- "other" is not reported as a theme. Shares stay over every answer (base_n).
+- Representative quotes are chosen in code: nearest to 80 characters, ties by
+  text hash, then spread across countries.
+- Answers the model skips twice stay in the base, are not cached, and are
+  retried on the next run.
+- Drafts and the 50-answer detractor review sample hold client answers and are
+  git-ignored. `--approve` writes the approved file without them.
+- Scope: the three NPS follow-ups only (`build_client_satisfaction.py`). With no
+  approved file, a band falls back to open coding. The four other theme passes
+  move onto this in the YoY round.
+
+**Acceptance.** Two coding runs on the Test6 base give identical shares, the
+second with no LLM call. Unit tests: `qualitative_agent/tests/test_codebook.py`.
+
+**Codebook review (2026-11-20).** Open coding drafted 20 promoter, 24 passive
+and 14 detractor themes. Revised by hand to 11, 19 and 13 codes, with shared
+code names across bands (`_positive` = reason to recommend, `_negative` =
+complaint or ask), so promoter and detractor lines on the same topic compare
+directly. A 50-answer detractor sample was coded three times while definitions
+were tightened: staff service vs unclear terms (4 errors in round 1),
+then group lending, privacy and a bare "por el servicio". Approved
+by Binjie with no corrections. Approved files: `codebooks/nps_*_approved.json`.
+
+**Result on the Test6 base (5,816 answers, one coding pass, 137 s).**
+
+| Band | n | Top reasons |
+|---|---|---|
+| Promoters | 4,370 | service and staff 38.8%, fast process 27.9%, impact 12.4%, low interest 12.2% |
+| Passives | 1,076 | service and staff 35.0%, fast process 18.0%, impact 10.0%, low interest 8.6%, high interest 8.1% |
+| Detractors | 370 | high interest 25.4%, poor service or staff 20.3%, slow disbursement 13.2%, loan amount 9.5% |
+
+A second and third pass came entirely from the cache (0 LLM calls) and gave
+byte-identical output, quotes included. 5,815 cache entries (one answer
+repeated by the same client). Tests: 453 passed.
+
+Note: shares are lower than open coding gave (interest 54.3% in Test6),
+because each answer now counts once per code it really raises, not per
+batch theme. Test7 will show the new figures in the report.
