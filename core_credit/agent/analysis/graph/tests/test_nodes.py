@@ -223,3 +223,14 @@ def test_assemble_section_node_with_qualitative_field_set():
     result = assemble_section_node(state)
     assert "section" in result
     assert result["section"].qol_drivers.base_n == 10
+
+
+def test_route_qualitative_uses_an_approved_codebook_when_one_exists(monkeypatch):
+    # CC-098
+    import graph.nodes as nodes
+
+    monkeypatch.setattr(nodes, "load_approved_codebook", lambda q: {"version": 1, "themes": []} if q == "quality_of_life_drivers" else None)
+    state = {"section_config": BUSINESS_HOUSEHOLD_IMPACT, "qualitative_responses": []}
+    assert route_qualitative(state) == "codebook_tag_node"
+    monkeypatch.setattr(nodes, "load_approved_codebook", lambda q: None)
+    assert route_qualitative(state) == []  # open coding fan-out (no responses, no batches)

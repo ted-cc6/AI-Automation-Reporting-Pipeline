@@ -41,7 +41,8 @@ import pandas as pd  # noqa: E402
 from benchmark_module.lookup import get_mfi_index_benchmark  # noqa: E402
 from metrics_engine.engine import metric_result, top_box_mask  # noqa: E402
 from metrics_engine.segments import clean_blank_strings, standard_categorical_segments  # noqa: E402
-from qualitative_agent.agent import QUALITY_OF_LIFE_DRIVERS_TASK, theme_tag_full_dataset  # noqa: E402
+from qualitative_agent.agent import QUALITY_OF_LIFE_DRIVERS_TASK  # noqa: E402
+from qualitative_agent.codebook import tag_responses  # noqa: E402
 from qualitative_agent.data_prep import load_quality_of_life_drivers  # noqa: E402
 from schemas.business_household_impact import BusinessHouseholdImpactSection  # noqa: E402
 from schemas.common import MetricResult  # noqa: E402
@@ -98,7 +99,7 @@ def build_section(df: pd.DataFrame) -> BusinessHouseholdImpactSection:
             write_subsection, QUALITY_OF_LIFE_CHANGE, format_metric_result(qol_result), acceptable_percentages=acceptable
         )
         future_qualitative = pool.submit(
-            theme_tag_full_dataset, "quality_of_life_drivers", responses, QUALITY_OF_LIFE_DRIVERS_TASK
+            tag_responses, "quality_of_life_drivers", "quality_of_life_drivers", responses, QUALITY_OF_LIFE_DRIVERS_TASK
         )
 
         income_analysis = future_income_text.result()

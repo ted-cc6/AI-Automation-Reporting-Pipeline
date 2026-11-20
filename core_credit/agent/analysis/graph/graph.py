@@ -15,6 +15,7 @@ from langgraph.graph.state import CompiledStateGraph
 
 from .nodes import (
     assemble_section_node,
+    codebook_tag_node,
     compute_metric_node,
     fan_out_metrics,
     fan_out_subsection_writes,
@@ -39,6 +40,7 @@ def build_graph() -> StateGraph:
     builder.add_node("theme_tag_batch_node", theme_tag_batch_node)
     builder.add_node("merge_qualitative_node", merge_qualitative_node)
     builder.add_node("skip_qualitative_node", skip_qualitative_node)
+    builder.add_node("codebook_tag_node", codebook_tag_node)
     builder.add_node("write_subsection_node", write_subsection_node)
     builder.add_node("write_insight_node", write_insight_node)
     builder.add_node("assemble_section_node", assemble_section_node)
@@ -52,7 +54,7 @@ def build_graph() -> StateGraph:
     # Qualitative: either a real batch fan-out + merge, or an immediate empty result --
     # never both, so write_insight_node always has exactly one path to `qualitative`.
     builder.add_conditional_edges(
-        "load_data_node", route_qualitative, ["theme_tag_batch_node", "skip_qualitative_node"]
+        "load_data_node", route_qualitative, ["theme_tag_batch_node", "skip_qualitative_node", "codebook_tag_node"]
     )
     builder.add_edge("theme_tag_batch_node", "merge_qualitative_node")
 
@@ -65,6 +67,7 @@ def build_graph() -> StateGraph:
     builder.add_edge("metrics_ready_node", "write_insight_node")
     builder.add_edge("merge_qualitative_node", "write_insight_node")
     builder.add_edge("skip_qualitative_node", "write_insight_node")
+    builder.add_edge("codebook_tag_node", "write_insight_node")
 
     # assemble_section_node is the same defensive-join pattern, joining the subsection
     # writes and the insight write.

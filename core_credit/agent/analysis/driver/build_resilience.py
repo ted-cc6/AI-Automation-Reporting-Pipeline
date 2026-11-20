@@ -40,7 +40,7 @@ import pandas as pd  # noqa: E402
 from benchmark_module.lookup import get_mfi_index_benchmark  # noqa: E402
 from metrics_engine.engine import metric_result, multiselect_distribution, top_box_mask  # noqa: E402
 from metrics_engine.segments import clean_blank_strings, climate_shock_mask, standard_categorical_segments  # noqa: E402
-from qualitative_agent.agent import theme_tag_full_dataset  # noqa: E402
+from qualitative_agent.codebook import tag_responses  # noqa: E402
 from qualitative_agent.data_prep import load_free_text_responses  # noqa: E402
 from schemas.resilience import ResilienceSection  # noqa: E402
 from writer.chain import write_insight, write_subsection  # noqa: E402
@@ -170,7 +170,7 @@ def build_section(df: pd.DataFrame) -> ResilienceSection:
 
     print(f"Step 2/3: theme-tagging {len(other_coping_responses)} other-coping responses, writing 7.1/7.2/7.4 concurrently...")
     with ThreadPoolExecutor(max_workers=4) as pool:
-        future_qual = pool.submit(theme_tag_full_dataset, "other_coping", other_coping_responses, OTHER_COPING_TASK)
+        future_qual = pool.submit(tag_responses, "other_coping", "other_coping", other_coping_responses, OTHER_COPING_TASK)
         future_savings_text = pool.submit(write_subsection, SAVINGS_INCREASED, savings_summary, acceptable_percentages=acceptable_common)
         future_shock_text = pool.submit(write_subsection, SHOCK_INCIDENCE_AND_IMPACT, shock_summary, acceptable_percentages=acceptable_common)
         future_severity_text = pool.submit(write_subsection, VF_REDUCED_SHOCK_SEVERITY, severity_summary, acceptable_percentages=acceptable_common)

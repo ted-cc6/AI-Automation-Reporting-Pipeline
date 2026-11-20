@@ -180,3 +180,16 @@ def test_reapprove_bumps_version_only_on_change(tmp_path):
     edited = [CODEBOOK["themes"][0], {**CODEBOOK["themes"][1], "definition": "Rude or dismissive staff."}]
     _write_draft(tmp_path, edited)
     assert cb.approve_draft("nps_detractor", tmp_path)["version"] == 2
+
+
+def test_severity_is_validated_and_carried_to_themes(tmp_path, coder):
+    book = {**CODEBOOK, "themes": [{**CODEBOOK["themes"][1], "severity": "high"}, CODEBOOK["themes"][0]]}
+    out = cb.tag_with_codebook("d", "protection_signals", RESPONSES, book, "task", cache_path=tmp_path / "c.json")
+    assert {t.theme: t.severity for t in out.themes} == {"Better staff attitude": "high", "Lower interest rates": None}
+    with pytest.raises(ValueError):
+        cb.validate_codebook({**CODEBOOK, "themes": [{**CODEBOOK["themes"][0], "severity": "urgent"}]})
+
+
+def test_batch_shows_each_answer_s_source_question():
+    r = FreeTextResponse(client_id="1", text="it got worse", source_field="Impacts/IMPACT03c_resp_en", gender=None, age=None, branch=None, country=None, loan_cycle=None)
+    assert cb._format_batch([r]) == "[0] (IMPACT03c) it got worse"

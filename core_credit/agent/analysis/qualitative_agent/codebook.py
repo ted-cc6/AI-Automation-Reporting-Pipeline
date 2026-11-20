@@ -76,6 +76,9 @@ def validate_codebook(codebook: dict) -> None:
         raise ValueError(f"duplicate codes in codebook: {codes}")
     if OTHER_CODE in codes:
         raise ValueError(f"'{OTHER_CODE}' is reserved and added automatically")
+    bad_severity = [t["code"] for t in themes if t.get("severity") not in (None, "high", "medium", "low")]
+    if bad_severity:
+        raise ValueError(f"severity must be high, medium or low: {bad_severity}")
     for t in themes:
         if not t.get("label") or not t.get("definition"):
             raise ValueError(f"theme {t.get('code')} needs a 'label' and a 'definition'")
@@ -160,6 +163,8 @@ non-answers such as "no comment", "nothing", or unreadable text).
 - A response may get more than one code if it genuinely raises more than one point.
 - Code what the client actually said, in whatever language they wrote it. Do not infer \
 reasons they did not give.
+- Each response shows the survey question it answers in parentheses. When a code's \
+definition limits it to one question, never use it for an answer to another.
 - Return every response ID you are shown, exactly once."""
 
 
@@ -183,7 +188,12 @@ def _format_codebook(codebook: dict) -> str:
 
 
 def _format_batch(responses: list) -> str:
-    return "\n".join(f"[{i}] {r.text}" for i, r in enumerate(responses))
+    # CC-098: the source question travels with each answer, so a codebook spanning several
+    # questions (quality of life: improved / no change / worse) can keep them apart.
+    def question(r):
+        return r.source_field.rsplit("/", 1)[-1].replace("_resp_en", "")
+
+    return "\n".join(f"[{i}] ({question(r)}) {r.text}" for i, r in enumerate(responses))
 
 
 def _clean_codes(codes: list, valid: set) -> list:
@@ -241,6 +251,7 @@ def _synthesis_from_codes(section_label: str, responses: list, codes_by_index: d
                 share_of_respondents=len(members) / n,
                 representative_verbatims=pick_diverse_verbatims([_to_verbatim(r) for r in ordered], k=3),
                 response_keys=sorted(_response_key(responses[i], i) for i in members),
+                severity=t.get("severity"),  # CC-098: protection signals carry one per code
             )
         )
     # Ties broken by label so equal counts never swap order between runs.
@@ -331,6 +342,7 @@ class _DraftTheme(BaseModel):
     label: str = Field(description="Plain English label")
     definition: str = Field(description="One sentence: what belongs here, and what does not")
     source_theme_indices: list[int] = Field(description="Indices of the found themes this code covers")
+    severity: Optional[str] = Field(default=None, description="high/medium/low, only if the found themes carry one")
 
 
 class _DraftOutput(BaseModel):
@@ -346,7 +358,8 @@ def draft_codebook(question: str, responses: list, task_instructions: str, codeb
     lines = []
     for i, t in enumerate(found.themes):
         examples = "; ".join(f'"{v.quote[:100]}"' for v in t.representative_verbatims[:3])
-        lines.append(f'[{i}] "{t.theme}" (share {t.share_of_respondents or 0:.1%}) examples: {examples}')
+        sev = f", severity {t.severity}" if t.severity else ""
+        lines.append(f'[{i}] "{t.theme}" (share {t.share_of_respondents or 0:.1%}{sev}) examples: {examples}')
 
     llm = build_chat_model(max_tokens=8000, use_thinking=False)
     task = f"{task_instructions}\n\nThemes found:\n" + "\n".join(lines)
@@ -360,6 +373,7 @@ def draft_codebook(question: str, responses: list, task_instructions: str, codeb
                 "code": d.code,
                 "label": d.label,
                 "definition": d.definition,
+                **({"severity": d.severity} if d.severity in ("high", "medium", "low") else {}),
                 "_review_open_coding_share": round(sum(s.share_of_respondents or 0 for s in sources), 3),
                 "_review_examples": [v.quote for s in sources for v in s.representative_verbatims][:4],
             }

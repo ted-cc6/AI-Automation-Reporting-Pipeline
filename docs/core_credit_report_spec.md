@@ -4574,3 +4574,30 @@ figures; none names a country; Part 8 says NPS is similar to 2025. Table:
 - Flagged for review, unchanged: complement figures the writer derived
   (71% = 100 - 28.8, 7.7% = 100 - 92.3) and Part 2 "100%" rounding.
 - Tests: 518 passed.
+
+## CC-098 (in progress): codebooks for the other four theme passes
+
+**Wiring (done).** Quality-of-life drivers (Part 3, driver), other coping
+(Part 7, driver) and other child improvements (Part 4, driver) call
+`codebook.tag_responses`; protection signals (Part 5, section graph) route to
+a new `codebook_tag_node` when an approved codebook exists. Without one, each
+falls back to open coding, so nothing changes until approval. Codebook codes
+may carry a severity (high/medium/low; protection signals only), copied to
+the theme. Each answer is coded with its source question shown, so a
+codebook spanning IMPACT03a/b/c keeps them apart. Tests: 521 passed.
+
+**Drafts.** `qualitative_agent/draft_theme_codebooks.py`, from both YoY1 waves
+combined so a 2026-only theme gets a code. Open coding drafted 43 / 8 / 16 / 8
+codes (quality of life, protection, coping, child improvements). Revised by
+hand to 16 / 8 / 11 / 6: quality-of-life codes are tied to their question
+(improved / no change / worse, two shared); small and overlapping codes
+merged; non-answers, praise and off-topic answers go to "other"; only
+protection codes keep a severity.
+
+**Sample check (40 answers each).** Quality of life about 3 doubtful
+(an untranslated "raised a cow" left in other, fixed in the definition);
+coping 1 to 2; child improvements 0 to 1. Protection over-flagged generally
+poor customer care as rude treatment; tightened, which fixed two other rows
+(refused a loan after a late repayment, belongings sold to recover a loan),
+but two "poor customer care" answers still code as rude treatment. Awaiting
+Binjie's review before approval.

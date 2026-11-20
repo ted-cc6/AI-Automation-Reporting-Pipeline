@@ -10,6 +10,7 @@ def test_build_graph_has_every_expected_node():
         "theme_tag_batch_node",
         "merge_qualitative_node",
         "skip_qualitative_node",
+        "codebook_tag_node",  # CC-098
         "write_subsection_node",
         "write_insight_node",
         "assemble_section_node",

@@ -30,6 +30,7 @@ from benchmark_module.mapping import country_display_name
 from metrics_engine.engine import metric_result, multiselect_distribution, top_box_mask
 from metrics_engine.segments import clean_blank_strings, standard_categorical_segments
 from qualitative_agent.agent import merge_batches, theme_tag_batch
+from qualitative_agent.codebook import load_approved_codebook, tag_with_codebook
 from qualitative_agent.data_prep import load_free_text_responses_multi
 from schemas.common import QualitativeSynthesis, SegmentAxis
 from writer.chain import write_insight, write_subsection
@@ -146,6 +147,8 @@ def route_qualitative(state: GraphState):
     config = state["section_config"]
     if config.qualitative is None:
         return "skip_qualitative_node"
+    if load_approved_codebook(config.qualitative.section_label) is not None:
+        return "codebook_tag_node"  # CC-098: fixed, approved codebook, cached per answer
 
     responses = state["qualitative_responses"]
     batch_size = state.get("batch_size", 200)
@@ -182,6 +185,16 @@ def merge_qualitative_node(state: GraphState) -> dict:
     qualitative = merge_batches(
         config.qualitative.section_label, state["batch_results"], total_n, state.get("reasoning_effort", "high")
     )
+    return {"qualitative": qualitative}
+
+
+def codebook_tag_node(state: GraphState) -> dict:
+    """CC-098: codes every answer against the section's approved codebook in one node (batching
+    and the per-answer cache live in tag_with_codebook), in place of the open-coding
+    fan-out + merge."""
+    q = state["section_config"].qualitative
+    codebook = load_approved_codebook(q.section_label)
+    qualitative = tag_with_codebook(q.section_label, q.section_label, state["qualitative_responses"], codebook, q.task_instructions)
     return {"qualitative": qualitative}
 
 

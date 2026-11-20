@@ -53,7 +53,7 @@ from metrics_engine.segments import (  # noqa: E402
     standard_categorical_segments,
 )
 from metrics_engine.segments import country as country_series  # noqa: E402
-from qualitative_agent.agent import theme_tag_full_dataset  # noqa: E402
+from qualitative_agent.codebook import tag_responses  # noqa: E402
 from qualitative_agent.data_prep import load_free_text_responses  # noqa: E402
 from schemas.child_wellbeing import (  # noqa: E402
     CaregiverGapStandardisation,
@@ -315,7 +315,7 @@ def build_section(df: pd.DataFrame) -> ChildWellbeingSection:
 
     print(f"Step 2/2: theme-tagging {len(other_improvements_responses)} other-improvement responses, writing 4.1/4.2 concurrently...")
     with ThreadPoolExecutor(max_workers=3) as pool:
-        future_qual = pool.submit(theme_tag_full_dataset, "other_child_improvements", other_improvements_responses, OTHER_IMPROVEMENTS_TASK)
+        future_qual = pool.submit(tag_responses, "other_child_improvements", "other_child_improvements", other_improvements_responses, OTHER_IMPROVEMENTS_TASK)
         future_wellbeing_text = pool.submit(write_subsection, IMPROVED_CHILD_WELLBEING, wellbeing_summary, acceptable_percentages=acceptable)
         future_comparison_text = pool.submit(write_subsection, CAREGIVER_VS_OTHER, comparison_summary, acceptable_percentages=acceptable)
 
