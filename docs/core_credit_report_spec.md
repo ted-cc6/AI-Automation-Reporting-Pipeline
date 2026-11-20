@@ -4674,3 +4674,22 @@ Agreed by Binjie after YoY2.
   is reused for the gloss (CC-064), its closing mark after an optional full
   stop is dropped, so 'vida")."' becomes 'vida").'.
 - Tests: 532 passed.
+
+## Provisional runs YoY3 and YoY4 (2026-11-20)
+
+**YoY3** stopped at the CC-086 causal gate: the Part 4 Insight extended the
+prompt's negated list ("not as a broader social benefit, a deeper loan
+effect") with "or a verified mechanism", 13 words after "not", outside the
+lint's 6-word negation window. Not caused by the unsupported-figure check
+(0 rewrites triggered by it; 19 of 34 blocks rewrote for other reasons).
+The Part 4 Insight prompt now says to keep that list exactly as given and add
+nothing (naming the banned word in a prompt is itself rejected by the prompt
+validator).
+
+**YoY4** (same inputs): 6.1 min, exit 0, all gates. 0 blocks over tolerance,
+0 unsupported percentages, 29 YoY sentences with no trend wording, no stray
+quote marks after glosses, 17 of 34 blocks rewrote once. Completeness notes:
+5, all review-tier wording (reflects, pointing to, should not be read).
+Output: `orchestrator/output/Core_Credit_Impact_Report_YoY4.docx`. This is
+the current provisional report; the final run follows when 2026 collection
+closes.
