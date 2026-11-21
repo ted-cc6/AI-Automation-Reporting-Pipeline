@@ -351,6 +351,9 @@ def _clean_output(text: str) -> str:
     text = re.sub(r"\s*(?:\\n|\n)\s*", " ", text).strip()
     # Test7 QA: a straight and a curly mark side by side ('accident.\u201d"') closing one quote
     text = re.sub(r'["\u201c\u201d]{2,}', '"', text)
+    # YoY5: "up from 92.0% in 2025" survived the one rewrite. This form has an exact neutral
+    # equivalent, so it is replaced in code; other trend verbs still go back to the writer.
+    text = re.sub(r"\b(?:up|down) from (\d+(?:\.\d+)?%) in (20\d\d)\b", r"compared with \1 in \2", text)
     return _expand_country_codes(text)
 
 

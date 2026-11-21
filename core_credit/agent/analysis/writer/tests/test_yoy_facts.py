@@ -92,3 +92,20 @@ def test_trend_wording_in_a_yoy_sentence_drives_the_rewrite(active):
 def test_trend_check_is_off_without_a_deltas_file(monkeypatch):
     monkeypatch.delenv(yoy_facts.ENV, raising=False)
     assert yoy_facts.wording_violations("It rose from 40% in 2025.") == []
+
+
+def test_closed_collection_drops_provisional_and_partial_wording(tmp_path, monkeypatch):
+    path = tmp_path / "d.json"
+    path.write_text(json.dumps({**DELTAS, "provisional": False}), encoding="utf-8")
+    monkeypatch.setenv(yoy_facts.ENV, str(path))
+    yoy_facts._load.cache_clear()
+    text, _ = yoy_facts.facts_for("1.1")
+    assert "provisional" not in text and "partial" not in text
+    yoy_facts._load.cache_clear()
+
+
+def test_up_from_and_down_from_are_rewritten_in_code():
+    assert chain._clean_output("Business income improved for 93.5%, up from 92.0% in 2025.") == (
+        "Business income improved for 93.5%, compared with 92.0% in 2025."
+    )
+    assert chain._clean_output("Wellbeing is 92.9%, down from 94.7% in 2025.").endswith("compared with 94.7% in 2025.")

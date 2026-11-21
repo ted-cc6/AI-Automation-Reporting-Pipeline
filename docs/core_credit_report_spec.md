@@ -4693,3 +4693,27 @@ quote marks after glosses, 17 of 34 blocks rewrote once. Completeness notes:
 Output: `orchestrator/output/Core_Credit_Impact_Report_YoY4.docx`. This is
 the current provisional report; the final run follows when 2026 collection
 closes.
+
+## CC-100 (done): one-command YoY run; merge; country-team review pack (2026-11-20)
+
+- `orchestrator/run_yoy_report.py <export> --run-id <id> [--collection-closed]`
+  chains prepare_waves, yoy.run_deltas and run_orchestrator, each as its own
+  process, stopping at the first failure. Checked end to end as YoY5 on the
+  2026-11-18 export: 0 answers coded (all cached), deltas identical to YoY1
+  although Column Cleaner and both Row Checks ran again, report 6.0 min, 0
+  over cap, 0 unsupported figures, 31 YoY sentences, all table sections.
+- With `--collection-closed` the writer facts drop both "provisional" and
+  "still partial" (a short count is then final); the table note already did.
+- YoY5 still had one "up from 92.0% in 2025" after the single rewrite.
+  `chain._clean_output` now turns "up from / down from X% in <year>" into
+  "compared with X% in <year>"; other trend verbs still go to the rewrite.
+- `main` fast-forwarded to the open-items and YoY work and pushed to GitHub
+  (`origin`); the Hugging Face Space remote was not touched.
+- Country-team review pack (outside the repo, holds survey figures):
+  `Core Credit New Data/Country team review/YoY large shifts to confirm.xlsx`
+  (30 country-question rows from the 34 CC-095 figures, answer counts per
+  option per year, two reply columns) and a draft cover message. To be sent
+  by Binjie; replies decide whether those figures can be interpreted.
+- Final run: waits for the closing 2026 export. Command:
+  `python orchestrator/run_yoy_report.py <final export> --run-id YoYFinal --collection-closed`.
+- Tests: 534 passed.

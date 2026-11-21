@@ -149,7 +149,7 @@ def facts_for(subsection_id: str) -> tuple[str, set]:
     status = []
     if d.get("provisional"):
         status.append("provisional, 2026 collection still open")
-    if d.get("partial_countries"):
+    if d.get("provisional") and d.get("partial_countries"):  # once collection closes, a short count is final
         status.append(f"2026 still partial in {', '.join(_names(d['partial_countries']))}")
     head = f"Year-over-year comparison, {countries} countries surveyed in both waves" + (f" ({'; '.join(status)})" if status else "") + ":"
     body = lines + ([f"  - Similar to 2025 (no significant change): {'; '.join(similar)}"] if similar else [])
